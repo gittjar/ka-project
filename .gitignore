@@ -13,3 +13,14 @@ frontend/dist/
 # Lokit
 *.log
 npm-debug.log*
+
+# Editori- ja käyttöjärjestelmätiedostot
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
