@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 import authRoutes from './routes/auth.js';
 import memberRoutes from './routes/members.js';
@@ -9,7 +11,8 @@ import storyRoutes from './routes/stories.js';
 import drinkRoutes from './routes/drinks.js';
 import imageRoutes from './routes/images.js';
 
-dotenv.config();
+// Ladataan .env aina backend/-kansiosta riippumatta käynnistyshakemistosta
+dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3001;
