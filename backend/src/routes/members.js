@@ -4,6 +4,7 @@ import authMiddleware from '../middleware/auth.js';
 
 const router = express.Router();
 
+// GET /api/members — julkinen, vain aktiiviset
 router.get('/', async (_req, res) => {
   try {
     const members = await Member.find({ active: true }).sort({ name: 1 });
@@ -13,6 +14,18 @@ router.get('/', async (_req, res) => {
   }
 });
 
+// GET /api/members/admin — admin, kaikki jäsenet (myös inaktiiviset)
+router.get('/admin', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const members = await Member.find({}).sort({ name: 1 });
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+  }
+});
+
+// GET /api/members/:id
 router.get('/:id', async (req, res) => {
   try {
     const m = await Member.findById(req.params.id);

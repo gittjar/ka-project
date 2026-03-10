@@ -14,13 +14,16 @@ dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env'
 
 const TRIPOD_URL = 'https://kanniaalio.tripod.com/jasenet.html';
 const DRY_RUN = process.argv.includes('--dry-run');
+const UPDATE = process.argv.includes('--update');
 
 function stripTags(str) {
   return str.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function extractField(block, label) {
-  const re = new RegExp(`<b[^>]*>${label}[^<]*</[bB]>\\s*([^<\\n]*)`, 'i');
+  // Some fields: <b>Label:</B>value, others: <b><font...>Label:</B>value
+  // Match the label text regardless of preceding tags, capture after closing </B>
+  const re = new RegExp(`${label}[^<]*</[bB]>([\\s\\S]*?)(?=<[bB][\\s>]|</t[rd]|$)`, 'i');
   const m = block.match(re);
   return m ? stripTags(m[1]).trim() : '';
 }
@@ -61,9 +64,12 @@ function parseMembers(html) {
     const websiteRaw = extractField(block, 'Kotisivu');
     const website = (websiteRaw && !['ei oo', '-', 'ei tuu', ''].includes(websiteRaw.toLowerCase()))
       ? websiteRaw : '';
+    const emailRaw = extractField(block, 'E-?mail');
+    const email = (emailRaw && !['ei oo', '-', ''].includes(emailRaw.toLowerCase()))
+      ? emailRaw : '';
     const avatarUrl = extractAvatar(block);
 
-    members.push({ name, aliases, quote, born, points: parsePoints(pointsRaw), highestPromille, favDrink, location, website, avatarUrl, active: true });
+    members.push({ name, aliases, quote, born, points: parsePoints(pointsRaw), highestPromille, favDrink, location, email, website, avatarUrl, active: true });
   }
 
   return members;
@@ -104,19 +110,25 @@ async function main() {
   console.log('\nYhdistetty MongoDBhyn, tallennetaan...');
 
   let added = 0;
+  let updated = 0;
   let skipped = 0;
 
   for (const m of unique) {
     const exists = await Member.findOne({ name: m.name });
     if (exists) {
-      skipped++;
+      if (UPDATE) {
+        await Member.updateOne({ name: m.name }, { $set: m });
+        updated++;
+      } else {
+        skipped++;
+      }
     } else {
       await Member.create(m);
       added++;
     }
   }
 
-  console.log(`\nValmis! Lisätty: ${added}, ohitettu: ${skipped}`);
+  console.log(`\nValmis! Lisätty: ${added}, päivitetty: ${updated}, ohitettu: ${skipped}`);
   await mongoose.disconnect();
 }
 

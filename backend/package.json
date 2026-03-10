@@ -6,7 +6,8 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "import:members": "node src/scrape-members.js",
-    "import:members:dry": "node src/scrape-members.js --dry-run"
+    "import:members:dry": "node src/scrape-members.js --dry-run",
+    "import:members:update": "node src/scrape-members.js --update"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.27.0",
