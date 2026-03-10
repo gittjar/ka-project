@@ -48,6 +48,16 @@ const confirmSaveOpen = ref(false);
 const deleteTarget = ref<Member | null>(null);
 const deleteNameInput = ref('');
 
+// Toast notifications
+interface Toast { id: number; message: string; type: 'success' | 'error' }
+const toasts = ref<Toast[]>([]);
+let _toastId = 0;
+function showToast(message: string, type: 'success' | 'error' = 'success') {
+  const id = ++_toastId;
+  toasts.value.push({ id, message, type });
+  setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id); }, 3500);
+}
+
 const emptyForm = (): FormData => ({
   _id: '', name: '', aliasInput: '', quote: '', born: '',
   highestPromille: '', favDrink: '', location: '',
@@ -114,12 +124,14 @@ async function saveMember() {
   saving.value = true;
   saveError.value = '';
   try {
-    const { aliasInput, ...rest } = form.value;
+    const { aliasInput, _id, ...rest } = form.value;
     const payload = { ...rest, aliases: aliasInput.split(',').map(s => s.trim()).filter(Boolean) };
-    if (form.value._id) {
-      await api.put(`/members/${form.value._id}`, payload);
+    if (_id) {
+      await api.put(`/members/${_id}`, payload);
+      showToast(`${payload.name} päivitetty`);
     } else {
       await api.post('/members', payload);
+      showToast(`${payload.name} lisätty`);
     }
     await loadMembers();
     modalOpen.value = false;
@@ -139,11 +151,13 @@ async function confirmDelete() {
   if (!deleteTarget.value) return;
   if (deleteNameInput.value.trim() !== deleteTarget.value.name) return;
   deleting.value = deleteTarget.value._id;
+  const deletedName = deleteTarget.value.name;
   try {
     await api.delete(`/members/${deleteTarget.value._id}`);
     deleteTarget.value = null;
     deleteNameInput.value = '';
     await loadMembers();
+    showToast(`${deletedName} piilotettu`);
   } finally {
     deleting.value = null;
   }
@@ -549,6 +563,35 @@ function logout() {
           </button>
         </div>
       </div>
+    </div>
+  </Teleport>
+  <!-- ── TOAST-ILMOITUKSET ── -->
+  <Teleport to="body">
+    <div class="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 items-end pointer-events-none">
+      <TransitionGroup
+        enter-active-class="transition-all duration-300 ease-out"
+        enter-from-class="opacity-0 translate-y-3 scale-95"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+        leave-active-class="transition-all duration-200 ease-in"
+        leave-from-class="opacity-100 translate-y-0 scale-100"
+        leave-to-class="opacity-0 translate-y-2 scale-95"
+      >
+        <div
+          v-for="t in toasts" :key="t.id"
+          class="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl
+                 border text-sm font-medium min-w-[200px]"
+          :class="t.type === 'success'
+            ? 'bg-gray-950/95 border-dgreen-800/60 text-dgreen-300'
+            : 'bg-gray-950/95 border-red-800/60 text-red-300'"
+        >
+          <div class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
+               :class="t.type === 'success' ? 'bg-dgreen-900/70' : 'bg-red-900/70'">
+            <Check v-if="t.type === 'success'" class="w-3 h-3" />
+            <AlertCircle v-else class="w-3 h-3" />
+          </div>
+          {{ t.message }}
+        </div>
+      </TransitionGroup>
     </div>
   </Teleport>
 </template>
