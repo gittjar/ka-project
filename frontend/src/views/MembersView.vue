@@ -96,72 +96,83 @@ function initials(name: string) {
       Ei tuloksia haulla "{{ search }}"
     </div>
 
-    <!-- Kortit – yksi per rivi, täysi leveys -->
+    <!-- Kortit -->
     <div v-else class="flex flex-col gap-4">
       <div
         v-for="m in filtered" :key="m._id"
-        class="flex overflow-hidden rounded-2xl bg-gray-950 h-44
+        class="flex flex-col sm:flex-row overflow-hidden rounded-2xl bg-gray-950
                border border-gray-800 hover:border-dgreen-900/60 hover:bg-dgreen-950/20
                transition-all duration-150"
       >
-        <!-- Avatar – koko kortin korkeus -->
-        <div class="flex-shrink-0 w-36 sm:w-44 bg-dpurple-900/40 border-r border-dpurple-800/20
-                    flex items-center justify-center">
-          <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer" class="w-full h-full object-cover object-top" />
-          <span v-else class="text-3xl font-bold text-dpurple-400/40">{{ initials(m.name) }}</span>
+        <!-- Avatar – mobiili: leveä banneri ylhäällä, desktop: kapea pystysuora -->
+        <div class="relative sm:flex-shrink-0 sm:w-44
+                    h-48 sm:h-auto
+                    bg-dpurple-900/40 sm:border-r sm:border-b-0 border-b border-dpurple-800/20
+                    flex items-center justify-center overflow-hidden">
+          <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer"
+               class="w-full h-full object-cover object-top" />
+          <span v-else class="text-5xl sm:text-3xl font-bold text-dpurple-400/30 select-none">
+            {{ initials(m.name) }}
+          </span>
+          <!-- Pisteet-badge kuvan päälle mobiilissa -->
+          <div v-if="m.points"
+            class="absolute top-3 right-3 sm:hidden flex items-center gap-1 text-xs font-semibold
+                   text-dgreen-400 bg-gray-950/80 border border-dgreen-900/50
+                   px-2 py-0.5 rounded-full backdrop-blur-sm">
+            <Star class="w-3 h-3" />{{ m.points }}p
+          </div>
         </div>
 
         <!-- Sisältö -->
-        <div class="flex-1 min-w-0 p-5 flex flex-col justify-between overflow-hidden">
+        <div class="flex-1 min-w-0 p-5 flex flex-col gap-3">
 
-          <!-- Ylärivi: nimi + pisteet -->
-          <div>
-            <div class="flex items-start justify-between gap-3 mb-1.5">
-              <h2 class="text-lg font-bold text-white leading-snug">{{ m.name }}</h2>
-              <div v-if="m.points"
-                class="shrink-0 flex items-center gap-1 text-xs font-semibold
-                       text-dgreen-400 bg-dgreen-950/40 border border-dgreen-900/40
-                       px-2 py-0.5 rounded-full">
-                <Star class="w-3 h-3" />{{ m.points }}p
+          <!-- Ylärivi: nimi + pisteet (desktop) -->
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h2 class="text-xl font-bold text-white leading-snug">{{ m.name }}</h2>
+              <!-- Aliakset -->
+              <div v-if="m.aliases.length" class="flex flex-wrap gap-1.5 mt-1.5">
+                <span v-for="a in m.aliases" :key="a"
+                  class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full
+                         bg-dpurple-900/40 border border-dpurple-800/30 text-dpurple-400/80">
+                  <Hash class="w-2.5 h-2.5" />{{ a }}
+                </span>
               </div>
             </div>
-
-            <!-- Aliakset -->
-            <div v-if="m.aliases.length" class="flex flex-wrap gap-1.5 mb-1.5">
-              <span v-for="a in m.aliases" :key="a"
-                class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full
-                       bg-dpurple-900/40 border border-dpurple-800/30 text-dpurple-400/80">
-                <Hash class="w-2.5 h-2.5" />{{ a }}
-              </span>
+            <div v-if="m.points"
+              class="hidden sm:flex shrink-0 items-center gap-1 text-xs font-semibold
+                     text-dgreen-400 bg-dgreen-950/40 border border-dgreen-900/40
+                     px-2 py-0.5 rounded-full">
+              <Star class="w-3 h-3" />{{ m.points }}p
             </div>
-
-            <!-- Quote -->
-            <p v-if="m.quote" class="text-xs italic text-dpurple-400/70 leading-relaxed line-clamp-2">
-              "{{ m.quote }}"
-            </p>
           </div>
 
-          <!-- Alakenttä: tiedot -->
-          <div class="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-xs text-gray-500 mt-2">
+          <!-- Quote -->
+          <p v-if="m.quote" class="text-sm italic text-dpurple-400/70 leading-relaxed line-clamp-2">
+            "{{ m.quote }}"
+          </p>
+
+          <!-- Meta-tiedot -->
+          <div class="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1.5 text-sm text-gray-500">
             <span v-if="m.born" class="flex items-center gap-1.5 truncate">
-              <Cake class="w-3 h-3 text-gray-700 shrink-0" />{{ m.born }}
+              <Cake class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.born }}
             </span>
             <span v-if="m.location" class="flex items-center gap-1.5 truncate">
-              <MapPin class="w-3 h-3 text-gray-700 shrink-0" />{{ m.location }}
+              <MapPin class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.location }}
             </span>
             <span v-if="m.favDrink" class="flex items-center gap-1.5 truncate">
-              <GlassWater class="w-3 h-3 text-gray-700 shrink-0" />{{ m.favDrink }}
+              <GlassWater class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.favDrink }}
             </span>
             <span v-if="m.highestPromille" class="flex items-center gap-1.5 truncate">
-              <Flame class="w-3 h-3 text-gray-700 shrink-0" />{{ m.highestPromille }}
+              <Flame class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.highestPromille }}
             </span>
             <a v-if="m.website && m.website.startsWith('http')"
               :href="m.website" target="_blank" rel="noopener noreferrer"
               class="flex items-center gap-1.5 hover:text-dgreen-400 transition-colors truncate">
-              <Globe class="w-3 h-3 text-gray-700 shrink-0" />{{ m.website.replace(/^https?:\/\//, '') }}
+              <Globe class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.website.replace(/^https?:\/\//, '') }}
             </a>
             <span v-if="m.email" class="flex items-center gap-1.5 truncate">
-              <Mail class="w-3 h-3 text-gray-700 shrink-0" />{{ m.email }}
+              <Mail class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.email }}
             </span>
           </div>
 
