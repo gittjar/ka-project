@@ -4,7 +4,8 @@ import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
 import {
   ShieldCheck, LogOut, Users, Search, Plus,
-  Pencil, Trash2, X, Upload, Check, AlertCircle, ImageOff
+  Pencil, Trash2, X, Upload, Check, AlertCircle, ImageOff, TriangleAlert,
+  ChevronDown, ChevronUp, MapPin, GlassWater, Flame, Cake, Star, Globe, Mail, Hash
 } from 'lucide-vue-next';
 import api from '../api';
 
@@ -33,20 +34,25 @@ const members = ref<Member[]>([]);
 const loading = ref(true);
 const search = ref('');
 const deleting = ref<string | null>(null);
+const expandedId = ref<string | null>(null);
 
-// Modal
+// Edit/add modal
 const modalOpen = ref(false);
 const saving = ref(false);
 const saveError = ref('');
 const uploading = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const confirmSaveOpen = ref(false);
+
+// Delete modal
+const deleteTarget = ref<Member | null>(null);
+const deleteNameInput = ref('');
 
 const emptyForm = (): FormData => ({
   _id: '', name: '', aliasInput: '', quote: '', born: '',
   highestPromille: '', favDrink: '', location: '',
   email: '', website: '', avatarUrl: '', points: 0, active: true,
 });
-
 const form = ref<FormData>(emptyForm());
 
 async function loadMembers() {
@@ -58,7 +64,6 @@ async function loadMembers() {
     loading.value = false;
   }
 }
-
 onMounted(loadMembers);
 
 const filtered = computed(() => {
@@ -76,20 +81,36 @@ const stats = computed(() => ({
   withPhoto: members.value.filter(m => !!m.avatarUrl).length,
 }));
 
+function toggleExpand(id: string) {
+  expandedId.value = expandedId.value === id ? null : id;
+}
+
 function openAdd() {
   form.value = emptyForm();
   saveError.value = '';
+  confirmSaveOpen.value = false;
   modalOpen.value = true;
 }
 
 function openEdit(m: Member) {
   form.value = { ...m, aliasInput: m.aliases.join(', ') };
   saveError.value = '';
+  confirmSaveOpen.value = false;
   modalOpen.value = true;
 }
 
-async function saveMember() {
+function requestSave() {
   if (!form.value.name.trim()) { saveError.value = 'Nimi vaaditaan'; return; }
+  saveError.value = '';
+  if (form.value._id) {
+    confirmSaveOpen.value = true;
+  } else {
+    saveMember();
+  }
+}
+
+async function saveMember() {
+  confirmSaveOpen.value = false;
   saving.value = true;
   saveError.value = '';
   try {
@@ -109,11 +130,19 @@ async function saveMember() {
   }
 }
 
-async function deleteMember(id: string) {
-  if (!confirm('Piilotetaanko jäsen sivustolta?')) return;
-  deleting.value = id;
+function openDelete(m: Member) {
+  deleteTarget.value = m;
+  deleteNameInput.value = '';
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value) return;
+  if (deleteNameInput.value.trim() !== deleteTarget.value.name) return;
+  deleting.value = deleteTarget.value._id;
   try {
-    await api.delete(`/members/${id}`);
+    await api.delete(`/members/${deleteTarget.value._id}`);
+    deleteTarget.value = null;
+    deleteNameInput.value = '';
     await loadMembers();
   } finally {
     deleting.value = null;
@@ -164,87 +193,145 @@ function logout() {
       <button @click="logout"
         class="ml-auto flex items-center gap-1.5 text-xs text-gray-600 hover:text-red-400
                transition-colors border-0 bg-transparent">
-        <LogOut class="w-4 h-4" />
-        Kirjaudu ulos
+        <LogOut class="w-4 h-4" />Kirjaudu ulos
       </button>
     </div>
 
     <!-- Tilastot -->
     <div class="grid grid-cols-3 gap-3 mb-10">
-      <div class="bg-black/50 border border-gray-900 rounded-2xl p-4">
+      <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4">
         <div class="text-2xl font-bold text-white">{{ stats.total }}</div>
-        <div class="text-xs text-gray-600 mt-0.5">Jäseniä</div>
+        <div class="text-xs text-gray-500 mt-0.5">Jäseniä</div>
       </div>
-      <div class="bg-black/50 border border-dgreen-900/40 rounded-2xl p-4">
+      <div class="bg-gray-950 border border-dgreen-900/50 rounded-2xl p-4">
         <div class="text-2xl font-bold text-dgreen-400">{{ stats.active }}</div>
-        <div class="text-xs text-gray-600 mt-0.5">Aktiivisia</div>
+        <div class="text-xs text-gray-500 mt-0.5">Aktiivisia</div>
       </div>
-      <div class="bg-black/50 border border-dpurple-900/40 rounded-2xl p-4">
+      <div class="bg-gray-950 border border-dpurple-900/50 rounded-2xl p-4">
         <div class="text-2xl font-bold text-dpurple-400">{{ stats.withPhoto }}</div>
-        <div class="text-xs text-gray-600 mt-0.5">Kuvallisia</div>
+        <div class="text-xs text-gray-500 mt-0.5">Kuvallisia</div>
       </div>
     </div>
 
     <!-- Jäsenet-osion header -->
     <div class="flex flex-wrap items-center gap-3 mb-4">
       <h2 class="text-base font-semibold text-white flex items-center gap-2">
-        <Users class="w-4 h-4 text-gray-600" />
-        Jäsenet
+        <Users class="w-4 h-4 text-gray-600" />Jäsenet
       </h2>
       <div class="relative">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
         <input v-model="search" placeholder="Hae..."
-          class="pl-8 pr-3 py-1.5 text-sm rounded-xl bg-black/60 border border-gray-800
+          class="pl-8 pr-3 py-1.5 text-sm rounded-xl bg-gray-950 border border-gray-800
                  text-gray-300 placeholder-gray-700 focus:outline-none focus:border-dgreen-800 transition-colors w-56" />
       </div>
       <button @click="openAdd"
         class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium
                bg-dgreen-900/50 hover:bg-dgreen-800/50 border border-dgreen-800/50
                text-dgreen-300 transition-all duration-150">
-        <Plus class="w-4 h-4" />
-        Lisää jäsen
+        <Plus class="w-4 h-4" />Lisää jäsen
       </button>
     </div>
 
     <!-- Jäsenlista -->
     <div v-if="loading" class="text-gray-600 text-sm py-10 text-center">Ladataan...</div>
-    <div v-else class="flex flex-col gap-1">
+    <div v-else class="flex flex-col gap-1.5">
       <div
         v-for="m in filtered" :key="m._id"
-        class="group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors"
-        :class="m.active ? 'hover:bg-white/[0.03]' : 'opacity-40 hover:opacity-60'"
+        class="rounded-xl bg-gray-950 border transition-colors"
+        :class="[
+          m.active ? 'border-gray-800/60' : 'opacity-50 border-gray-800/30',
+          expandedId === m._id ? 'border-dgreen-900/50' : ''
+        ]"
       >
-        <!-- Avatar -->
-        <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0
-                    bg-dpurple-900/40 flex items-center justify-center text-xs font-bold text-dpurple-400">
-          <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
-          <span v-else>{{ initials(m.name) }}</span>
+        <!-- Tiivistetty rivi — aina näkyvillä -->
+        <div class="flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none"
+             @click="toggleExpand(m._id)">
+
+          <!-- Avatar -->
+          <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0
+                      bg-dpurple-900/40 flex items-center justify-center text-xs font-bold text-dpurple-400">
+            <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer"
+                 class="w-full h-full object-cover" />
+            <span v-else>{{ initials(m.name) }}</span>
+          </div>
+
+          <!-- Nimi -->
+          <div class="w-52 shrink-0 min-w-0">
+            <div class="text-sm text-gray-200 font-medium truncate">{{ m.name }}</div>
+            <div v-if="m.aliases.length" class="text-xs text-gray-700 truncate">{{ m.aliases.join(', ') }}</div>
+          </div>
+
+          <!-- Sijainti -->
+          <div class="flex-1 hidden sm:block text-xs text-gray-700 truncate">{{ m.location }}</div>
+
+          <!-- Badge: piilotettu -->
+          <span v-if="!m.active"
+            class="text-xs text-red-900/80 bg-red-950/40 px-2 py-0.5 rounded-full border border-red-900/30 shrink-0">
+            piilotettu
+          </span>
+
+          <!-- Napit + toggle -->
+          <div class="flex items-center gap-0.5 shrink-0 ml-auto">
+            <button @click.stop="openEdit(m)"
+              class="p-1.5 rounded-lg text-gray-600 hover:text-dgreen-400 hover:bg-dgreen-900/20
+                     transition-colors border-0 bg-transparent">
+              <Pencil class="w-3.5 h-3.5" />
+            </button>
+            <button @click.stop="openDelete(m)" :disabled="deleting === m._id"
+              class="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-900/20
+                     transition-colors border-0 bg-transparent">
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+            <div class="w-px h-4 bg-gray-800 mx-1"></div>
+            <div class="p-1.5 text-gray-700">
+              <ChevronUp v-if="expandedId === m._id" class="w-3.5 h-3.5" />
+              <ChevronDown v-else class="w-3.5 h-3.5" />
+            </div>
+          </div>
         </div>
 
-        <!-- Nimi -->
-        <div class="flex-1 min-w-0">
-          <span class="text-sm text-gray-200 font-medium">{{ m.name }}</span>
-          <span v-if="m.aliases.length" class="text-xs text-gray-700 ml-2">{{ m.aliases.join(', ') }}</span>
-        </div>
-
-        <span v-if="m.location" class="hidden sm:block text-xs text-gray-700">{{ m.location }}</span>
-        <span v-if="!m.active"
-          class="text-xs text-red-900/80 bg-red-950/40 px-2 py-0.5 rounded-full border border-red-900/30">
-          piilotettu
-        </span>
-
-        <!-- Napit -->
-        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button @click="openEdit(m)"
-            class="p-1.5 rounded-lg text-gray-600 hover:text-dgreen-400 hover:bg-dgreen-900/20
-                   transition-colors border-0 bg-transparent">
-            <Pencil class="w-3.5 h-3.5" />
-          </button>
-          <button @click="deleteMember(m._id)" :disabled="deleting === m._id"
-            class="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-900/20
-                   transition-colors border-0 bg-transparent">
-            <Trash2 class="w-3.5 h-3.5" />
-          </button>
+        <!-- Uitettava lisätieto-osio -->
+        <div v-if="expandedId === m._id"
+          class="px-4 pb-4 pt-1 border-t border-gray-800/50">
+          <div class="flex gap-4">
+            <!-- Iso kuva -->
+            <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden
+                        bg-dpurple-900/30 border border-dpurple-800/20
+                        flex items-center justify-center">
+              <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer"
+                   class="w-full h-full object-cover object-top" />
+              <span v-else class="text-2xl font-bold text-dpurple-700">{{ initials(m.name) }}</span>
+            </div>
+            <!-- Tiedot -->
+            <div class="flex-1 min-w-0">
+              <p v-if="m.quote" class="text-xs italic text-dpurple-400/70 mb-2 leading-relaxed">"{{ m.quote }}"</p>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-xs text-gray-500">
+                <span v-if="m.born" class="flex items-center gap-1.5 truncate">
+                  <Cake class="w-3 h-3 text-gray-700 shrink-0" />{{ m.born }}
+                </span>
+                <span v-if="m.location" class="flex items-center gap-1.5 truncate">
+                  <MapPin class="w-3 h-3 text-gray-700 shrink-0" />{{ m.location }}
+                </span>
+                <span v-if="m.favDrink" class="flex items-center gap-1.5 truncate">
+                  <GlassWater class="w-3 h-3 text-gray-700 shrink-0" />{{ m.favDrink }}
+                </span>
+                <span v-if="m.highestPromille" class="flex items-center gap-1.5 truncate">
+                  <Flame class="w-3 h-3 text-gray-700 shrink-0" />{{ m.highestPromille }}
+                </span>
+                <span v-if="m.points" class="flex items-center gap-1.5 truncate">
+                  <Star class="w-3 h-3 text-gray-700 shrink-0" />{{ m.points }}p
+                </span>
+                <a v-if="m.website && m.website.startsWith('http')"
+                  :href="m.website" target="_blank" rel="noopener noreferrer"
+                  class="flex items-center gap-1.5 hover:text-dgreen-400 transition-colors truncate">
+                  <Globe class="w-3 h-3 text-gray-700 shrink-0" />{{ m.website.replace(/^https?:\/\//, '') }}
+                </a>
+                <span v-if="m.email" class="flex items-center gap-1.5 truncate">
+                  <Mail class="w-3 h-3 text-gray-700 shrink-0" />{{ m.email }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -254,19 +341,16 @@ function logout() {
     </p>
   </div>
 
-  <!-- Modal -->
+  <!-- ── MUOKKAUSMODAALI ── -->
   <Teleport to="body">
     <div v-if="modalOpen"
       class="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 sm:pt-14 overflow-y-auto">
-      <!-- Backdrop -->
-      <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" @click="modalOpen = false" />
+      <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" @click="!confirmSaveOpen && (modalOpen = false)" />
 
-      <!-- Korttimodaali -->
-      <div class="relative w-full max-w-lg bg-[#090909] border border-dgreen-900/50
+      <div class="relative w-full max-w-lg bg-gray-950 border border-gray-800
                   rounded-2xl shadow-2xl z-10 mb-8">
 
-        <!-- Otsikko -->
-        <div class="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-gray-900/80">
+        <div class="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-gray-800">
           <h3 class="text-base font-bold text-white">
             {{ form._id ? 'Muokkaa jäsentä' : 'Lisää uusi jäsen' }}
           </h3>
@@ -276,7 +360,6 @@ function logout() {
           </button>
         </div>
 
-        <!-- Lomake -->
         <div class="px-6 py-5 space-y-5 max-h-[72vh] overflow-y-auto">
 
           <!-- Avatar + upload -->
@@ -284,7 +367,8 @@ function logout() {
             <div class="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0
                         bg-dpurple-900/40 border border-dpurple-800/30
                         flex items-center justify-center">
-              <img v-if="form.avatarUrl" :src="form.avatarUrl" :alt="form.name" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+              <img v-if="form.avatarUrl" :src="form.avatarUrl" :alt="form.name"
+                   referrerpolicy="no-referrer" class="w-full h-full object-cover" />
               <ImageOff v-else class="w-6 h-6 text-dpurple-800" />
             </div>
             <div class="flex-1">
@@ -296,9 +380,8 @@ function logout() {
                 <Upload class="w-3.5 h-3.5" />
                 {{ uploading ? 'Ladataan...' : 'Lataa kuva' }}
               </button>
-              <p class="text-xs text-gray-700">tai syötä URL alle · vaatii Azure Blob</p>
+              <p class="text-xs text-gray-700">tai syötä URL-kenttään · vaatii Azure Blob</p>
             </div>
-            <!-- Aktiivinen-kytkin -->
             <button @click="form.active = !form.active"
               class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors"
               :class="form.active
@@ -308,72 +391,67 @@ function logout() {
             </button>
           </div>
 
-          <!-- Kentät -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
             <div class="sm:col-span-2">
               <label class="block text-xs text-gray-600 mb-1">Nimi *</label>
               <input v-model="form.name" type="text" placeholder="Nimi Sukunimi"
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
             <div class="sm:col-span-2">
               <label class="block text-xs text-gray-600 mb-1">Aliakset (pilkulla eroteltu)</label>
-              <input v-model="form.aliasInput" type="text" placeholder="alias1, alias2, alias3"
+              <input v-model="form.aliasInput" type="text" placeholder="alias1, alias2"
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
             <div class="sm:col-span-2">
               <label class="block text-xs text-gray-600 mb-1">Quote</label>
               <input v-model="form.quote" type="text" placeholder="Jäsenen motto tai lainaus"
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
             <div>
               <label class="block text-xs text-gray-600 mb-1">Syntynyt</label>
               <input v-model="form.born" type="text" placeholder="before 1997"
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
             <div>
               <label class="block text-xs text-gray-600 mb-1">Pelipaikka</label>
               <input v-model="form.location" type="text" placeholder="Helsinki"
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
             <div>
               <label class="block text-xs text-gray-600 mb-1">Juoma</label>
               <input v-model="form.favDrink" type="text" placeholder="Kossu"
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
             <div>
               <label class="block text-xs text-gray-600 mb-1">Korkein promille</label>
               <input v-model="form.highestPromille" type="text" placeholder="putka"
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
             <div>
               <label class="block text-xs text-gray-600 mb-1">Känniääliö-pisteet</label>
               <input v-model.number="form.points" type="number" min="0"
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
+            <div>
+              <label class="block text-xs text-gray-600 mb-1">E-mail</label>
+              <input v-model="form.email" type="text" placeholder="tunnus tai osoite"
+                class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
+                       placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+            </div>
             <div>
               <label class="block text-xs text-gray-600 mb-1">Kotisivu</label>
               <input v-model="form.website" type="text" placeholder="https://..."
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
-
             <div class="sm:col-span-2">
               <label class="block text-xs text-gray-600 mb-1">Avatar URL (manuaalinen)</label>
               <input v-model="form.avatarUrl" type="text" placeholder="https://..."
@@ -382,27 +460,92 @@ function logout() {
             </div>
           </div>
 
-          <!-- Virheviesti -->
           <div v-if="saveError"
             class="flex items-center gap-2 px-3 py-2 rounded-xl
                    bg-red-950/50 border border-red-900/50 text-red-400 text-sm">
-            <AlertCircle class="w-4 h-4 shrink-0" />
-            {{ saveError }}
+            <AlertCircle class="w-4 h-4 shrink-0" />{{ saveError }}
           </div>
         </div>
 
-        <!-- Footer -->
-        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-900/80">
+        <!-- Footer – normaali -->
+        <div v-if="!confirmSaveOpen"
+          class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800">
           <button @click="modalOpen = false"
             class="px-4 py-2 rounded-xl text-sm text-gray-600 hover:text-gray-300
-                   transition-colors border-0 bg-transparent">
-            Peruuta
-          </button>
-          <button @click="saveMember" :disabled="saving"
+                   transition-colors border-0 bg-transparent">Peruuta</button>
+          <button @click="requestSave" :disabled="saving"
             class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border-0
                    bg-dgreen-800/80 hover:bg-dgreen-700/80 text-white disabled:opacity-50 transition-all">
-            <Check class="w-4 h-4" />
-            {{ saving ? 'Tallennetaan...' : 'Tallenna' }}
+            <Check class="w-4 h-4" />{{ saving ? 'Tallennetaan...' : 'Tallenna' }}
+          </button>
+        </div>
+
+        <!-- Footer – tallennusvahvistus -->
+        <div v-else
+          class="px-6 py-4 border-t border-yellow-900/40 bg-yellow-950/20 rounded-b-2xl">
+          <p class="text-sm text-yellow-300/80 mb-3 flex items-center gap-2">
+            <TriangleAlert class="w-4 h-4 shrink-0 text-yellow-500" />
+            Tallennetaanko muutokset jäsenelle <strong class="ml-1">{{ form.name }}</strong>?
+          </p>
+          <div class="flex items-center justify-end gap-3">
+            <button @click="confirmSaveOpen = false"
+              class="px-4 py-1.5 rounded-xl text-sm text-gray-500 hover:text-gray-300
+                     transition-colors border-0 bg-transparent">Peruuta</button>
+            <button @click="saveMember" :disabled="saving"
+              class="flex items-center gap-2 px-4 py-1.5 rounded-xl text-sm font-medium border-0
+                     bg-dgreen-800/80 hover:bg-dgreen-700/80 text-white disabled:opacity-50 transition-all">
+              <Check class="w-4 h-4" />{{ saving ? 'Tallennetaan...' : 'Kyllä, tallenna' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- ── POISTOVAHVISTUSMODAALI ── -->
+  <Teleport to="body">
+    <div v-if="deleteTarget"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" @click="deleteTarget = null" />
+
+      <div class="relative w-full max-w-sm bg-gray-950 border border-red-900/40
+                  rounded-2xl shadow-2xl z-10 p-6">
+        <div class="flex items-start gap-3 mb-5">
+          <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-red-950/60 border border-red-900/40
+                      flex items-center justify-center">
+            <TriangleAlert class="w-4 h-4 text-red-400" />
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white mb-1">Poistetaanko jäsen?</h3>
+            <p class="text-sm text-gray-500">
+              Kirjoita jäsenen nimi vahvistukseksi:
+              <span class="block text-gray-300 font-mono text-xs mt-1 select-all">{{ deleteTarget.name }}</span>
+            </p>
+          </div>
+        </div>
+
+        <input
+          v-model="deleteNameInput"
+          type="text"
+          placeholder="Kirjoita nimi tähän..."
+          class="w-full px-3 py-2 mb-4 rounded-xl bg-black/60 border text-sm text-gray-200
+                 placeholder-gray-700 focus:outline-none transition-colors"
+          :class="deleteNameInput && deleteNameInput !== deleteTarget.name
+            ? 'border-red-900/60 focus:border-red-700'
+            : 'border-gray-800 focus:border-dgreen-700'"
+        />
+
+        <div class="flex items-center justify-end gap-3">
+          <button @click="deleteTarget = null"
+            class="px-4 py-2 rounded-xl text-sm text-gray-500 hover:text-gray-300
+                   transition-colors border-0 bg-transparent">Peruuta</button>
+          <button
+            @click="confirmDelete"
+            :disabled="deleteNameInput.trim() !== deleteTarget.name || !!deleting"
+            class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border-0
+                   bg-red-900/70 hover:bg-red-800/70 text-red-200
+                   disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+            <Trash2 class="w-4 h-4" />{{ deleting ? 'Poistetaan...' : 'Piilota jäsen' }}
           </button>
         </div>
       </div>
