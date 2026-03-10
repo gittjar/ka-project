@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "import:members": "node src/scrape-members.js",
+    "import:members:dry": "node src/scrape-members.js --dry-run"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.27.0",
@@ -17,6 +19,7 @@
     "multer": "^2.0.0"
   },
   "devDependencies": {
+    "node-html-parser": "^7.1.0",
     "nodemon": "^3.1.9"
   }
 }
