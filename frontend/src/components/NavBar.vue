@@ -49,6 +49,11 @@ const links = [
                    hover:bg-yellow-900/20 transition-all">
             Admin
           </RouterLink>
+          <RouterLink v-else-if="auth.isLoggedIn" to="/profiili"
+            class="ml-2 px-3 py-1.5 rounded-xl text-sm text-dgreen-400
+                   hover:bg-dgreen-900/20 transition-all">
+            {{ auth.username }}
+          </RouterLink>
           <button v-if="auth.isLoggedIn" @click="auth.logout()"
             class="ml-3 text-xs text-gray-600 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
             Kirjaudu ulos
@@ -81,6 +86,25 @@ const links = [
         >
           {{ l.label }}
         </RouterLink>
+        <RouterLink v-if="auth.isAdmin" to="/admin"
+          class="block px-3 py-2 rounded-xl text-sm text-yellow-400
+                 hover:bg-yellow-900/20 transition-all"
+          active-class="bg-yellow-900/20"
+          @click="mobileOpen = false">
+          Admin
+        </RouterLink>
+        <RouterLink v-else-if="auth.isLoggedIn" to="/profiili"
+          class="block px-3 py-2 rounded-xl text-sm text-dgreen-400
+                 hover:bg-dgreen-900/20 transition-all"
+          active-class="bg-dgreen-900/20"
+          @click="mobileOpen = false">
+          {{ auth.username }}
+        </RouterLink>
+        <button v-if="auth.isLoggedIn" @click="auth.logout(); mobileOpen = false"
+          class="block px-3 py-2 rounded-xl text-sm text-gray-500 hover:text-red-400
+                 transition-all border-0 bg-transparent text-left">
+          Kirjaudu ulos
+        </button>
       </div>
     </nav>
   </div>

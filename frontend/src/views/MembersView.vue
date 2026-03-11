@@ -100,13 +100,13 @@ function initials(name: string) {
     <div v-else class="flex flex-col gap-4">
       <div
         v-for="m in filtered" :key="m._id"
-        class="flex flex-col sm:flex-row overflow-hidden rounded-2xl bg-gray-950
+        class="flex flex-col sm:flex-row sm:h-48 overflow-hidden rounded-2xl bg-gray-950
                border border-gray-800 hover:border-dgreen-900/60 hover:bg-dgreen-950/20
                transition-all duration-150"
       >
         <!-- Avatar – mobiili: leveä banneri ylhäällä, desktop: kapea pystysuora -->
         <div class="relative sm:flex-shrink-0 sm:w-44
-                    h-48 sm:h-auto
+                    h-44 sm:h-full
                     bg-dpurple-900/40 sm:border-r sm:border-b-0 border-b border-dpurple-800/20
                     flex items-center justify-center overflow-hidden">
           <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer"
@@ -124,12 +124,12 @@ function initials(name: string) {
         </div>
 
         <!-- Sisältö -->
-        <div class="flex-1 min-w-0 p-5 flex flex-col gap-3">
+        <div class="flex-1 min-w-0 p-3 sm:p-5 flex flex-col gap-2 sm:gap-3">
 
           <!-- Ylärivi: nimi + pisteet (desktop) -->
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <h2 class="text-xl font-bold text-white leading-snug">{{ m.name }}</h2>
+              <h2 class="text-base sm:text-xl font-bold text-white leading-snug">{{ m.name }}</h2>
               <!-- Aliakset -->
               <div v-if="m.aliases.length" class="flex flex-wrap gap-1.5 mt-1.5">
                 <span v-for="a in m.aliases" :key="a"
@@ -148,12 +148,12 @@ function initials(name: string) {
           </div>
 
           <!-- Quote -->
-          <p v-if="m.quote" class="text-sm italic text-dpurple-400/70 leading-relaxed line-clamp-2">
+          <p v-if="m.quote" class="text-xs sm:text-sm italic text-dpurple-400/70 leading-relaxed line-clamp-2">
             "{{ m.quote }}"
           </p>
 
           <!-- Meta-tiedot -->
-          <div class="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1.5 text-sm text-gray-500">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-500">
             <span v-if="m.born" class="flex items-center gap-1.5 truncate">
               <Cake class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.born }}
             </span>
