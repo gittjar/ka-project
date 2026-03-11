@@ -1,5 +1,6 @@
 import express from 'express';
 import Member from '../models/Member.js';
+import User from '../models/User.js';
 import authMiddleware from '../middleware/auth.js';
 
 const router = express.Router();
@@ -22,6 +23,34 @@ router.get('/admin', authMiddleware, async (req, res) => {
     res.json(members);
   } catch (err) {
     res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+  }
+});
+
+// GET /api/members/mine — käyttäjä hakee oman linked memberin
+router.get('/mine', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.linkedMember) return res.status(404).json({ message: 'Ei linkitettyä jäsenprofiilia' });
+    const member = await Member.findById(user.linkedMember);
+    if (!member) return res.status(404).json({ message: 'Jäsenprofiilia ei löydy' });
+    res.json(member);
+  } catch (err) {
+    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+  }
+});
+
+// PUT /api/members/mine — käyttäjä päivittää oman linked memberin
+router.put('/mine', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.linkedMember) return res.status(404).json({ message: 'Ei linkitettyä jäsenprofiilia' });
+    // Käyttäjä ei saa muuttaa aktiivisuutta tai pisteitä
+    const { active, points, _id, ...rest } = req.body;
+    const m = await Member.findByIdAndUpdate(user.linkedMember, rest, { new: true });
+    if (!m) return res.status(404).json({ message: 'Jäsenprofiilia ei löydy' });
+    res.json(m);
+  } catch (err) {
+    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
   }
 });
 

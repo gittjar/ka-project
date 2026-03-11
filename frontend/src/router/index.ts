@@ -13,6 +13,8 @@ const router = createRouter({
     { path: '/juomat', component: () => import('../views/DrinksView.vue'), meta: { title: 'Juomat' } },
     { path: '/hakemus', component: () => import('../views/ApplicationView.vue'), meta: { title: 'Hakemus' } },
     { path: '/login', component: () => import('../views/LoginView.vue'), meta: { title: 'Kirjaudu sisään', guestOnly: true } },
+    { path: '/rekisteroidy', component: () => import('../views/RegisterView.vue'), meta: { title: 'Rekisteröidy', guestOnly: true } },
+    { path: '/profiili', component: () => import('../views/ProfileView.vue'), meta: { title: 'Profiili', requiresAuth: true } },
     { path: '/admin', component: () => import('../views/AdminView.vue'), meta: { title: 'Admin', requiresAdmin: true } },
   ],
   scrollBehavior: () => ({ top: 0 }),
@@ -23,13 +25,15 @@ router.beforeEach((to, _from, next) => {
 
   const auth = useAuthStore();
 
-  // Kirjautunut käyttäjä yrittää päästä kirjautumissivulle → ohjataan adminiin
   if (to.meta.guestOnly && auth.isLoggedIn) {
-    return next('/admin');
+    return next(auth.isAdmin ? '/admin' : '/profiili');
   }
 
-  // Admin-sivu vaatii admin-roolin → ohjataan kirjautumaan
   if (to.meta.requiresAdmin && !auth.isAdmin) {
+    return next({ path: '/login', query: { redirect: to.fullPath } });
+  }
+
+  if (to.meta.requiresAuth && !auth.isLoggedIn) {
     return next({ path: '/login', query: { redirect: to.fullPath } });
   }
 

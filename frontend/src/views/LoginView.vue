@@ -18,7 +18,7 @@ async function submit() {
   loading.value = true;
   try {
     await auth.login(username.value, password.value);
-    const redirect = (route.query.redirect as string) || '/admin';
+    const redirect = (route.query.redirect as string) || (auth.isAdmin ? '/admin' : '/profiili');
     router.push(redirect);
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Kirjautuminen epäonnistui';
