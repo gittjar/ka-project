@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
 const auth = useAuthStore();
+const router = useRouter();
 const mobileOpen = ref(false);
+
+function logout() {
+  auth.logout();
+  mobileOpen.value = false;
+  router.push('/login');
+}
 
 const links = [
   { to: '/', label: 'Etusivu' },
@@ -54,7 +61,7 @@ const links = [
                    hover:bg-dgreen-900/20 transition-all">
             {{ auth.username }}
           </RouterLink>
-          <button v-if="auth.isLoggedIn" @click="auth.logout()"
+          <button v-if="auth.isLoggedIn" @click="logout()"
             class="ml-3 text-xs text-gray-600 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
             Kirjaudu ulos
           </button>
@@ -100,7 +107,7 @@ const links = [
           @click="mobileOpen = false">
           {{ auth.username }}
         </RouterLink>
-        <button v-if="auth.isLoggedIn" @click="auth.logout(); mobileOpen = false"
+        <button v-if="auth.isLoggedIn" @click="logout()"
           class="block px-3 py-2 rounded-xl text-sm text-gray-500 hover:text-red-400
                  transition-all border-0 bg-transparent text-left">
           Kirjaudu ulos
