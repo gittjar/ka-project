@@ -15,8 +15,13 @@ router.get('/', async (_req, res) => {
 
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
-    const drink = new Drink(req.body);
+    const { name, instructions, imageUrl } = req.body;
+    const drink = new Drink({
+      name,
+      instructions,
+      imageUrl: imageUrl || '',
+      author: req.username,
+    });
     await drink.save();
     res.status(201).json(drink);
   } catch (err) {
