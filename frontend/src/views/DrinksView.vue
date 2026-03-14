@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { Plus, GlassWater, ChevronDown, ChevronUp, Trash2, X, AlertTriangle, User } from 'lucide-vue-next';
+import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
 

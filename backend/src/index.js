@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { BlobServiceClient } from '@azure/storage-blob';
 
 import authRoutes from './routes/auth.js';
 import memberRoutes from './routes/members.js';
@@ -18,7 +19,11 @@ dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env'
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
+app.use(cors({
+  origin: process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map(s => s.trim())
+    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
+}));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
@@ -32,11 +37,26 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 mongoose
   .connect(process.env.MONGODB_URI || '')
-  .then(() => {
-    console.log('MongoDB yhdistetty');
-    app.listen(PORT, () => console.log(`Backend käynnissä portissa ${PORT}`));
+  .then(async () => {
+    console.log('✓ MongoDB yhdistetty');
+
+    // Tarkista Azure Blob -yhteys
+    const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    if (connStr) {
+      try {
+        const blobService = BlobServiceClient.fromConnectionString(connStr);
+        const props = await blobService.getProperties();
+        console.log(`✓ Azure Blob yhdistetty (SKU: ${props.skuName})`);
+      } catch (err) {
+        console.warn(`⚠ Azure Blob -yhteys epäonnistui: ${err.message}`);
+      }
+    } else {
+      console.warn('⚠ AZURE_STORAGE_CONNECTION_STRING puuttuu');
+    }
+
+    app.listen(PORT, () => console.log(`✓ Backend käynnissä portissa ${PORT}`));
   })
   .catch((err) => {
-    console.error('MongoDB-yhteys epäonnistui:', err.message);
+    console.error('✗ MongoDB-yhteys epäonnistui:', err.message);
     process.exit(1);
   });
