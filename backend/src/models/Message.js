@@ -9,7 +9,8 @@ const messageSchema = new mongoose.Schema({
   from: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   fromUsername: { type: String, required: true },
   content: { type: String, required: true },
-  read: { type: Boolean, default: false },
+  read: { type: Boolean, default: false },          // admin has read user's msg
+  repliesRead: { type: Boolean, default: true },     // user has read admin's replies
   replies: [replySchema],
   createdAt: { type: Date, default: Date.now },
 });

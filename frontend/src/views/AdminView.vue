@@ -25,7 +25,7 @@ interface AppUser {
 interface Reply { content: string; createdAt: string }
 interface Message {
   _id: string; fromUsername: string; content: string;
-  read: boolean; replies: Reply[]; createdAt: string;
+  read: boolean; repliesRead: boolean; replies: Reply[]; createdAt: string;
 }
 
 interface InviteCode { _id: string; code: string; expiresAt: string; usedBy: string | null; createdAt: string }
@@ -568,19 +568,24 @@ onMounted(loadMembers);
           <div class="px-4 py-3 cursor-pointer flex items-start justify-between gap-3"
                @click="toggleMsg(m._id)">
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2 mb-1">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <span class="text-sm font-medium text-white">{{ m.fromUsername }}</span>
                 <span v-if="!m.read"
                   class="text-xs bg-yellow-950/50 border border-yellow-900/40 text-yellow-400
                          px-1.5 py-0.5 rounded-full">uusi</span>
+                <span v-if="m.replies.length && !m.repliesRead"
+                  class="text-xs bg-gray-900 border border-gray-700/50 text-gray-500
+                         px-1.5 py-0.5 rounded-full">ei luettu</span>
               </div>
               <p class="text-sm text-gray-400 line-clamp-2">{{ m.content }}</p>
               <p class="text-xs text-gray-700 mt-1">{{ fmtDate(m.createdAt) }}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <span v-if="m.replies.length"
-                class="text-xs text-dgreen-400 bg-dgreen-950/40 border border-dgreen-900/40
-                       px-2 py-0.5 rounded-full">
+                class="text-xs px-2 py-0.5 rounded-full"
+                :class="m.repliesRead
+                  ? 'text-dgreen-700 bg-dgreen-950/40 border border-dgreen-900/40'
+                  : 'text-dgreen-400 bg-dgreen-950/40 border border-dgreen-900/40'">
                 {{ m.replies.length }} vastaus{{ m.replies.length > 1 ? 'ta' : '' }}
               </span>
               <MessageSquare class="w-4 h-4 text-gray-700" />
@@ -589,15 +594,21 @@ onMounted(loadMembers);
             </div>
           </div>
           <div v-if="expandedMsgId === m._id"
-            class="border-t border-gray-800 px-4 py-3 space-y-3">
-            <!-- Full content -->
-            <p class="text-sm text-gray-300 leading-relaxed">{{ m.content }}</p>
-            <!-- Previous replies -->
+            class="border-t border-gray-800 px-4 py-4 space-y-3">
+            <!-- Thread: user message -->
+            <div class="flex justify-end">
+              <div class="max-w-[85%] bg-gray-900/60 border border-gray-800 rounded-2xl rounded-tr-sm px-4 py-3">
+                <p class="text-xs text-gray-600 mb-1">{{ m.fromUsername }} · {{ fmtDate(m.createdAt) }}</p>
+                <p class="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{{ m.content }}</p>
+              </div>
+            </div>
+            <!-- Thread: admin replies -->
             <div v-if="m.replies.length" class="space-y-2">
-              <div v-for="r in m.replies" :key="r.createdAt"
-                class="bg-dgreen-950/20 border border-dgreen-900/30 rounded-xl px-3 py-2">
-                <p class="text-xs text-gray-500 mb-1">Sinä · {{ fmtDate(r.createdAt) }}</p>
-                <p class="text-sm text-gray-200">{{ r.content }}</p>
+              <div v-for="r in m.replies" :key="r.createdAt" class="flex justify-start">
+                <div class="max-w-[85%] bg-dgreen-950/20 border border-dgreen-900/30 rounded-2xl rounded-tl-sm px-4 py-3">
+                  <p class="text-xs text-gray-500 mb-1">Sinä · {{ fmtDate(r.createdAt) }}</p>
+                  <p class="text-sm text-gray-200 whitespace-pre-wrap">{{ r.content }}</p>
+                </div>
               </div>
             </div>
             <!-- Reply form -->

@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useInboxStore } from '../stores/inbox';
+import api from '../api';
 
 const auth = useAuthStore();
+const inbox = useInboxStore();
 const router = useRouter();
 const mobileOpen = ref(false);
 
 function logout() {
   auth.logout();
+  inbox.setUnread(0);
   mobileOpen.value = false;
   router.push('/login');
 }
@@ -22,6 +26,26 @@ const links = [
   { to: '/juomat', label: 'Juomat' },
   { to: '/hakemus', label: 'Hakemus' },
 ];
+
+// Poll unread reply count for non-admin logged-in users
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+async function fetchUnread() {
+  if (!auth.isLoggedIn || auth.isAdmin) return;
+  try {
+    const { data } = await api.get('/messages/mine');
+    inbox.setUnread(data.filter((m: any) => !m.repliesRead && m.replies?.length > 0).length);
+  } catch {}
+}
+
+onMounted(() => {
+  fetchUnread();
+  pollTimer = setInterval(fetchUnread, 60_000);
+});
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer);
+});
 </script>
 
 <template>
@@ -57,9 +81,14 @@ const links = [
             Admin
           </RouterLink>
           <RouterLink v-else-if="auth.isLoggedIn" to="/profiili"
-            class="ml-2 px-3 py-1.5 rounded-xl text-sm text-dgreen-400
+            class="ml-2 relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-dgreen-400
                    hover:bg-dgreen-900/20 transition-all">
             {{ auth.username }}
+            <span v-if="inbox.unreadReplies > 0"
+              class="inline-flex items-center justify-center w-4 h-4 rounded-full
+                     bg-dgreen-600 text-white text-[10px] font-bold leading-none">
+              {{ inbox.unreadReplies > 9 ? '9+' : inbox.unreadReplies }}
+            </span>
           </RouterLink>
           <button v-if="auth.isLoggedIn" @click="logout()"
             class="ml-3 text-xs text-gray-600 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
@@ -101,11 +130,16 @@ const links = [
           Admin
         </RouterLink>
         <RouterLink v-else-if="auth.isLoggedIn" to="/profiili"
-          class="block px-3 py-2 rounded-xl text-sm text-dgreen-400
+          class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-dgreen-400
                  hover:bg-dgreen-900/20 transition-all"
           active-class="bg-dgreen-900/20"
           @click="mobileOpen = false">
           {{ auth.username }}
+          <span v-if="inbox.unreadReplies > 0"
+            class="inline-flex items-center justify-center w-4 h-4 rounded-full
+                   bg-dgreen-600 text-white text-[10px] font-bold leading-none">
+            {{ inbox.unreadReplies > 9 ? '9+' : inbox.unreadReplies }}
+          </span>
         </RouterLink>
         <button v-if="auth.isLoggedIn" @click="logout()"
           class="block px-3 py-2 rounded-xl text-sm text-gray-500 hover:text-red-400

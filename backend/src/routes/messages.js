@@ -57,13 +57,25 @@ router.post('/:id/reply', authMiddleware, async (req, res) => {
     if (!content?.trim()) return res.status(400).json({ message: 'Vastaus ei voi olla tyhjä' });
     const msg = await Message.findByIdAndUpdate(
       req.params.id,
-      { $push: { replies: { content: content.trim() } }, read: true },
+      { $push: { replies: { content: content.trim() } }, read: true, repliesRead: false },
       { new: true }
     );
     if (!msg) return res.status(404).json({ message: 'Viestiä ei löydy' });
     res.json(msg);
   } catch (err) {
     res.status(500).json({ message: 'Vastaus epäonnistui', error: err.message });
+  }
+});
+
+// PUT /api/messages/:id/reply-read — käyttäjä merkitsee admin-vastaukset luetuiksi
+router.put('/:id/reply-read', authMiddleware, async (req, res) => {
+  try {
+    const msg = await Message.findOne({ _id: req.params.id, from: req.userId });
+    if (!msg) return res.status(404).json({ message: 'Viestiä ei löydy' });
+    await Message.findByIdAndUpdate(req.params.id, { repliesRead: true });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
   }
 });
 

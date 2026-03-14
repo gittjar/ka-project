@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import { useInboxStore } from '../stores/inbox';
 import { useRouter } from 'vue-router';
 import {
   User, LogOut, Pencil, Check, AlertCircle, Upload, ImageOff,
-  Send, MessageSquare, ChevronDown, ChevronUp
+  Send, MessageSquare, ChevronDown, ChevronUp, Plus, MailOpen, Mail
 } from 'lucide-vue-next';
 import api from '../api';
 
 const auth = useAuthStore();
+const inbox = useInboxStore();
 const router = useRouter();
 
 function logout() { auth.logout(); router.push('/login'); }
@@ -86,20 +88,23 @@ async function handleFileUpload(event: Event) {
 
 // ── VIESTIT ──
 interface Reply { content: string; createdAt: string }
-interface Message { _id: string; content: string; read: boolean; replies: Reply[]; createdAt: string }
+interface Message { _id: string; content: string; read: boolean; repliesRead: boolean; replies: Reply[]; createdAt: string }
 const messages = ref<Message[]>([]);
 const messagesLoading = ref(true);
+const composeOpen = ref(false);
 const newMessage = ref('');
 const sending = ref(false);
-const sendOk = ref(false);
 const sendError = ref('');
 const expandedMsg = ref<string | null>(null);
+
+const unreadCount = computed(() => messages.value.filter(m => !m.repliesRead && m.replies.length > 0).length);
 
 async function loadMessages() {
   messagesLoading.value = true;
   try {
     const { data } = await api.get('/messages/mine');
     messages.value = data;
+    inbox.setUnread(data.filter((m: Message) => !m.repliesRead && m.replies.length > 0).length);
   } finally {
     messagesLoading.value = false;
   }
@@ -109,17 +114,31 @@ async function sendMessage() {
   if (!newMessage.value.trim()) return;
   sending.value = true;
   sendError.value = '';
-  sendOk.value = false;
   try {
-    await api.post('/messages', { content: newMessage.value.trim() });
+    const { data } = await api.post('/messages', { content: newMessage.value.trim() });
+    messages.value.unshift(data);
     newMessage.value = '';
-    sendOk.value = true;
-    await loadMessages();
-    setTimeout(() => { sendOk.value = false; }, 2000);
+    composeOpen.value = false;
   } catch (err: any) {
     sendError.value = err.response?.data?.message || 'Lähetys epäonnistui';
   } finally {
     sending.value = false;
+  }
+}
+
+async function toggleMsg(id: string) {
+  if (expandedMsg.value === id) {
+    expandedMsg.value = null;
+    return;
+  }
+  expandedMsg.value = id;
+  const m = messages.value.find(x => x._id === id);
+  if (m && !m.repliesRead && m.replies.length > 0) {
+    try {
+      await api.put(`/messages/${id}/reply-read`);
+      m.repliesRead = true;
+      inbox.setUnread(messages.value.filter(x => !x.repliesRead && x.replies.length > 0).length);
+    } catch {}
   }
 }
 
@@ -292,55 +311,123 @@ onMounted(() => { loadMember(); loadMessages(); });
 
     <!-- ── VIESTIT ── -->
     <section>
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Viestit adminille</h2>
-
-      <!-- Lähetä viesti -->
-      <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4 mb-3">
-        <textarea v-model="newMessage" rows="3" placeholder="Kirjoita viesti adminille..."
-          class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
-                 placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors resize-none mb-3" />
-        <div v-if="sendError"
-          class="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-950/50 border border-red-900/50 text-red-400 text-sm mb-2">
-          <AlertCircle class="w-4 h-4 shrink-0" />{{ sendError }}
-        </div>
-        <button @click="sendMessage" :disabled="sending || !newMessage.trim()"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border-0
-                 bg-dgreen-800/80 hover:bg-dgreen-700/80 text-white disabled:opacity-50 transition-all">
-          <Send class="w-4 h-4" />{{ sendOk ? 'Lähetetty!' : sending ? 'Lähetetään...' : 'Lähetä' }}
+      <!-- Section header -->
+      <div class="flex items-center gap-3 mb-3">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Viestit</h2>
+        <span v-if="unreadCount > 0"
+          class="inline-flex items-center justify-center w-5 h-5 rounded-full
+                 bg-dgreen-600 text-white text-[10px] font-bold">
+          {{ unreadCount }}
+        </span>
+        <button @click="composeOpen = !composeOpen"
+          class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border-0
+                 bg-dgreen-900/40 hover:bg-dgreen-800/40 text-dgreen-400 transition-all">
+          <Plus class="w-3.5 h-3.5" />Kirjoita
         </button>
       </div>
 
-      <!-- Viestihistoria -->
-      <div v-if="messagesLoading" class="text-gray-600 text-sm py-4 text-center">Ladataan...</div>
-      <div v-else-if="messages.length === 0" class="text-gray-700 text-sm text-center py-4">Ei viestejä vielä</div>
-      <div v-else class="flex flex-col gap-2">
-        <div v-for="m in messages" :key="m._id"
-          class="bg-gray-950 border rounded-2xl overflow-hidden"
-          :class="m.replies.length ? 'border-dgreen-900/40' : 'border-gray-800'">
-          <div class="px-4 py-3 cursor-pointer flex items-start justify-between gap-3"
-               @click="expandedMsg = expandedMsg === m._id ? null : m._id">
-            <div class="min-w-0 flex-1">
-              <p class="text-sm text-gray-300 line-clamp-2">{{ m.content }}</p>
-              <p class="text-xs text-gray-700 mt-1">{{ fmtDate(m.createdAt) }}</p>
+      <!-- Compose -->
+      <div v-if="composeOpen"
+        class="bg-gray-950 border border-dgreen-900/40 rounded-2xl p-4 mb-3">
+        <p class="text-xs text-gray-600 mb-2 flex items-center gap-1.5">
+          <Send class="w-3 h-3" />Viesti adminille
+        </p>
+        <textarea v-model="newMessage" rows="4" placeholder="Kirjoita viestisi..."
+          autofocus
+          class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
+                 placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors resize-none mb-3" />
+        <div v-if="sendError"
+          class="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-950/50 border border-red-900/50
+                 text-red-400 text-xs mb-2">
+          <AlertCircle class="w-3.5 h-3.5 shrink-0" />{{ sendError }}
+        </div>
+        <div class="flex items-center gap-2 justify-end">
+          <button @click="composeOpen = false; newMessage = ''"
+            class="px-3 py-1.5 rounded-xl text-xs text-gray-600 hover:text-gray-300
+                   transition-colors border-0 bg-transparent">
+            Peruuta
+          </button>
+          <button @click="sendMessage" :disabled="sending || !newMessage.trim()"
+            class="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-medium border-0
+                   bg-dgreen-900/60 hover:bg-dgreen-800/60 text-dgreen-300 disabled:opacity-50 transition-all">
+            <Send class="w-3.5 h-3.5" />{{ sending ? 'Lähetetään...' : 'Lähetä' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Inbox list -->
+      <div v-if="messagesLoading" class="text-gray-600 text-sm py-6 text-center">Ladataan...</div>
+      <div v-else-if="messages.length === 0"
+        class="text-center py-10 text-gray-700">
+        <MessageSquare class="w-8 h-8 mx-auto mb-2 opacity-30" />
+        <p class="text-sm">Ei viestejä vielä.</p>
+        <p class="text-xs mt-1 text-gray-800">Lähetä ensimmäinen viesti adminille.</p>
+      </div>
+      <div v-else class="flex flex-col gap-1.5">
+        <div
+          v-for="m in messages" :key="m._id"
+          class="rounded-2xl border overflow-hidden transition-all"
+          :class="[
+            expandedMsg === m._id ? 'bg-gray-950 border-dgreen-900/50' : 'bg-gray-950 border-gray-800/60 hover:border-gray-700/60',
+            !m.repliesRead && m.replies.length ? 'border-l-2 border-l-dgreen-600' : '',
+          ]"
+        >
+          <!-- Row -->
+          <div class="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
+               @click="toggleMsg(m._id)">
+            <!-- Unread / read dot -->
+            <div class="shrink-0">
+              <MailOpen v-if="m.repliesRead || !m.replies.length" class="w-4 h-4 text-gray-700" />
+              <Mail v-else class="w-4 h-4 text-dgreen-500" />
             </div>
+
+            <div class="flex-1 min-w-0">
+              <p class="text-sm truncate"
+                :class="!m.repliesRead && m.replies.length ? 'text-white font-medium' : 'text-gray-400'">
+                {{ m.content }}
+              </p>
+              <p class="text-xs text-gray-700 mt-0.5">{{ fmtDate(m.createdAt) }}</p>
+            </div>
+
             <div class="flex items-center gap-2 shrink-0">
-              <span v-if="m.replies.length"
-                class="text-xs text-dgreen-400 bg-dgreen-950/40 border border-dgreen-900/40
-                       px-2 py-0.5 rounded-full">
+              <span v-if="!m.repliesRead && m.replies.length"
+                class="text-xs px-2 py-0.5 rounded-full bg-dgreen-950/60 border border-dgreen-900/50
+                       text-dgreen-400 font-medium">
+                {{ m.replies.length }} uusi{{ m.replies.length > 1 ? 'a' : '' }}
+              </span>
+              <span v-else-if="m.replies.length"
+                class="text-xs px-2 py-0.5 rounded-full bg-gray-900 border border-gray-800 text-gray-600">
                 {{ m.replies.length }} vastaus{{ m.replies.length > 1 ? 'ta' : '' }}
               </span>
-              <MessageSquare class="w-4 h-4 text-gray-700" />
-              <ChevronUp v-if="expandedMsg === m._id" class="w-3.5 h-3.5 text-gray-700" />
-              <ChevronDown v-else class="w-3.5 h-3.5 text-gray-700" />
+              <div class="text-gray-700 transition-transform duration-200"
+                   :class="expandedMsg === m._id ? 'rotate-180' : ''">
+                <ChevronDown class="w-4 h-4" />
+              </div>
             </div>
           </div>
+
+          <!-- Thread view -->
           <div v-if="expandedMsg === m._id"
-            class="border-t border-gray-800 px-4 py-3 space-y-2">
-            <p v-if="!m.replies.length" class="text-xs text-gray-700 italic">Ei vastauksia vielä</p>
-            <div v-for="r in m.replies" :key="r.createdAt"
-              class="bg-dgreen-950/20 border border-dgreen-900/30 rounded-xl px-3 py-2">
-              <p class="text-xs text-gray-500 mb-1">Admin · {{ fmtDate(r.createdAt) }}</p>
-              <p class="text-sm text-gray-200">{{ r.content }}</p>
+            class="border-t border-gray-800/50 px-4 py-4 space-y-3">
+
+            <!-- Original message bubble (user) -->
+            <div class="flex justify-end">
+              <div class="max-w-[85%] bg-dgreen-950/30 border border-dgreen-900/30 rounded-2xl rounded-tr-sm px-4 py-3">
+                <p class="text-xs text-dgreen-700 mb-1">Sinä · {{ fmtDate(m.createdAt) }}</p>
+                <p class="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{{ m.content }}</p>
+              </div>
+            </div>
+
+            <!-- Admin replies -->
+            <div v-if="!m.replies.length"
+              class="text-center py-2">
+              <p class="text-xs text-gray-700 italic">Ei vastauksia vielä — admin vastaa pian.</p>
+            </div>
+            <div v-for="r in m.replies" :key="r.createdAt" class="flex justify-start">
+              <div class="max-w-[85%] bg-dpurple-950/30 border border-dpurple-900/30 rounded-2xl rounded-tl-sm px-4 py-3">
+                <p class="text-xs text-dpurple-700 mb-1">Admin · {{ fmtDate(r.createdAt) }}</p>
+                <p class="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{{ r.content }}</p>
+              </div>
             </div>
           </div>
         </div>
