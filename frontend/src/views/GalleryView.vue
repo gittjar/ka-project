@@ -4,7 +4,7 @@ import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Camera, Clock, FolderOpen, Plus, Play,
   ChevronRight, HardDrive, Pencil, Check, GripVertical,
-  CheckSquare, Square,
+  CheckSquare, Square, ArrowUpDown,
 } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -113,6 +113,10 @@ const creatingFolder = ref(false);
 // Delete folder
 const deleteFolderTarget = ref<FolderItem | null>(null);
 const deletingFolder = ref(false);
+
+// Sort (admin)
+const sortMenuOpen = ref(false);
+type SortMode = 'date-desc' | 'date-asc' | 'alpha';
 
 // Upload error (non-task)
 const uploadError = ref('');
@@ -387,6 +391,35 @@ async function onDropFolder(e: DragEvent, targetFolderId: string) {
   await api.patch(`/images/media/${item._id}`, { folderId: targetFolderId });
 }
 
+// ── Sort & persist (admin) ──────────────────────────────────────────────────
+
+async function applySort(mode: SortMode) {
+  sortMenuOpen.value = false;
+  const items = [...mediaItems.value];
+  if (mode === 'date-desc') {
+    items.sort((a, b) => {
+      const da = a.exif?.dateTaken ? new Date(a.exif.dateTaken).getTime() : new Date(a.createdAt).getTime();
+      const db = b.exif?.dateTaken ? new Date(b.exif.dateTaken).getTime() : new Date(b.createdAt).getTime();
+      return db - da;
+    });
+  } else if (mode === 'date-asc') {
+    items.sort((a, b) => {
+      const da = a.exif?.dateTaken ? new Date(a.exif.dateTaken).getTime() : new Date(a.createdAt).getTime();
+      const db = b.exif?.dateTaken ? new Date(b.exif.dateTaken).getTime() : new Date(b.createdAt).getTime();
+      return da - db;
+    });
+  } else {
+    items.sort((a, b) =>
+      (a.caption || a.blobName).toLowerCase().localeCompare(
+        (b.caption || b.blobName).toLowerCase(), 'fi'
+      )
+    );
+  }
+  mediaItems.value = items;
+  await api.patch('/images/reorder', items.map((m, i) => ({ id: m._id, sortOrder: i })));
+  items.forEach((m, i) => { m.sortOrder = i; });
+}
+
 // ── Folder management ─────────────────────────────────────────────────────────
 
 async function createFolder() {
@@ -527,6 +560,44 @@ onUnmounted(() => {
                  bg-transparent transition-all">
           <Plus class="w-4 h-4" />Uusi kansio
         </button>
+        <!-- Sort dropdown (admin, when there are media items) -->
+        <div v-if="auth.isAdmin && mediaItems.length > 0" class="relative">
+          <button @click.stop="sortMenuOpen = !sortMenuOpen"
+            class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
+                   border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600
+                   bg-transparent transition-all"
+            :class="sortMenuOpen ? 'border-dpurple-700 text-dpurple-300' : ''">
+            <ArrowUpDown class="w-4 h-4" />Järjestä
+          </button>
+          <!-- Backdrop -->
+          <div v-if="sortMenuOpen" class="fixed inset-0 z-20" @click="sortMenuOpen = false" />
+          <!-- Menu -->
+          <div v-if="sortMenuOpen"
+            class="absolute right-0 top-full mt-1.5 z-30 bg-gray-900 border border-gray-700/60
+                   rounded-xl shadow-2xl overflow-hidden w-56 py-1">
+            <button @click="applySort('date-desc')"
+              class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
+                     hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
+              <Clock class="w-3.5 h-3.5 text-gray-500" />
+              Uusin ensin
+              <span class="text-xs text-gray-600 ml-auto">oton päivä</span>
+            </button>
+            <button @click="applySort('date-asc')"
+              class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
+                     hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
+              <Clock class="w-3.5 h-3.5 text-gray-500" />
+              Vanhin ensin
+              <span class="text-xs text-gray-600 ml-auto">oton päivä</span>
+            </button>
+            <div class="my-1 border-t border-gray-800" />
+            <button @click="applySort('alpha')"
+              class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
+                     hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
+              <span class="text-xs font-mono text-gray-500 w-3.5 text-center">A</span>
+              Aakkosjärjestys
+            </button>
+          </div>
+        </div>
         <!-- Multi-delete trigger (admin, selection mode) -->
         <template v-if="auth.isAdmin && selectedIds.size > 0">
           <button @click="selectAll"
@@ -644,9 +715,13 @@ onUnmounted(() => {
 
           <!-- Video thumbnail -->
           <template v-else>
-            <video :src="item.url" preload="metadata" muted
-              class="w-full block object-cover aspect-square" />
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <video :src="item.url" preload="metadata" muted loop playsinline
+              class="w-full block object-cover aspect-square"
+              @mouseenter="($event.target as HTMLVideoElement).play()"
+              @mouseleave="(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }" />
+            <!-- Play icon: visible at rest, fades out while hovering so the video is unobstructed -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none
+                        transition-opacity duration-200 group-hover:opacity-0">
               <div class="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
                 <Play class="w-5 h-5 text-white ml-0.5" />
               </div>
