@@ -183,7 +183,7 @@ router.get('/storage', authMiddleware, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const folderId = toFolderId(req.query.folder);
-    const items = await GalleryImage.find({ folderId }).sort({ createdAt: -1 });
+    const items = await GalleryImage.find({ folderId }).sort({ sortOrder: 1, createdAt: -1 });
     res.json(items);
   } catch (err) {
     res.status(500).json({ message: 'Haku epÃ¤onnistui', error: err.message });
@@ -238,7 +238,42 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
   }
 });
 
-// DELETE /api/images/media/:id  â€” oma tai admin
+// PATCH /api/images/media/:id  — päivitä caption (oma/admin) tai sortOrder/folderId (admin)
+router.patch('/media/:id', authMiddleware, async (req, res) => {
+  try {
+    const item = await GalleryImage.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Tiedostoa ei löydy' });
+    const isOwner = item.uploadedBy === req.username;
+    const isAdmin = req.role === 'admin';
+    if (!isOwner && !isAdmin) return res.status(403).json({ message: 'Ei oikeutta' });
+    if (req.body.caption !== undefined) item.caption = String(req.body.caption).slice(0, 500);
+    if (isAdmin) {
+      if (req.body.sortOrder !== undefined) item.sortOrder = Number(req.body.sortOrder);
+      if ('folderId' in req.body) item.folderId = req.body.folderId || null;
+    }
+    await item.save();
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+  }
+});
+
+// PATCH /api/images/reorder  — admin, tallenna järjestys [{id, sortOrder}]
+router.patch('/reorder', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const updates = req.body;
+    if (!Array.isArray(updates)) return res.status(400).json({ message: 'Array vaaditaan' });
+    await Promise.all(updates.map(({ id, sortOrder }) =>
+      GalleryImage.findByIdAndUpdate(id, { sortOrder })
+    ));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Järjestyksen tallennus epäonnistui', error: err.message });
+  }
+});
+
+// DELETE /api/images/media/:id  — oma tai admin
 router.delete('/media/:id', authMiddleware, async (req, res) => {
   try {
     const item = await GalleryImage.findById(req.params.id);

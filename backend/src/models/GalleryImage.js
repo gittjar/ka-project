@@ -7,6 +7,8 @@ const galleryImageSchema = new mongoose.Schema({
   folderId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', default: null, index: true },
   mediaType:  { type: String, enum: ['image', 'video'], default: 'image' },
   fileSize:   { type: Number, default: 0 }, // tavua
+  caption:    { type: String, default: '' },
+  sortOrder:  { type: Number, default: 0, index: true },
 
   // EXIF-metatiedot (kuvat)
   exif: {
