@@ -4,7 +4,7 @@ import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Camera, Clock, FolderOpen, Plus, Play,
   ChevronRight, HardDrive, Pencil, Check, GripVertical,
-  CheckSquare, Square, ArrowUpDown,
+  CheckSquare, Square, ArrowUpDown, ImagePlus,
 } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -104,6 +104,7 @@ const dragSortActive = ref(false);
 const dragSrcIdx = ref<number | null>(null);
 const dragOverIdx = ref<number | null>(null);
 const dragOverFolder = ref<string | null>(null); // folder._id being hovered
+const dropInsertIdx = ref<number | null>(null);  // insert-before index while dragging
 
 // New folder
 const showNewFolder = ref(false);
@@ -345,6 +346,16 @@ async function doMultiDelete() {
 
 // ── Drag-sort (admin) ─────────────────────────────────────────────────────────
 
+type GridSlot = { type: 'item'; item: MediaItem; origIdx: number } | { type: 'drop' };
+const gridSlots = computed<GridSlot[]>(() => {
+  const slots: GridSlot[] = mediaItems.value.map((item, origIdx) => ({ type: 'item', item, origIdx }));
+  const src = dragSrcIdx.value;
+  const ins = dropInsertIdx.value;
+  if (src === null || ins === null || ins === src || ins === src + 1) return slots;
+  slots.splice(ins, 0, { type: 'drop' });
+  return slots;
+});
+
 function onDragStart(e: DragEvent, idx: number) {
   if (!auth.isAdmin) return;
   dragSrcIdx.value = idx;
@@ -352,8 +363,10 @@ function onDragStart(e: DragEvent, idx: number) {
 }
 function onDragOverItem(e: DragEvent, idx: number) {
   e.preventDefault();
-  dragOverIdx.value = idx;
   dragOverFolder.value = null;
+  if (dragSrcIdx.value === null) return;
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  dropInsertIdx.value = e.clientX < rect.left + rect.width / 2 ? idx : idx + 1;
 }
 function onDragOverFolder(e: DragEvent, folderId: string) {
   e.preventDefault();
@@ -365,19 +378,22 @@ function onDragEnd() {
   dragSrcIdx.value = null;
   dragOverIdx.value = null;
   dragOverFolder.value = null;
+  dropInsertIdx.value = null;
 }
 
-async function onDropItem(e: DragEvent, targetIdx: number) {
+async function onDropItem(e: DragEvent, _targetIdx: number) {
   e.preventDefault();
-  if (dragSrcIdx.value === null || dragSrcIdx.value === targetIdx) {
+  const src = dragSrcIdx.value;
+  const ins = dropInsertIdx.value;
+  if (src === null || ins === null || ins === src || ins === src + 1) {
     onDragEnd(); return;
   }
   const items = [...mediaItems.value];
-  const [moved] = items.splice(dragSrcIdx.value, 1);
-  items.splice(targetIdx, 0, moved!);
+  const [moved] = items.splice(src, 1);
+  const adjustedIns = ins > src ? ins - 1 : ins;
+  items.splice(adjustedIns, 0, moved!);
   mediaItems.value = items;
   onDragEnd();
-  // Persist new order
   await api.patch('/images/reorder', items.map((m, i) => ({ id: m._id, sortOrder: i })));
   items.forEach((m, i) => { m.sortOrder = i; });
 }
@@ -691,31 +707,44 @@ onUnmounted(() => {
 
       <!-- ── Mediaruudukko ── -->
       <div v-if="mediaItems.length"
-        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-        <div
-          v-for="(item, idx) in mediaItems" :key="item._id"
-          class="group relative rounded-2xl overflow-hidden bg-gray-950 border transition-all cursor-pointer"
-          :class="[
-            selectedIds.has(item._id) ? 'border-dpurple-600 ring-1 ring-dpurple-700' : 'border-gray-800/50',
-            dragSrcIdx === idx ? 'opacity-40 scale-95' : '',
-            dragOverIdx === idx && dragSrcIdx !== idx ? 'ring-2 ring-dpurple-500 scale-[1.02]' : '',
-          ]"
-          :draggable="auth.isAdmin"
-          @dragstart="onDragStart($event, idx)"
-          @dragover.prevent="onDragOverItem($event, idx)"
-          @dragleave="dragOverIdx = null"
-          @drop.prevent="onDropItem($event, idx)"
-          @dragend="onDragEnd"
-          @click="auth.isAdmin && selectedIds.size > 0 ? toggleSelect(item._id) : openLightbox(idx)">
+        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"
+        @dragover.prevent
+        @drop.prevent="onDropItem($event, -1)">
+        <template v-for="slot in gridSlots" :key="slot.type === 'drop' ? '__drop__' : slot.item._id">
+
+          <!-- Drop-zone indicator -->
+          <div v-if="slot.type === 'drop'"
+            class="aspect-square rounded-2xl border-2 border-dashed border-green-500 bg-green-950/30
+                   flex flex-col items-center justify-center gap-2"
+            @dragover.prevent
+            @drop.prevent="onDropItem($event, -1)">
+            <ImagePlus class="w-10 h-10 text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+            <span class="text-xs text-green-400 font-semibold text-center leading-snug px-3">
+              Pudota kuva tähän
+            </span>
+          </div>
+
+          <!-- Normal item card -->
+          <div v-else
+            class="group relative rounded-2xl overflow-hidden bg-gray-950 border transition-all cursor-pointer"
+            :class="[
+              selectedIds.has(slot.item._id) ? 'border-dpurple-600 ring-1 ring-dpurple-700' : 'border-gray-800/50',
+              dragSrcIdx === slot.origIdx ? 'opacity-40 scale-95' : '',
+            ]"
+            :draggable="auth.isAdmin"
+            @dragstart="onDragStart($event, slot.origIdx)"
+            @dragover.prevent="onDragOverItem($event, slot.origIdx)"
+            @dragend="onDragEnd"
+            @click="auth.isAdmin && selectedIds.size > 0 ? toggleSelect(slot.item._id) : openLightbox(slot.origIdx)">
 
           <!-- Kuva -->
-          <img v-if="item.mediaType === 'image'" :src="item.url" :alt="item.caption || item.blobName"
+          <img v-if="slot.item.mediaType === 'image'" :src="slot.item.url" :alt="slot.item.caption || slot.item.blobName"
             referrerpolicy="no-referrer"
             class="w-full block object-cover aspect-square transition-transform duration-300 group-hover:scale-[1.02]" />
 
           <!-- Video thumbnail -->
           <template v-else>
-            <video :src="item.url" preload="metadata" muted loop playsinline
+            <video :src="slot.item.url" preload="metadata" muted loop playsinline
               class="w-full block object-cover aspect-square"
               @mouseenter="($event.target as HTMLVideoElement).play()"
               @mouseleave="(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }" />
@@ -738,34 +767,35 @@ onUnmounted(() => {
           <div v-if="auth.isAdmin"
             class="absolute top-2 left-2 transition-all"
             :class="selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-80'">
-            <div @click.stop="toggleSelect(item._id)"
+            <div @click.stop="toggleSelect(slot.item._id)"
               class="w-5 h-5 rounded text-white cursor-pointer">
-              <CheckSquare v-if="selectedIds.has(item._id)" class="w-5 h-5 text-dpurple-400 drop-shadow" />
+              <CheckSquare v-if="selectedIds.has(slot.item._id)" class="w-5 h-5 text-dpurple-400 drop-shadow" />
               <Square v-else class="w-5 h-5 text-white/70 drop-shadow" />
             </div>
           </div>
 
           <!-- Bottom caption bar -->
-          <div v-if="item.caption"
+          <div v-if="slot.item.caption"
             class="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-black/45 backdrop-blur-[2px]">
-            <p class="text-[11px] text-white/90 truncate leading-tight">{{ item.caption }}</p>
+            <p class="text-[11px] text-white/90 truncate leading-tight">{{ slot.item.caption }}</p>
           </div>
 
           <!-- Hover actions (delete / edit) -->
           <div class="absolute top-2 right-2 flex flex-col gap-1
                       opacity-0 group-hover:opacity-100 transition-all">
-            <button v-if="canEdit(item)"
-              @click.stop="openLightbox(idx); nextTick(startEditCaption)"
+            <button v-if="canEdit(slot.item)"
+              @click.stop="openLightbox(slot.origIdx); nextTick(startEditCaption)"
               class="p-1.5 rounded-lg bg-black/70 border-0 text-gray-400 hover:text-white hover:bg-black/90">
               <Pencil class="w-3.5 h-3.5" />
             </button>
-            <button v-if="canDelete(item)"
-              @click.stop="deleteTarget = item"
+            <button v-if="canDelete(slot.item)"
+              @click.stop="deleteTarget = slot.item"
               class="p-1.5 rounded-lg bg-black/70 border-0 text-gray-400 hover:text-red-400 hover:bg-black/90">
               <Trash2 class="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
+          </div><!-- /item card -->
+        </template>
       </div>
     </template>
   </div>
