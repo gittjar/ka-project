@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { Users, Camera, BookOpen, ScrollText, GlassWater, ClipboardList, Play } from 'lucide-vue-next';
 import api from '../api';
@@ -51,12 +51,20 @@ function prev() { goTo((activeIdx.value - 1 + carouselItems.value.length) % caro
 
 function startAuto() {
   stopAuto();
-  if (carouselItems.value.length > 1)
+  if (carouselItems.value.length <= 1) return;
+  // Videos advance via @ended; only set interval for images
+  if (activeItem.value?.mediaType !== 'video')
     autoTimer = setInterval(next, 6000);
 }
 function stopAuto() {
   if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
 }
+function onVideoEnded() {
+  if (carouselItems.value.length > 1) next();
+}
+
+// Restart timer whenever active slide changes (image vs video may differ)
+watch(activeIdx, startAuto);
 
 onMounted(async () => {
   await loadCarousel();
@@ -70,22 +78,20 @@ onUnmounted(stopAuto);
   <section class="relative overflow-hidden min-h-[70vh] flex flex-col">
 
     <!-- Carousel-taustakuva -->
-    <Transition name="carousel-fade">
+    <Transition name="carousel-fade" mode="out-in">
       <template v-if="hasCarousel && activeItem">
         <img v-if="activeItem.mediaType === 'image'"
-          :key="activeItem._id"
+          :key="'img-' + activeItem._id"
           :src="activeItem.url"
           referrerpolicy="no-referrer"
-          class="absolute inset-0 w-full h-full object-cover"
-          :class="transitioning ? 'opacity-0' : 'opacity-100'"
-          style="transition: opacity 0.4s ease;" />
+          class="absolute inset-0 w-full h-full object-cover rounded-none" />
         <video v-else
-          :key="activeItem._id"
+          :key="'vid-' + activeItem._id"
           :src="activeItem.url"
-          autoplay muted loop playsinline
-          class="absolute inset-0 w-full h-full object-cover"
-          :class="transitioning ? 'opacity-0' : 'opacity-100'"
-          style="transition: opacity 0.4s ease;" />
+          autoplay muted playsinline
+          :loop="carouselItems.length <= 1"
+          @ended="onVideoEnded"
+          class="absolute inset-0 w-full h-full object-cover" />
       </template>
     </Transition>
 
@@ -202,9 +208,15 @@ onUnmounted(stopAuto);
 </template>
 
 <style scoped>
-.carousel-fade-enter-active,
+.carousel-fade-enter-active {
+  transition: opacity 0.7s ease;
+}
 .carousel-fade-leave-active {
-  transition: opacity 0.4s ease;
+  transition: opacity 0.7s ease;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 .carousel-fade-enter-from,
 .carousel-fade-leave-to {

@@ -121,9 +121,7 @@ const sortMenuOpen = ref(false);
 type SortMode = 'date-desc' | 'date-asc' | 'alpha';
 
 // Carousel (admin)
-const CAROUSEL_VIRTUAL_ID = '__carousel__';
 const carouselIds = ref<Set<string>>(new Set());   // _id:t valituista
-const inCarouselView = ref(false);                 // ollaanko virtuaalisessa carousel-kansiossa
 const carouselSaving = ref(false);
 
 // Upload error (non-task)
@@ -171,11 +169,6 @@ async function navigateInto(folder: FolderItem) {
 }
 
 async function navigateTo(idx: number) {
-  // Click on root crumb while in carousel view → close carousel
-  if (inCarouselView.value && idx === 0) {
-    await closeCarouselView();
-    return;
-  }
   const crumb = breadcrumb.value[idx]!;
   breadcrumb.value = breadcrumb.value.slice(0, idx + 1);
   currentFolderId.value = crumb.id;
@@ -493,30 +486,6 @@ async function loadCarouselIds() {
   carouselIds.value = new Set((data as MediaItem[]).map((m: MediaItem) => m._id));
 }
 
-function openCarouselView() {
-  inCarouselView.value = true;
-  breadcrumb.value = [{ id: null, name: 'Kuvat' }, { id: CAROUSEL_VIRTUAL_ID, name: 'Carousel' }];
-  loadAllMediaForCarousel();
-}
-
-async function loadAllMediaForCarousel() {
-  loading.value = true;
-  try {
-    // Hae kaikki mediat (root-tasolta; kaikki kansioista tulisi erikseen, mutta root on paras preview)
-    const { data } = await api.get('/images?folder=null');
-    mediaItems.value = data;
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function closeCarouselView() {
-  inCarouselView.value = false;
-  breadcrumb.value = [{ id: null, name: 'Kuvat' }];
-  currentFolderId.value = null;
-  await loadFolder(null);
-}
-
 async function toggleCarousel(item: MediaItem) {
   const newIds = [...carouselIds.value];
   const idx = newIds.indexOf(item._id);
@@ -741,31 +710,7 @@ onUnmounted(() => {
 
     <template v-else>
       <!-- ── Kansioruudukko ── -->
-      <div v-if="folders.length || (auth.isAdmin && !inCarouselView && currentFolderId === null)"
-        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
-        <!-- Virtuaalinen Carousel-kansio (admin, juuri root-tasolla) -->
-        <div v-if="auth.isAdmin && !inCarouselView && currentFolderId === null"
-          class="group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer
-                 bg-gray-950 border transition-all"
-          :class="carouselIds.size > 0
-            ? 'border-yellow-700/60 hover:border-yellow-600'
-            : 'border-gray-700/40 hover:border-gray-600'"
-          @click="openCarouselView">
-          <div class="relative shrink-0">
-            <Star class="w-7 h-7" :class="carouselIds.size > 0 ? 'text-yellow-500' : 'text-gray-600'" />
-            <span v-if="carouselIds.size > 0"
-              class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-yellow-600 text-white
-                     text-[9px] font-bold flex items-center justify-center">
-              {{ carouselIds.size }}
-            </span>
-          </div>
-          <div>
-            <span class="text-sm font-medium text-white">Carousel</span>
-            <p class="text-xs text-gray-600 mt-0.5">
-              {{ carouselIds.size > 0 ? `${carouselIds.size}/5 kuvaa valittu` : 'Ei kuvia valittu' }}
-            </p>
-          </div>
-        </div>
+      <div v-if="folders.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
         <div
           v-for="folder in folders" :key="folder._id"
           class="group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer
@@ -788,68 +733,8 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- ── Carousel-näkymä (admin virtual folder) ── -->
-      <template v-if="inCarouselView">
-        <div class="mb-4 flex items-center gap-2">
-          <p class="text-xs text-gray-600">
-            Valitse max 5 kuvaa tai videota etusivun carouseliin.
-            {{ carouselIds.size }}/5 valittu.
-          </p>
-          <span v-if="carouselSaving" class="text-xs text-yellow-500 ml-2">Tallennetaan...</span>
-        </div>
-        <!-- Carousel-ruudukko: kaikki mediat kautta gallerian (haettu root-tasolta = kaikki) -->
-        <div v-if="!mediaItems.length" class="text-center py-16 text-gray-700">
-          <Star class="w-10 h-10 mx-auto mb-3 opacity-20" />
-          <p class="text-sm">Ei kuvia galleriassa. Lataa ensin kuvia kansioihin.</p>
-        </div>
-        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          <div v-for="item in mediaItems" :key="item._id"
-            class="group relative rounded-2xl overflow-hidden bg-gray-950 border transition-all cursor-pointer"
-            :class="carouselIds.has(item._id)
-              ? 'border-yellow-600 ring-2 ring-yellow-700/50'
-              : 'border-gray-800/50 hover:border-gray-700'"
-            @click="toggleCarousel(item)">
-            <img v-if="item.mediaType === 'image'" :src="item.url"
-              referrerpolicy="no-referrer"
-              class="w-full block object-cover aspect-square transition-transform duration-300 group-hover:scale-[1.02]" />
-            <template v-else>
-              <video :src="item.url" preload="metadata" muted
-                class="w-full block object-cover aspect-square" />
-              <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div class="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
-                  <Play class="w-4 h-4 text-white ml-0.5" />
-                </div>
-              </div>
-            </template>
-            <!-- Valittu-badge -->
-            <div v-if="carouselIds.has(item._id)"
-              class="absolute top-2 right-2 w-7 h-7 rounded-full bg-yellow-500 flex items-center justify-center
-                     shadow-lg shadow-yellow-900/50">
-              <Star class="w-4 h-4 text-black fill-black" />
-            </div>
-            <!-- Paikkanumero -->
-            <div v-if="carouselIds.has(item._id)"
-              class="absolute top-2 left-2 w-5 h-5 rounded-full bg-yellow-600 text-black text-[10px]
-                     font-bold flex items-center justify-center">
-              {{ [...carouselIds].indexOf(item._id) + 1 }}
-            </div>
-            <!-- Max-ilmoitus hover -->
-            <div v-if="!carouselIds.has(item._id) && carouselIds.size >= 5"
-              class="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100
-                     transition-opacity">
-              <span class="text-xs text-gray-300 px-3 text-center">Max 5 kuvaa</span>
-            </div>
-            <!-- Caption -->
-            <div v-if="item.caption"
-              class="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-black/45 backdrop-blur-[2px]">
-              <p class="text-[11px] text-white/90 truncate leading-tight">{{ item.caption }}</p>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <!-- ── Tyhä tila ── -->
-      <div v-if="!inCarouselView && !folders.length && !mediaItems.length"
+      <!-- ── Tyhjä tila ── -->
+      <div v-if="!folders.length && !mediaItems.length"
         class="text-center py-20 text-gray-700">
         <ImageOff class="w-10 h-10 mx-auto mb-3 opacity-30" />
         <p class="text-sm">Ei sisältöä vielä.</p>
@@ -857,7 +742,7 @@ onUnmounted(() => {
       </div>
 
       <!-- ── Mediaruudukko ── -->
-      <div v-if="!inCarouselView && mediaItems.length"
+      <div v-if="mediaItems.length"
         class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"
         @dragover.prevent
         @drop.prevent="onDropItem($event, -1)">
@@ -1115,10 +1000,30 @@ onUnmounted(() => {
         </div>
 
         <!-- Actions -->
-        <div class="mt-auto px-5 pb-5 pt-3 border-t border-gray-800/50 flex gap-2">
-          <button v-if="canDelete(lightboxItem)"
+        <div class="mt-auto px-5 pb-5 pt-3 border-t border-gray-800/50 flex flex-col gap-2">
+
+          <!-- Carousel toggle (admin) -->
+          <button v-if="auth.isAdmin"
+            @click="toggleCarousel(lightboxItem!)"
+            :disabled="carouselSaving || (!carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5)"
+            class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs
+                   border transition-all disabled:opacity-40"
+            :class="carouselIds.has(lightboxItem!._id)
+              ? 'bg-yellow-950/60 hover:bg-yellow-900/60 border-yellow-800/60 text-yellow-400'
+              : 'bg-gray-900 hover:bg-gray-800 border-gray-700 text-gray-400 hover:text-white'">
+            <span class="flex items-center gap-2">
+              <Star class="w-3.5 h-3.5" :class="carouselIds.has(lightboxItem!._id) ? 'fill-yellow-400' : ''" />
+              {{ carouselIds.has(lightboxItem!._id) ? 'Poista carouselista' : 'Lisää carouseliin' }}
+            </span>
+            <span class="font-mono tabular-nums"
+              :class="carouselIds.size >= 5 && !carouselIds.has(lightboxItem!._id) ? 'text-red-500' : 'text-gray-600'">
+              {{ carouselIds.size }}/5
+            </span>
+          </button>
+
+          <button v-if="canDelete(lightboxItem!)"
             @click="deleteTarget = lightboxItem; closeLightbox()"
-            class="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl
+            class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
                    text-xs border-0 bg-red-950/60 hover:bg-red-900/60 text-red-400 transition-all">
             <Trash2 class="w-3.5 h-3.5" />Poista
           </button>
