@@ -9,6 +9,7 @@ const galleryImageSchema = new mongoose.Schema({
   fileSize:   { type: Number, default: 0 }, // tavua
   caption:    { type: String, default: '' },
   sortOrder:  { type: Number, default: 0, index: true },
+  carouselOrder: { type: Number, default: null, index: true }, // null = ei carouselissa, 0-4 = paikka
 
   // EXIF-metatiedot (kuvat)
   exif: {
