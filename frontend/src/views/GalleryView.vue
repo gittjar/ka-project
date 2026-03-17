@@ -4,7 +4,7 @@ import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Camera, Clock, FolderOpen, Plus, Play,
   ChevronRight, HardDrive, Pencil, Check, GripVertical,
-  CheckSquare, Square, ArrowUpDown, ImagePlus,
+  CheckSquare, Square, ArrowUpDown, ImagePlus, Star,
 } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -45,6 +45,7 @@ interface MediaItem {
   fileSize?: number;
   caption?: string;
   sortOrder?: number;
+  carouselOrder?: number | null;
   exif?: ExifData;
 }
 interface UploadTask {
@@ -119,6 +120,12 @@ const deletingFolder = ref(false);
 const sortMenuOpen = ref(false);
 type SortMode = 'date-desc' | 'date-asc' | 'alpha';
 
+// Carousel (admin)
+const CAROUSEL_VIRTUAL_ID = '__carousel__';
+const inCarouselView = ref(false);
+const carouselIds = ref<Set<string>>(new Set());   // _id:t valituista
+const carouselSaving = ref(false);
+
 // Upload error (non-task)
 const uploadError = ref('');
 
@@ -166,8 +173,28 @@ async function navigateInto(folder: FolderItem) {
 async function navigateTo(idx: number) {
   const crumb = breadcrumb.value[idx]!;
   breadcrumb.value = breadcrumb.value.slice(0, idx + 1);
-  currentFolderId.value = crumb.id;
-  await loadFolder(crumb.id);
+  inCarouselView.value = false;
+  const folderId = crumb.id === CAROUSEL_VIRTUAL_ID ? null : crumb.id;
+  currentFolderId.value = folderId;
+  await loadFolder(folderId);
+}
+
+async function openCarouselView() {
+  loading.value = true;
+  loadError.value = '';
+  selectedIds.value = new Set();
+  try {
+    const { data } = await api.get('/images/carousel');
+    carouselIds.value = new Set((data as MediaItem[]).map((m: MediaItem) => m._id));
+    mediaItems.value = data;
+    folders.value = [];
+  } catch {
+    loadError.value = 'Carousel-kuvien lataus epäonnistui';
+  } finally {
+    loading.value = false;
+  }
+  inCarouselView.value = true;
+  breadcrumb.value.push({ id: CAROUSEL_VIRTUAL_ID, name: 'Carousel kuvat' });
 }
 
 // ── Upload with progress ──────────────────────────────────────────────────────
@@ -473,6 +500,40 @@ async function doDeleteFolder() {
   }
 }
 
+// ── Carousel (admin) ──────────────────────────────────────────────────────────
+
+async function loadCarouselIds() {
+  if (!auth.isAdmin) return;
+  const { data } = await api.get('/images/carousel');
+  carouselIds.value = new Set((data as MediaItem[]).map((m: MediaItem) => m._id));
+}
+
+async function toggleCarousel(item: MediaItem) {
+  const newIds = [...carouselIds.value];
+  const idx = newIds.indexOf(item._id);
+  if (idx >= 0) {
+    newIds.splice(idx, 1);
+  } else {
+    if (newIds.length >= 5) return;
+    newIds.push(item._id);
+  }
+  carouselSaving.value = true;
+  try {
+    const { data } = await api.put('/images/carousel', newIds);
+    carouselIds.value = new Set((data as MediaItem[]).map((m: MediaItem) => m._id));
+    if (inCarouselView.value) {
+      mediaItems.value = data;
+      if (lightboxItem.value && !carouselIds.value.has(lightboxItem.value._id)) {
+        closeLightbox();
+      }
+    }
+  } catch (e: any) {
+    uploadError.value = e.response?.data?.message || 'Carousel-tallennus epäonnistui';
+  } finally {
+    carouselSaving.value = false;
+  }
+}
+
 // ── Storage ───────────────────────────────────────────────────────────────────
 
 async function loadStorage() {
@@ -488,7 +549,10 @@ async function loadStorage() {
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown);
   await loadFolder(null);
-  if (auth.isAdmin) await loadStorage();
+  if (auth.isAdmin) {
+    await loadStorage();
+    await loadCarouselIds();
+  }
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
@@ -614,8 +678,8 @@ onUnmounted(() => {
             </button>
           </div>
         </div>
-        <!-- Multi-delete trigger (admin, selection mode) -->
-        <template v-if="auth.isAdmin && selectedIds.size > 0">
+        <!-- Multi-delete trigger (admin, selection mode, not in carousel view) -->
+        <template v-if="auth.isAdmin && selectedIds.size > 0 && !inCarouselView">
           <button @click="selectAll"
             class="px-3 py-2 rounded-xl text-xs border border-gray-700 text-gray-400
                    hover:text-white bg-transparent transition-all">
@@ -673,8 +737,21 @@ onUnmounted(() => {
     <div v-else-if="loadError" class="text-red-500 text-sm py-20 text-center">{{ loadError }}</div>
 
     <template v-else>
-      <!-- ── Kansioruudukko ── -->
-      <div v-if="folders.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+      <!-- ── Kansioruudukko (+ Carousel-virtuaalikansio admin-juuressa) ── -->
+      <div v-if="folders.length || (auth.isAdmin && !currentFolderId && !inCarouselView)"
+        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+
+        <!-- Carousel virtual folder card -->
+        <div v-if="auth.isAdmin && !currentFolderId && !inCarouselView"
+          class="group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer
+                 bg-gray-950 border border-gray-800/50 hover:border-gray-700 transition-all"
+          @click="openCarouselView">
+          <Star class="w-7 h-7 text-yellow-500/70 shrink-0 fill-yellow-500/20" />
+          <div class="min-w-0">
+            <span class="text-sm font-medium text-white truncate block">Carousel kuvat</span>
+            <span class="text-xs text-gray-600">{{ carouselIds.size }} / 5</span>
+          </div>
+        </div>
         <div
           v-for="folder in folders" :key="folder._id"
           class="group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer
@@ -735,7 +812,7 @@ onUnmounted(() => {
             @dragstart="onDragStart($event, slot.origIdx)"
             @dragover.prevent="onDragOverItem($event, slot.origIdx)"
             @dragend="onDragEnd"
-            @click="auth.isAdmin && selectedIds.size > 0 ? toggleSelect(slot.item._id) : openLightbox(slot.origIdx)">
+            @click="auth.isAdmin && !inCarouselView && selectedIds.size > 0 ? toggleSelect(slot.item._id) : openLightbox(slot.origIdx)">
 
           <!-- Kuva -->
           <img v-if="slot.item.mediaType === 'image'" :src="slot.item.url" :alt="slot.item.caption || slot.item.blobName"
@@ -763,8 +840,8 @@ onUnmounted(() => {
             <GripVertical class="w-4 h-4 drop-shadow" />
           </div>
 
-          <!-- Checkbox (admin, multi-select) -->
-          <div v-if="auth.isAdmin"
+          <!-- Checkbox (admin, multi-select, not in carousel view) -->
+          <div v-if="auth.isAdmin && !inCarouselView"
             class="absolute top-2 left-2 transition-all"
             :class="selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-80'">
             <div @click.stop="toggleSelect(slot.item._id)"
@@ -772,6 +849,12 @@ onUnmounted(() => {
               <CheckSquare v-if="selectedIds.has(slot.item._id)" class="w-5 h-5 text-dpurple-400 drop-shadow" />
               <Square v-else class="w-5 h-5 text-white/70 drop-shadow" />
             </div>
+          </div>
+
+          <!-- Carousel star badge (admin) -->
+          <div v-if="auth.isAdmin && carouselIds.has(slot.item._id)"
+            class="absolute bottom-8 right-1.5 pointer-events-none">
+            <Star class="w-4 h-4 text-yellow-400 fill-yellow-400 drop-shadow" />
           </div>
 
           <!-- Bottom caption bar -->
@@ -788,7 +871,7 @@ onUnmounted(() => {
               class="p-1.5 rounded-lg bg-black/70 border-0 text-gray-400 hover:text-white hover:bg-black/90">
               <Pencil class="w-3.5 h-3.5" />
             </button>
-            <button v-if="canDelete(slot.item)"
+            <button v-if="canDelete(slot.item) && !inCarouselView"
               @click.stop="deleteTarget = slot.item"
               class="p-1.5 rounded-lg bg-black/70 border-0 text-gray-400 hover:text-red-400 hover:bg-black/90">
               <Trash2 class="w-3.5 h-3.5" />
@@ -958,10 +1041,30 @@ onUnmounted(() => {
         </div>
 
         <!-- Actions -->
-        <div class="mt-auto px-5 pb-5 pt-3 border-t border-gray-800/50 flex gap-2">
-          <button v-if="canDelete(lightboxItem)"
+        <div class="mt-auto px-5 pb-5 pt-3 border-t border-gray-800/50 flex flex-col gap-2">
+
+          <!-- Carousel toggle (admin) -->
+          <button v-if="auth.isAdmin"
+            @click="toggleCarousel(lightboxItem!)"
+            :disabled="carouselSaving || (!carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5)"
+            class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs
+                   border transition-all disabled:opacity-40"
+            :class="carouselIds.has(lightboxItem!._id)
+              ? 'bg-yellow-950/60 hover:bg-yellow-900/60 border-yellow-800/60 text-yellow-400'
+              : 'bg-gray-900 hover:bg-gray-800 border-gray-700 text-gray-400 hover:text-white'">
+            <span class="flex items-center gap-2">
+              <Star class="w-3.5 h-3.5" :class="carouselIds.has(lightboxItem!._id) ? 'fill-yellow-400' : ''" />
+              {{ carouselIds.has(lightboxItem!._id) ? 'Poista carouselista' : 'Lisää carouseliin' }}
+            </span>
+            <span class="font-mono tabular-nums"
+              :class="carouselIds.size >= 5 && !carouselIds.has(lightboxItem!._id) ? 'text-red-500' : 'text-gray-600'">
+              {{ carouselIds.size }}/5
+            </span>
+          </button>
+
+          <button v-if="canDelete(lightboxItem!) && !inCarouselView"
             @click="deleteTarget = lightboxItem; closeLightbox()"
-            class="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl
+            class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
                    text-xs border-0 bg-red-950/60 hover:bg-red-900/60 text-red-400 transition-all">
             <Trash2 class="w-3.5 h-3.5" />Poista
           </button>

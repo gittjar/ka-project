@@ -273,6 +273,43 @@ router.patch('/reorder', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/images/carousel  — julkinen, palauttaa max 5 carouselkuvaa
+router.get('/carousel', async (_req, res) => {
+  try {
+    const items = await GalleryImage.find({ carouselOrder: { $ne: null } })
+      .sort({ carouselOrder: 1 })
+      .limit(5)
+      .select('url blobName mediaType caption exif.dateTaken carouselOrder');
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+  }
+});
+
+// PUT /api/images/carousel  — admin, asettaa max 5 kuvaa carouseliin [{id}] järjestyksessä
+router.put('/carousel', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const ids = req.body;
+    if (!Array.isArray(ids) || ids.length > 5) {
+      return res.status(400).json({ message: 'Lähetä taulukko max 5 id:llä' });
+    }
+    // Tyhjennä kaikki ensin
+    await GalleryImage.updateMany({ carouselOrder: { $ne: null } }, { carouselOrder: null });
+    // Aseta uudet
+    await Promise.all(ids.map((id, i) =>
+      GalleryImage.findByIdAndUpdate(id, { carouselOrder: i })
+    ));
+    const items = await GalleryImage.find({ carouselOrder: { $ne: null } })
+      .sort({ carouselOrder: 1 })
+      .limit(5)
+      .select('url blobName mediaType caption exif.dateTaken carouselOrder');
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ message: 'Tallennus epäonnistui', error: err.message });
+  }
+});
+
 // DELETE /api/images/media/:id  — oma tai admin
 router.delete('/media/:id', authMiddleware, async (req, res) => {
   try {
