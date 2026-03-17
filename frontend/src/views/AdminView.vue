@@ -10,10 +10,12 @@ import {
 } from 'lucide-vue-next';
 import api from '../api';
 
+interface MemberPhoto { _id: string; url: string; mediaType: 'image' | 'video'; blobName?: string; }
 interface Member {
   _id: string; name: string; aliases: string[]; quote: string; born: string;
   highestPromille: string; favDrink: string; location: string;
   email: string; website: string; avatarUrl: string; points: number; active: boolean;
+  photos: MemberPhoto[];
 }
 type FormData = Omit<Member, 'aliases'> & { aliasInput: string };
 
@@ -64,7 +66,7 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
 const emptyForm = (): FormData => ({
   _id: '', name: '', aliasInput: '', quote: '', born: '',
   highestPromille: '', favDrink: '', location: '',
-  email: '', website: '', avatarUrl: '', points: 0, active: true,
+  email: '', website: '', avatarUrl: '', points: 0, active: true, photos: [] as MemberPhoto[],
 });
 const form = ref<FormData>(emptyForm());
 
@@ -118,7 +120,7 @@ async function saveMember() {
   saving.value = true;
   saveError.value = '';
   try {
-    const { aliasInput, _id, ...rest } = form.value;
+    const { aliasInput, _id, photos: _photos, ...rest } = form.value;
     const payload = { ...rest, aliases: aliasInput.split(',').map(s => s.trim()).filter(Boolean) };
     if (_id) {
       await api.put(`/members/${_id}`, payload);
@@ -173,6 +175,61 @@ async function handleFileUpload(event: Event) {
 }
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+
+const editingMemberPhotos = computed<MemberPhoto[]>(() =>
+  members.value.find(x => x._id === form.value._id)?.photos ?? []
+);
+const photoUrlInput = ref('');
+const uploadingPhoto = ref(false);
+const addingPhotoUrl = ref(false);
+const photoFileInputRef = ref<HTMLInputElement | null>(null);
+const confirmDeletePhotoId = ref<string | null>(null);
+
+async function uploadMemberPhoto(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file || !form.value._id) return;
+  uploadingPhoto.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { data } = await api.post(`/members/${form.value._id}/photos`, fd);
+    const idx = members.value.findIndex(m => m._id === data._id);
+    if (idx !== -1) members.value.splice(idx, 1, data);
+  } catch (err: any) {
+    saveError.value = err.response?.data?.message || 'Lataus epäonnistui';
+  } finally {
+    uploadingPhoto.value = false;
+    if (photoFileInputRef.value) photoFileInputRef.value.value = '';
+  }
+}
+async function addMemberPhotoUrl() {
+  const url = photoUrlInput.value.trim();
+  if (!url || !form.value._id) return;
+  addingPhotoUrl.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('url', url);
+    const { data } = await api.post(`/members/${form.value._id}/photos`, fd);
+    const idx = members.value.findIndex(m => m._id === data._id);
+    if (idx !== -1) members.value.splice(idx, 1, data);
+    photoUrlInput.value = '';
+  } catch (err: any) {
+    saveError.value = err.response?.data?.message || 'Lisäys epäonnistui';
+  } finally {
+    addingPhotoUrl.value = false;
+  }
+}
+async function deleteMemberPhoto(photoId: string) {
+  if (!form.value._id) return;
+  confirmDeletePhotoId.value = null;
+  try {
+    const { data } = await api.delete(`/members/${form.value._id}/photos/${photoId}`);
+    const idx = members.value.findIndex(m => m._id === data._id);
+    if (idx !== -1) members.value.splice(idx, 1, data);
+  } catch (err: any) {
+    saveError.value = err.response?.data?.message || 'Poisto epäonnistui';
+  }
 }
 
 const AVATAR_BASE = 'https://digital.pictures.fi/kuvat/k%C3%A4/members-collection/';
@@ -799,7 +856,74 @@ onMounted(loadMembers);
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
               <p class="text-[11px] text-gray-700 mt-1">Pelkkä tiedostonimi (esim. <span class="text-gray-500">jarno01.jpg</span>) hakee digital.pictures.fi · täysi URL käytetään sellaisenaan</p>
             </div>
-          </div>
+
+            <!-- Photos / Videos (only for existing members) -->
+            <div v-if="form._id" class="sm:col-span-2 pt-3 border-t border-gray-800/50">
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-xs text-gray-600">Kuvat &amp; Videot (slideshow)</label>
+                <span class="text-xs" :class="editingMemberPhotos.length >= 10 ? 'text-red-500' : 'text-gray-700'">
+                  {{ editingMemberPhotos.length }} / 10
+                </span>
+              </div>
+              <!-- Existing photos grid -->
+              <div v-if="editingMemberPhotos.length" class="grid grid-cols-4 gap-2 mb-2.5">
+                <div v-for="p in editingMemberPhotos" :key="p._id"
+                  class="relative aspect-square rounded-lg overflow-hidden bg-gray-900 border border-gray-800/50 group">
+                  <img v-if="p.mediaType === 'image'" :src="avatarSrc(p.url)"
+                       class="w-full h-full object-cover" draggable="false" />
+                  <video v-else :src="p.url" muted
+                         class="w-full h-full object-cover" />
+                  <!-- Confirm overlay -->
+                  <div v-if="confirmDeletePhotoId === p._id"
+                    class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-1.5 p-1">
+                    <p class="text-[10px] text-white text-center leading-tight">Poistetaanko?</p>
+                    <div class="flex gap-1">
+                      <button @click="deleteMemberPhoto(p._id)"
+                        class="px-2 py-1 rounded-lg bg-red-700 hover:bg-red-600 text-white text-[10px] border-0 transition-colors">
+                        Poista
+                      </button>
+                      <button @click="confirmDeletePhotoId = null"
+                        class="px-2 py-1 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-[10px] border-0 transition-colors">
+                        Peru
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Delete trigger -->
+                  <button v-else @click="confirmDeletePhotoId = p._id"
+                    class="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-red-900/80
+                           flex items-center justify-center transition-colors border-0 p-0
+                           opacity-0 group-hover:opacity-100 focus:opacity-100">
+                    <X class="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              </div>
+              <!-- Add new -->
+              <div v-if="editingMemberPhotos.length < 10" class="space-y-1.5">
+                <div class="flex gap-1.5">
+                  <input v-model="photoUrlInput" type="text"
+                    placeholder="https://... tai tiedostonimi"
+                    class="flex-1 px-2.5 py-1.5 rounded-xl bg-black/60 border border-gray-800 text-xs text-gray-200
+                           placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors"
+                    @keyup.enter="addMemberPhotoUrl" />
+                  <button @click="addMemberPhotoUrl"
+                    :disabled="addingPhotoUrl || !photoUrlInput.trim()"
+                    class="px-2.5 py-1.5 rounded-xl text-xs border-0 bg-dgreen-900/40 text-dgreen-400
+                           hover:bg-dgreen-800/40 disabled:opacity-40 transition-all">
+                    <Plus class="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div>
+                  <input ref="photoFileInputRef" type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4,.m4v,.webm"
+                         class="hidden" @change="uploadMemberPhoto" />
+                  <button @click="photoFileInputRef?.click()" :disabled="uploadingPhoto"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border border-dpurple-800/50
+                           text-dpurple-400 hover:bg-dpurple-900/30 disabled:opacity-50 transition-colors bg-transparent">
+                    <Upload class="w-3 h-3" />{{ uploadingPhoto ? 'Ladataan...' : 'Lataa tiedosto (max 50 MB)' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div><!-- /grid -->
 
           <div v-if="saveError"
             class="flex items-center gap-2 px-3 py-2 rounded-xl

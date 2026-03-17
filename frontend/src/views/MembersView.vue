@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
 import {
   Search, ArrowUpDown,
-  MapPin, GlassWater, Flame, Cake, Star, Globe, Mail, Hash
+  MapPin, GlassWater, Flame, Cake, Star, Globe, Mail, Hash,
+  ChevronLeft, ChevronRight,
 } from 'lucide-vue-next';
 import api from '../api';
 
+interface MemberPhoto { _id: string; url: string; mediaType: 'image' | 'video'; }
 interface Member {
   _id: string;
   name: string;
@@ -19,6 +21,7 @@ interface Member {
   website: string;
   avatarUrl: string;
   points: number;
+  photos: MemberPhoto[];
 }
 
 const members = ref<Member[]>([]);
@@ -30,10 +33,12 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/members');
     members.value = data;
+    for (const m of data) { slideIdx[m._id] = 0; startSlideTimer(m._id); }
   } finally {
     loading.value = false;
   }
 });
+onUnmounted(() => { for (const id of Object.keys(slideTimers)) clearTimeout(slideTimers[id]); });
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase();
@@ -58,13 +63,55 @@ const AVATAR_BASE = 'https://digital.pictures.fi/kuvat/k%C3%A4/members-collectio
 const TRIPOD_RE = /kanniaalio\.tripod\.com\/members\/([^?#]+)/i;
 function avatarSrc(url: string): string {
   if (!url) return '';
-  // Rewrite legacy tripod URLs to digital.pictures.fi
   const tripodMatch = url.match(TRIPOD_RE);
   if (tripodMatch) return `${AVATAR_BASE}${tripodMatch[1]}/_full.jpg`;
-  // Plain filename → digital.pictures.fi
   if (!url.startsWith('http')) return `${AVATAR_BASE}${url}/_full.jpg`;
-  // Full URL (Azure Blob or other) → use as-is
   return url;
+}
+
+// ── Slideshow per member ───────────────────────────────────────────────
+const slideIdx = reactive<Record<string, number>>({});
+const slideTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+function getSlides(m: Member): Array<{ url: string; mediaType: 'image' | 'video' }> {
+  const slides: Array<{ url: string; mediaType: 'image' | 'video' }> = [];
+  const av = avatarSrc(m.avatarUrl);
+  if (av) slides.push({ url: av, mediaType: 'image' });
+  for (const p of m.photos ?? []) slides.push({ url: avatarSrc(p.url), mediaType: p.mediaType });
+  return slides;
+}
+function curSlideIdx(id: string) { return slideIdx[id] ?? 0; }
+function startSlideTimer(memberId: string) {
+  clearTimeout(slideTimers[memberId]);
+  const m = members.value.find(x => x._id === memberId);
+  if (!m) return;
+  const slides = getSlides(m);
+  if (slides.length <= 1) return;
+  if (slides[slideIdx[memberId] ?? 0]?.mediaType !== 'video') {
+    slideTimers[memberId] = setTimeout(() => {
+      const m2 = members.value.find(x => x._id === memberId);
+      if (!m2) return;
+      const slides2 = getSlides(m2);
+      slideIdx[memberId] = ((slideIdx[memberId] ?? 0) + 1) % slides2.length;
+      startSlideTimer(memberId);
+    }, 6000);
+  }
+}
+function nextSlide(m: Member) {
+  const slides = getSlides(m);
+  if (slides.length <= 1) return;
+  slideIdx[m._id] = ((slideIdx[m._id] ?? 0) + 1) % slides.length;
+  startSlideTimer(m._id);
+}
+function prevSlide(m: Member) {
+  const slides = getSlides(m);
+  if (slides.length <= 1) return;
+  slideIdx[m._id] = ((slideIdx[m._id] ?? 0) - 1 + slides.length) % slides.length;
+  startSlideTimer(m._id);
+}
+function goSlide(m: Member, idx: number) {
+  slideIdx[m._id] = idx;
+  startSlideTimer(m._id);
 }
 </script>
 
@@ -117,25 +164,59 @@ function avatarSrc(url: string): string {
                border border-gray-800 hover:border-dgreen-900/60 hover:bg-dgreen-950/20
                transition-all duration-150"
       >
-        <!-- Avatar – mobiili: leveä banneri ylhäällä, desktop: kapea pystysuora -->
+        <!-- Avatar / Slideshow -->
         <div class="relative sm:flex-shrink-0 sm:w-44
                     h-44 sm:h-full
                     bg-dpurple-900/40 sm:border-r sm:border-b-0 border-b border-dpurple-800/20
-                    flex items-center justify-center overflow-hidden"
+                    flex items-center justify-center overflow-hidden select-none"
              @contextmenu.prevent>
-          <img v-if="m.avatarUrl" :src="avatarSrc(m.avatarUrl)" :alt="m.name"
-               draggable="false"
-               class="w-full h-full object-cover object-top select-none" />
-          <span v-else class="text-5xl sm:text-3xl font-bold text-dpurple-400/30 select-none">
+
+          <!-- Current slide -->
+          <template v-if="getSlides(m).length">
+            <img v-if="getSlides(m)[curSlideIdx(m._id)]?.mediaType !== 'video'"
+                 :key="'img-' + m._id + '-' + curSlideIdx(m._id)"
+                 :src="getSlides(m)[curSlideIdx(m._id)]!.url"
+                 :alt="m.name" draggable="false"
+                 class="w-full h-full object-cover object-top" />
+            <video v-else
+                   :key="'vid-' + m._id + '-' + curSlideIdx(m._id)"
+                   :src="getSlides(m)[curSlideIdx(m._id)]!.url"
+                   autoplay muted playsinline
+                   :loop="getSlides(m).length <= 1"
+                   @ended="nextSlide(m)"
+                   class="w-full h-full object-cover" />
+          </template>
+          <span v-else class="text-5xl sm:text-3xl font-bold text-dpurple-400/30">
             {{ initials(m.name) }}
           </span>
-          <!-- Transparent overlay to block image right-click / drag-save -->
-          <div v-if="m.avatarUrl" class="absolute inset-0 z-10" @contextmenu.prevent @dragstart.prevent />
+
+          <!-- Arrows + dots (only if >1 slide) -->
+          <template v-if="getSlides(m).length > 1">
+            <button @click.stop="prevSlide(m)"
+              class="absolute left-1 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full
+                     bg-black/40 hover:bg-black/70 text-white border-0 transition-all">
+              <ChevronLeft class="w-4 h-4" />
+            </button>
+            <button @click.stop="nextSlide(m)"
+              class="absolute right-1 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full
+                     bg-black/40 hover:bg-black/70 text-white border-0 transition-all">
+              <ChevronRight class="w-4 h-4" />
+            </button>
+            <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-20 flex gap-1 pointer-events-none">
+              <button v-for="(_, i) in getSlides(m)" :key="i"
+                @click.stop="goSlide(m, i)"
+                class="rounded-full border-0 transition-all duration-200 pointer-events-auto"
+                :class="i === curSlideIdx(m._id)
+                  ? 'w-3.5 h-1.5 bg-white'
+                  : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/70'" />
+            </div>
+          </template>
+
           <!-- Pisteet-badge kuvan päälle mobiilissa -->
           <div v-if="m.points"
             class="absolute top-3 right-3 sm:hidden flex items-center gap-1 text-xs font-semibold
                    text-dgreen-400 bg-gray-950/80 border border-dgreen-900/50
-                   px-2 py-0.5 rounded-full backdrop-blur-sm">
+                   px-2 py-0.5 rounded-full backdrop-blur-sm z-20">
             <Star class="w-3 h-3" />{{ m.points }}p
           </div>
         </div>

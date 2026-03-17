@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/auth';
 import { useInboxStore } from '../stores/inbox';
 import { useRouter } from 'vue-router';
 import {
-  User, LogOut, Pencil, Check, AlertCircle, Upload, ImageOff,
+  User, LogOut, Pencil, Check, AlertCircle, Upload, ImageOff, X,
   Send, MessageSquare, ChevronDown, ChevronUp, Plus, MailOpen, Mail
 } from 'lucide-vue-next';
 import api from '../api';
@@ -16,10 +16,12 @@ const router = useRouter();
 function logout() { auth.logout(); router.push('/login'); }
 
 // ── JÄSENPROFIILI ──
+interface MemberPhoto { _id: string; url: string; mediaType: 'image' | 'video'; }
 interface Member {
   _id: string; name: string; aliases: string[]; quote: string; born: string;
   highestPromille: string; favDrink: string; location: string;
   email: string; website: string; avatarUrl: string;
+  photos: MemberPhoto[];
 }
 const member = ref<Member | null>(null);
 const memberLoading = ref(true);
@@ -83,6 +85,69 @@ async function handleFileUpload(event: Event) {
   } finally {
     uploading.value = false;
     if (fileInputRef.value) fileInputRef.value.value = '';
+  }
+}
+
+// Photos
+const photoUrlInputProfile = ref('');
+const uploadingMemberPhoto = ref(false);
+const addingPhotoUrl = ref(false);
+const profilePhotoFileRef = ref<HTMLInputElement | null>(null);
+const photoError = ref('');
+const confirmDeletePhotoId = ref<string | null>(null);
+
+const AVATAR_BASE = 'https://digital.pictures.fi/kuvat/k%C3%A4/members-collection/';
+const TRIPOD_RE = /kanniaalio\.tripod\.com\/members\/([^?#]+)/i;
+function avatarSrc(url: string): string {
+  if (!url) return '';
+  const tripodMatch = url.match(TRIPOD_RE);
+  if (tripodMatch) return `${AVATAR_BASE}${tripodMatch[1]}/_full.jpg`;
+  if (!url.startsWith('http')) return `${AVATAR_BASE}${url}/_full.jpg`;
+  return url;
+}
+
+async function uploadOwnPhoto(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  uploadingMemberPhoto.value = true;
+  photoError.value = '';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { data } = await api.post('/members/mine/photos', fd);
+    member.value = data;
+  } catch (err: any) {
+    photoError.value = err.response?.data?.message || 'Lataus epäonnistui';
+  } finally {
+    uploadingMemberPhoto.value = false;
+    if (profilePhotoFileRef.value) profilePhotoFileRef.value.value = '';
+  }
+}
+async function addOwnPhotoUrl() {
+  const url = photoUrlInputProfile.value.trim();
+  if (!url) return;
+  addingPhotoUrl.value = true;
+  photoError.value = '';
+  try {
+    const fd = new FormData();
+    fd.append('url', url);
+    const { data } = await api.post('/members/mine/photos', fd);
+    member.value = data;
+    photoUrlInputProfile.value = '';
+  } catch (err: any) {
+    photoError.value = err.response?.data?.message || 'Lisäys epäonnistui';
+  } finally {
+    addingPhotoUrl.value = false;
+  }
+}
+async function deleteOwnPhoto(photoId: string) {
+  photoError.value = '';
+  confirmDeletePhotoId.value = null;
+  try {
+    const { data } = await api.delete(`/members/mine/photos/${photoId}`);
+    member.value = data;
+  } catch (err: any) {
+    photoError.value = err.response?.data?.message || 'Poisto epäonnistui';
   }
 }
 
@@ -190,25 +255,27 @@ onMounted(() => { loadMember(); loadMessages(); });
 
       <div v-else class="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden">
         <!-- Preview -->
-        <div class="flex items-center gap-4 p-4">
-          <div class="w-14 h-14 rounded-xl overflow-hidden shrink-0
-                      bg-dpurple-900/40 border border-dpurple-800/30 flex items-center justify-center">
-            <img v-if="member.avatarUrl" :src="member.avatarUrl" :alt="member.name"
-                 class="w-full h-full object-cover object-top" />
-            <span v-else class="text-lg font-bold text-dpurple-400/60">{{ initials(member.name) }}</span>
+        <div class="p-4">
+          <div class="flex items-start gap-3">
+            <div class="w-14 h-14 rounded-xl overflow-hidden shrink-0
+                        bg-dpurple-900/40 border border-dpurple-800/30 flex items-center justify-center">
+              <img v-if="member.avatarUrl" :src="avatarSrc(member.avatarUrl)" :alt="member.name"
+                   class="w-full h-full object-cover object-top" />
+              <span v-else class="text-lg font-bold text-dpurple-400/60">{{ initials(member.name) }}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-base font-bold text-white">{{ member.name }}</div>
+              <div v-if="member.quote" class="text-xs italic text-dpurple-400/70 mt-0.5">&quot;{{ member.quote }}&quot;</div>
+              <button @click="editOpen = !editOpen"
+                class="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border-0
+                       bg-dgreen-900/40 hover:bg-dgreen-800/40 text-dgreen-400 transition-all">
+                <Pencil class="w-3.5 h-3.5" />
+                {{ editOpen ? 'Sulje' : 'Muokkaa' }}
+                <ChevronUp v-if="editOpen" class="w-3 h-3" />
+                <ChevronDown v-else class="w-3 h-3" />
+              </button>
+            </div>
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-base font-bold text-white">{{ member.name }}</div>
-            <div v-if="member.quote" class="text-xs italic text-dpurple-400/70 mt-0.5 truncate">"{{ member.quote }}"</div>
-          </div>
-          <button @click="editOpen = !editOpen"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border-0
-                   bg-dgreen-900/40 hover:bg-dgreen-800/40 text-dgreen-400 transition-all">
-            <Pencil class="w-3.5 h-3.5" />
-            {{ editOpen ? 'Sulje' : 'Muokkaa' }}
-            <ChevronUp v-if="editOpen" class="w-3 h-3" />
-            <ChevronDown v-else class="w-3 h-3" />
-          </button>
         </div>
 
         <!-- Muokkauslomake -->
@@ -218,7 +285,7 @@ onMounted(() => { loadMember(); loadMessages(); });
           <div class="flex items-center gap-3 mb-1">
             <div class="w-12 h-12 rounded-xl overflow-hidden shrink-0
                         bg-dpurple-900/40 border border-dpurple-800/30 flex items-center justify-center">
-              <img v-if="form.avatarUrl" :src="form.avatarUrl" class="w-full h-full object-cover object-top" />
+              <img v-if="form.avatarUrl" :src="avatarSrc(form.avatarUrl)" class="w-full h-full object-cover object-top" />
               <ImageOff v-else class="w-5 h-5 text-dpurple-700" />
             </div>
             <div>
@@ -292,6 +359,83 @@ onMounted(() => { loadMember(); loadMessages(); });
               <input v-model="form.avatarUrl" type="text" placeholder="https://..."
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+            </div>
+
+            <!-- Photos -->
+            <div class="sm:col-span-2 space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs text-gray-600">Kuvat / videot</label>
+                <span :class="(member?.photos?.length ?? 0) >= 10 ? 'text-red-400' : 'text-gray-600'"
+                  class="text-[11px]">{{ member?.photos?.length ?? 0 }} / 10</span>
+              </div>
+              <!-- Thumbnails -->
+              <div v-if="(member?.photos?.length ?? 0) > 0"
+                class="grid grid-cols-4 gap-2">
+                <div v-for="photo in (member?.photos ?? [])" :key="photo._id"
+                  class="relative aspect-square rounded-lg overflow-hidden bg-gray-900 border border-gray-800 group">
+                  <img v-if="photo.mediaType !== 'video'" :src="photo.url"
+                    class="w-full h-full object-cover" />
+                  <video v-else :src="photo.url"
+                    class="w-full h-full object-cover" muted />
+                  <!-- Confirm overlay -->
+                  <div v-if="confirmDeletePhotoId === photo._id"
+                    class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-1.5 p-1">
+                    <p class="text-[10px] text-white text-center leading-tight">Poistetaanko?</p>
+                    <div class="flex gap-1">
+                      <button @click="deleteOwnPhoto(photo._id)"
+                        class="px-2 py-1 rounded-lg bg-red-700 hover:bg-red-600 text-white text-[10px] border-0 transition-colors">
+                        Poista
+                      </button>
+                      <button @click="confirmDeletePhotoId = null"
+                        class="px-2 py-1 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-[10px] border-0 transition-colors">
+                        Peru
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Delete trigger -->
+                  <button v-else @click="confirmDeletePhotoId = photo._id"
+                    class="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-red-900/80
+                           flex items-center justify-center transition-colors border-0 p-0
+                           opacity-0 group-hover:opacity-100 focus:opacity-100">
+                    <X class="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              </div>
+              <!-- Add -->
+              <div v-if="(member?.photos?.length ?? 0) < 10" class="space-y-1.5">
+                <div class="flex gap-1.5">
+                  <input v-model="photoUrlInputProfile" type="text"
+                    placeholder="Liitä URL tai tiedostonimi..."
+                    class="flex-1 px-3 py-1.5 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
+                           placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors"
+                    @keyup.enter="addOwnPhotoUrl"
+                    @input="photoError = ''" />
+                  <button @click="addOwnPhotoUrl"
+                    :disabled="!photoUrlInputProfile.trim() || addingPhotoUrl"
+                    class="px-3 py-1.5 rounded-xl bg-dgreen-800/60 hover:bg-dgreen-700/60 text-white text-sm
+                           border-0 disabled:opacity-40 transition-colors flex items-center gap-1">
+                    <Plus class="w-3.5 h-3.5" />
+                    {{ addingPhotoUrl ? '...' : 'Lisää' }}
+                  </button>
+                </div>
+                <div>
+                  <input ref="profilePhotoFileRef" type="file"
+                    accept="image/*,video/*,.heic,.heif,.mov,.mp4,.m4v,.webm"
+                    class="hidden" @change="uploadOwnPhoto" />
+                  <button @click="profilePhotoFileRef?.click()"
+                    :disabled="uploadingMemberPhoto"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border
+                           border-gray-700 text-gray-400 hover:bg-gray-800/40 disabled:opacity-40 transition-colors">
+                    <Upload class="w-3.5 h-3.5" />
+                    {{ uploadingMemberPhoto ? 'Ladataan...' : 'Tai lataa tiedosto (max 50 MB)' }}
+                  </button>
+                </div>
+              </div>
+              <!-- Photo error -->
+              <div v-if="photoError"
+                class="flex items-center gap-1.5 text-xs text-red-400">
+                <AlertCircle class="w-3.5 h-3.5 shrink-0" />{{ photoError }}
+              </div>
             </div>
           </div>
 
