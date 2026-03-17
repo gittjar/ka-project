@@ -116,6 +116,12 @@ const creatingFolder = ref(false);
 const deleteFolderTarget = ref<FolderItem | null>(null);
 const deletingFolder = ref(false);
 
+// Rename folder
+const renameFolderTarget = ref<FolderItem | null>(null);
+const renameDraft = ref('');
+const renaming = ref(false);
+const renameInputRef = ref<HTMLInputElement | null>(null);
+
 // Sort (admin)
 const sortMenuOpen = ref(false);
 type SortMode = 'date-desc' | 'date-asc' | 'alpha';
@@ -500,6 +506,21 @@ async function doDeleteFolder() {
   }
 }
 
+async function doRenameFolder() {
+  if (!renameFolderTarget.value || !renameDraft.value.trim()) return;
+  renaming.value = true;
+  try {
+    const { data } = await api.patch(`/images/folders/${renameFolderTarget.value._id}`, { name: renameDraft.value.trim() });
+    const idx = folders.value.findIndex(f => f._id === renameFolderTarget.value!._id);
+    if (idx !== -1) folders.value[idx]!.name = data.name;
+    renameFolderTarget.value = null;
+  } catch (e: any) {
+    uploadError.value = e.response?.data?.message || 'Uudelleennimeäminen epäonnistui';
+  } finally {
+    renaming.value = false;
+  }
+}
+
 // ── Carousel (admin) ──────────────────────────────────────────────────────────
 
 async function loadCarouselIds() {
@@ -765,12 +786,18 @@ onUnmounted(() => {
           @drop.prevent="auth.isAdmin && onDropFolder($event, folder._id)">
           <FolderOpen class="w-7 h-7 text-dpurple-500/70 shrink-0" />
           <span class="text-sm font-medium text-white truncate">{{ folder.name }}</span>
-          <button v-if="auth.isAdmin"
-            @click.stop="deleteFolderTarget = folder"
-            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-lg
-                   bg-black/70 text-gray-500 hover:text-red-400 border-0 transition-all">
-            <X class="w-3.5 h-3.5" />
-          </button>
+          <div v-if="auth.isAdmin" class="absolute top-1.5 right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+            <button
+              @click.stop="renameFolderTarget = folder; renameDraft = folder.name; nextTick(() => renameInputRef?.focus())"
+              class="p-1 rounded-lg bg-black/70 text-gray-500 hover:text-white border-0 transition-all">
+              <Pencil class="w-3.5 h-3.5" />
+            </button>
+            <button
+              @click.stop="deleteFolderTarget = folder"
+              class="p-1 rounded-lg bg-black/70 text-gray-500 hover:text-red-400 border-0 transition-all">
+              <X class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1193,6 +1220,44 @@ onUnmounted(() => {
                      text-sm font-medium border-0 bg-red-900/50 hover:bg-red-800/60
                      text-red-300 disabled:opacity-50 transition-all">
               <Trash2 class="w-3.5 h-3.5" />{{ deletingFolder ? 'Poistetaan...' : 'Poista' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- ── UUDELLEENNIMEÄ KANSIO ── -->
+  <Teleport to="body">
+    <div v-if="renameFolderTarget"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" @click="renameFolderTarget = null" />
+      <div class="relative w-full sm:max-w-sm bg-gray-950 border border-gray-800/60
+                  rounded-t-2xl sm:rounded-2xl shadow-2xl z-10 overflow-hidden">
+        <div class="h-1 w-full bg-gradient-to-r from-dpurple-900/60 via-dpurple-700/60 to-dpurple-900/60" />
+        <div class="px-6 pt-6 pb-5">
+          <h3 class="text-sm font-bold text-white mb-4">Nimeä kansio uudelleen</h3>
+          <input
+            ref="renameInputRef"
+            v-model="renameDraft"
+            type="text"
+            placeholder="Kansion uusi nimi"
+            class="w-full px-4 py-2.5 rounded-xl text-sm bg-gray-900 border border-gray-800
+                   text-white placeholder-gray-700 focus:outline-none focus:border-dpurple-700
+                   transition-all mb-4"
+            @keyup.enter="doRenameFolder"
+            @keyup.escape="renameFolderTarget = null" />
+          <div class="flex gap-2">
+            <button @click="renameFolderTarget = null"
+              class="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-800
+                     text-gray-400 hover:text-white transition-all bg-transparent">
+              Peruuta
+            </button>
+            <button @click="doRenameFolder" :disabled="renaming || !renameDraft.trim()"
+              class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                     text-sm font-medium border-0 bg-dpurple-900/60 hover:bg-dpurple-800/60
+                     text-dpurple-300 disabled:opacity-50 transition-all">
+              <Check class="w-3.5 h-3.5" />{{ renaming ? 'Tallennetaan...' : 'Tallenna' }}
             </button>
           </div>
         </div>

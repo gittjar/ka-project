@@ -137,7 +137,25 @@ router.post('/folders', authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE /api/images/folders/:id  â€” rekursiivinen poisto, vain admin
+// PATCH /api/images/folders/:id  – uudelleennimeäminen, vain admin
+router.patch('/folders/:id', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ message: 'Kansion nimi vaaditaan' });
+    const folder = await Folder.findByIdAndUpdate(
+      req.params.id,
+      { name: name.trim() },
+      { new: true }
+    );
+    if (!folder) return res.status(404).json({ message: 'Kansiota ei löydy' });
+    res.json(folder);
+  } catch (err) {
+    res.status(500).json({ message: 'Uudelleennimeäminen epäonnistui', error: err.message });
+  }
+});
+
+// DELETE /api/images/folders/:id  – rekursiivinen poisto, vain admin
 router.delete('/folders/:id', authMiddleware, async (req, res) => {
   try {
     if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });

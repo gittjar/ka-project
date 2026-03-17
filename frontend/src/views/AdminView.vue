@@ -175,6 +175,19 @@ function initials(name: string) {
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
+const AVATAR_BASE = 'https://digital.pictures.fi/kuvat/k%C3%A4/members-collection/';
+const TRIPOD_RE = /kanniaalio\.tripod\.com\/members\/([^?#]+)/i;
+function avatarSrc(url: string): string {
+  if (!url) return '';
+  // Rewrite legacy tripod URLs to digital.pictures.fi
+  const tripodMatch = url.match(TRIPOD_RE);
+  if (tripodMatch) return `${AVATAR_BASE}${tripodMatch[1]}/_full.jpg`;
+  // Plain filename → digital.pictures.fi
+  if (!url.startsWith('http')) return `${AVATAR_BASE}${url}/_full.jpg`;
+  // Full URL (Azure Blob or other) → use as-is
+  return url;
+}
+
 // ── KÄYTTÄJÄT ──
 const users = ref<AppUser[]>([]);
 const usersLoading = ref(false);
@@ -428,7 +441,7 @@ onMounted(loadMembers);
                @click="toggleExpand(m._id)">
             <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0
                         bg-dpurple-900/40 flex items-center justify-center text-xs font-bold text-dpurple-400">
-              <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer"
+              <img v-if="m.avatarUrl" :src="avatarSrc(m.avatarUrl)" :alt="m.name" referrerpolicy="no-referrer"
                    class="w-full h-full object-cover" />
               <span v-else>{{ initials(m.name) }}</span>
             </div>
@@ -466,7 +479,7 @@ onMounted(loadMembers);
               <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden
                           bg-dpurple-900/30 border border-dpurple-800/20
                           flex items-center justify-center">
-                <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer"
+                <img v-if="m.avatarUrl" :src="avatarSrc(m.avatarUrl)" :alt="m.name" referrerpolicy="no-referrer"
                      class="w-full h-full object-cover object-top" />
                 <span v-else class="text-2xl font-bold text-dpurple-700">{{ initials(m.name) }}</span>
               </div>
@@ -694,7 +707,7 @@ onMounted(loadMembers);
             <div class="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0
                         bg-dpurple-900/40 border border-dpurple-800/30
                         flex items-center justify-center">
-              <img v-if="form.avatarUrl" :src="form.avatarUrl" :alt="form.name"
+              <img v-if="form.avatarUrl" :src="avatarSrc(form.avatarUrl)" :alt="form.name"
                    referrerpolicy="no-referrer" class="w-full h-full object-cover" />
               <ImageOff v-else class="w-6 h-6 text-dpurple-800" />
             </div>
@@ -707,7 +720,7 @@ onMounted(loadMembers);
                 <Upload class="w-3.5 h-3.5" />
                 {{ uploading ? 'Ladataan...' : 'Lataa kuva' }}
               </button>
-              <p class="text-xs text-gray-700">tai syötä URL-kenttään · vaatii Azure Blob</p>
+              <p class="text-xs text-gray-700">Lataus menee Azure Blob → täysi URL tallentuu</p>
             </div>
             <button @click="form.active = !form.active"
               class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors"
@@ -780,10 +793,11 @@ onMounted(loadMembers);
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
             </div>
             <div class="sm:col-span-2">
-              <label class="block text-xs text-gray-600 mb-1">Avatar URL (manuaalinen)</label>
-              <input v-model="form.avatarUrl" type="text" placeholder="https://..."
+              <label class="block text-xs text-gray-600 mb-1">Avatar URL tai tiedostonimi</label>
+              <input v-model="form.avatarUrl" type="text" placeholder="jarno01.jpg tai https://..."
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+              <p class="text-[11px] text-gray-700 mt-1">Pelkkä tiedostonimi (esim. <span class="text-gray-500">jarno01.jpg</span>) hakee digital.pictures.fi · täysi URL käytetään sellaisenaan</p>
             </div>
           </div>
 

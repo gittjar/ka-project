@@ -53,6 +53,19 @@ const filtered = computed(() => {
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 }
+
+const AVATAR_BASE = 'https://digital.pictures.fi/kuvat/k%C3%A4/members-collection/';
+const TRIPOD_RE = /kanniaalio\.tripod\.com\/members\/([^?#]+)/i;
+function avatarSrc(url: string): string {
+  if (!url) return '';
+  // Rewrite legacy tripod URLs to digital.pictures.fi
+  const tripodMatch = url.match(TRIPOD_RE);
+  if (tripodMatch) return `${AVATAR_BASE}${tripodMatch[1]}/_full.jpg`;
+  // Plain filename → digital.pictures.fi
+  if (!url.startsWith('http')) return `${AVATAR_BASE}${url}/_full.jpg`;
+  // Full URL (Azure Blob or other) → use as-is
+  return url;
+}
 </script>
 
 <template>
@@ -108,12 +121,16 @@ function initials(name: string) {
         <div class="relative sm:flex-shrink-0 sm:w-44
                     h-44 sm:h-full
                     bg-dpurple-900/40 sm:border-r sm:border-b-0 border-b border-dpurple-800/20
-                    flex items-center justify-center overflow-hidden">
-          <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.name" referrerpolicy="no-referrer"
-               class="w-full h-full object-cover object-top" />
+                    flex items-center justify-center overflow-hidden"
+             @contextmenu.prevent>
+          <img v-if="m.avatarUrl" :src="avatarSrc(m.avatarUrl)" :alt="m.name"
+               draggable="false"
+               class="w-full h-full object-cover object-top select-none" />
           <span v-else class="text-5xl sm:text-3xl font-bold text-dpurple-400/30 select-none">
             {{ initials(m.name) }}
           </span>
+          <!-- Transparent overlay to block image right-click / drag-save -->
+          <div v-if="m.avatarUrl" class="absolute inset-0 z-10" @contextmenu.prevent @dragstart.prevent />
           <!-- Pisteet-badge kuvan päälle mobiilissa -->
           <div v-if="m.points"
             class="absolute top-3 right-3 sm:hidden flex items-center gap-1 text-xs font-semibold
