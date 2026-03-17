@@ -75,7 +75,7 @@ onUnmounted(stopAuto);
 
 <template>
   <!-- ── Hero – carousel tai staattinen taustahehku ── -->
-  <section class="relative overflow-hidden min-h-[70vh] flex flex-col">
+  <section class="relative overflow-hidden min-h-[70vh] flex flex-col rounded-2xl mx-3 sm:mx-4">
 
     <!-- Carousel-taustakuva -->
     <Transition name="carousel-fade" mode="out-in">
