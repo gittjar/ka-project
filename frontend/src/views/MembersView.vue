@@ -3,7 +3,6 @@ import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
 import {
   Search, ArrowUpDown,
   MapPin, GlassWater, Flame, Cake, Star, Globe, Mail, Hash,
-  ChevronLeft, ChevronRight,
 } from 'lucide-vue-next';
 import api from '../api';
 
@@ -168,47 +167,45 @@ function goSlide(m: Member, idx: number) {
         <div class="relative sm:flex-shrink-0 sm:w-44
                     h-44 sm:h-full
                     bg-dpurple-900/40 sm:border-r sm:border-b-0 border-b border-dpurple-800/20
-                    flex items-center justify-center overflow-hidden select-none"
+                    flex items-center justify-center select-none"
              @contextmenu.prevent>
 
-          <!-- Current slide -->
-          <template v-if="getSlides(m).length">
-            <img v-if="getSlides(m)[curSlideIdx(m._id)]?.mediaType !== 'video'"
-                 :key="'img-' + m._id + '-' + curSlideIdx(m._id)"
-                 :src="getSlides(m)[curSlideIdx(m._id)]!.url"
-                 :alt="m.name" draggable="false"
-                 class="w-full h-full object-cover object-top" />
-            <video v-else
-                   :key="'vid-' + m._id + '-' + curSlideIdx(m._id)"
+          <!-- Image clip wrapper -->
+          <div class="absolute inset-0 overflow-hidden rounded-tl-2xl rounded-bl-2xl rounded-tr-2xl rounded-br-none sm:rounded-tr-none sm:rounded-bl-2xl">
+            <!-- Current slide -->
+            <template v-if="getSlides(m).length">
+              <img v-if="getSlides(m)[curSlideIdx(m._id)]?.mediaType !== 'video'"
+                   :key="'img-' + m._id + '-' + curSlideIdx(m._id)"
                    :src="getSlides(m)[curSlideIdx(m._id)]!.url"
-                   autoplay muted playsinline
-                   :loop="getSlides(m).length <= 1"
-                   @ended="nextSlide(m)"
-                   class="w-full h-full object-cover" />
-          </template>
-          <span v-else class="text-5xl sm:text-3xl font-bold text-dpurple-400/30">
-            {{ initials(m.name) }}
-          </span>
+                   :alt="m.name" draggable="false"
+                   class="w-full h-full object-cover object-top" />
+              <video v-else
+                     :key="'vid-' + m._id + '-' + curSlideIdx(m._id)"
+                     :src="getSlides(m)[curSlideIdx(m._id)]!.url"
+                     autoplay muted playsinline
+                     :loop="getSlides(m).length <= 1"
+                     @ended="nextSlide(m)"
+                     class="w-full h-full object-cover" />
+            </template>
+            <span v-else class="absolute inset-0 flex items-center justify-center text-5xl sm:text-3xl font-bold text-dpurple-400/30">
+              {{ initials(m.name) }}
+            </span>
+          </div>
 
-          <!-- Arrows + dots (only if >1 slide) -->
+          <!-- Arrows — outside overflow-hidden, so not clipped -->
           <template v-if="getSlides(m).length > 1">
-            <button @click.stop="prevSlide(m)"
-              class="absolute left-1 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full
-                     bg-black/40 hover:bg-black/70 text-white border-0 transition-all">
-              <ChevronLeft class="w-4 h-4" />
-            </button>
-            <button @click.stop="nextSlide(m)"
-              class="absolute right-1 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full
-                     bg-black/40 hover:bg-black/70 text-white border-0 transition-all">
-              <ChevronRight class="w-4 h-4" />
-            </button>
-            <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-20 flex gap-1 pointer-events-none">
-              <button v-for="(_, i) in getSlides(m)" :key="i"
-                @click.stop="goSlide(m, i)"
-                class="rounded-full border-0 transition-all duration-200 pointer-events-auto"
-                :class="i === curSlideIdx(m._id)
-                  ? 'w-3.5 h-1.5 bg-white'
-                  : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/70'" />
+            <div class="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between px-2 py-1"
+                 style="background:rgba(0,0,0,0.55)">
+              <button @click.stop="prevSlide(m)"
+                class="w-7 h-7 rounded-full flex items-center justify-center border-0 transition-colors select-none"
+                style="background:rgba(20,0,40,0.85);color:#d1d5db;font-size:16px;line-height:1">
+                &#8249;
+              </button>
+              <button @click.stop="nextSlide(m)"
+                class="w-7 h-7 rounded-full flex items-center justify-center border-0 transition-colors select-none"
+                style="background:rgba(20,0,40,0.85);color:#d1d5db;font-size:16px;line-height:1">
+                &#8250;
+              </button>
             </div>
           </template>
 
