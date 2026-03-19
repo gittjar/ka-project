@@ -47,6 +47,8 @@ interface MediaItem {
   sortOrder?: number;
   carouselOrder?: number | null;
   exif?: ExifData;
+  viewCount?: number;
+  openedAt?: string[];
 }
 interface UploadTask {
   name: string;
@@ -270,20 +272,32 @@ function onDrop(e: DragEvent) {
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 
+async function trackView(item: MediaItem) {
+  if (!auth.isLoggedIn) return;
+  try {
+    const { data } = await api.post(`/images/media/${item._id}/view`);
+    item.viewCount = data.viewCount;
+    item.openedAt  = data.openedAt;
+  } catch { /* ignore */ }
+}
+
 function openLightbox(idx: number) {
   lightboxIdx.value = idx;
   lightboxItem.value = mediaItems.value[idx]!;
   editingCaption.value = false;
+  trackView(lightboxItem.value);
 }
 function lightboxPrev() {
   lightboxIdx.value = (lightboxIdx.value - 1 + mediaItems.value.length) % mediaItems.value.length;
   lightboxItem.value = mediaItems.value[lightboxIdx.value]!;
   editingCaption.value = false;
+  trackView(lightboxItem.value);
 }
 function lightboxNext() {
   lightboxIdx.value = (lightboxIdx.value + 1) % mediaItems.value.length;
   lightboxItem.value = mediaItems.value[lightboxIdx.value]!;
   editingCaption.value = false;
+  trackView(lightboxItem.value);
 }
 function closeLightbox() {
   lightboxItem.value = null;
@@ -1065,6 +1079,23 @@ onUnmounted(() => {
           </div>
           <div>{{ new Date(lightboxItem.createdAt).toLocaleString('fi-FI', { dateStyle:'medium', timeStyle:'short' }) }}</div>
           <div v-if="lightboxItem.fileSize">{{ fmtBytes(lightboxItem.fileSize) }}</div>
+
+          <!-- Katselustatistiikka -->
+          <div v-if="lightboxItem.viewCount" class="pt-1 border-t border-gray-800/60">
+            <div class="flex items-center gap-1.5 text-gray-500">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span>{{ lightboxItem.viewCount }} avausta</span>
+            </div>
+            <div v-if="lightboxItem.openedAt?.length" class="mt-1.5 space-y-0.5 pl-4.5">
+              <div v-for="ts in [...(lightboxItem.openedAt ?? [])].reverse()" :key="ts"
+                class="text-[10px] text-gray-700">
+                {{ new Date(ts).toLocaleString('fi-FI', { dateStyle:'short', timeStyle:'short' }) }}
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Actions -->

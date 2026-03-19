@@ -328,6 +328,25 @@ router.put('/carousel', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/images/media/:id/view  — kirjautunut käyttäjä, lisää katselukerran
+router.post('/media/:id/view', authMiddleware, async (req, res) => {
+  try {
+    const now = new Date();
+    const item = await GalleryImage.findByIdAndUpdate(
+      req.params.id,
+      {
+        $inc: { viewCount: 1 },
+        $push: { openedAt: { $each: [now], $slice: -5 } },
+      },
+      { new: true, select: 'viewCount openedAt' }
+    );
+    if (!item) return res.status(404).json({ message: 'Kuvaa ei löydy' });
+    res.json({ viewCount: item.viewCount, openedAt: item.openedAt });
+  } catch (err) {
+    res.status(500).json({ message: 'Virhe', error: err.message });
+  }
+});
+
 // DELETE /api/images/media/:id  — oma tai admin
 router.delete('/media/:id', authMiddleware, async (req, res) => {
   try {

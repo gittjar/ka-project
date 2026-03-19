@@ -11,6 +11,10 @@ const galleryImageSchema = new mongoose.Schema({
   sortOrder:  { type: Number, default: 0, index: true },
   carouselOrder: { type: Number, default: null, index: true }, // null = ei carouselissa, 0-4 = paikka
 
+  // Katselustatistiikka
+  viewCount: { type: Number, default: 0 },
+  openedAt:  [{ type: Date }], // Rolling viimeiset 5 avauskertaa
+
   // EXIF-metatiedot (kuvat)
   exif: {
     dateTaken:    { type: Date },
