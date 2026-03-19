@@ -94,6 +94,11 @@ onUnmounted(() => {
             class="ml-3 text-xs text-gray-600 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
             Kirjaudu ulos
           </button>
+          <RouterLink v-else to="/login"
+            class="ml-3 px-3 py-1.5 rounded-xl text-sm font-medium text-dpurple-400 border border-dpurple-800/50
+                   hover:bg-dpurple-900/40 hover:border-dpurple-600/60 transition-all">
+            Kirjaudu
+          </RouterLink>
         </div>
 
         <!-- Mobile hamburger -->
@@ -146,6 +151,12 @@ onUnmounted(() => {
                  transition-all border-0 bg-transparent text-left">
           Kirjaudu ulos
         </button>
+        <RouterLink v-else to="/login"
+          class="block px-3 py-2 rounded-xl text-sm font-medium text-dpurple-400
+                 hover:bg-dpurple-900/40 transition-all"
+          @click="mobileOpen = false">
+          Kirjaudu
+        </RouterLink>
       </div>
     </nav>
   </div>

@@ -119,9 +119,11 @@ onUnmounted(stopAuto);
                  drop-shadow-[0_2px_16px_rgba(0,0,0,0.8)]">
         Kanniaalio<span class="text-dpurple-400">+</span>
       </h1>
-      <p class="text-gray-300 text-lg sm:text-xl max-w-xl mx-auto leading-relaxed drop-shadow">
-        Internet-aikakausien perintöä. Yhteisö, historia ja meininki yhdessä paikassa.
-      </p>
+      <div class="rounded-2xl border border-dpurple-800/40 bg-black/30 backdrop-blur-sm px-6 py-4 max-w-xl mx-auto shadow-lg">
+        <p class="text-gray-300 text-lg sm:text-xl leading-relaxed drop-shadow">
+          BatMUD-pelaajien yhteisö, joka on toiminut jo vuodesta 2003. Päivän polttavat keskustelut käydään BatMUD:in puolella, mutta täällä voit tutustua jäseniin, selailla kuvia ja tarinoita sekä hakea mukaan!
+        </p>
+      </div>
 
       <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
         <RouterLink to="/jasenet"
