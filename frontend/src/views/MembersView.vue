@@ -120,13 +120,13 @@ function goSlide(m: Member, idx: number) {
     <!-- Otsikko -->
     <div class="mb-8">
       <h1 class="text-3xl font-extrabold text-white mb-1">Jäsenet</h1>
-      <p class="text-gray-600 text-sm">{{ members.length }} jäsentä rekisterissä</p>
+      <p class="text-gray-400 text-sm">{{ members.length }} jäsentä rekisterissä</p>
     </div>
 
     <!-- Hakupalkki + lajittelu -->
     <div class="flex flex-col sm:flex-row gap-3 mb-6">
       <div class="relative flex-1">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
         <input
           v-model="search" type="text"
           placeholder="Hae nimellä, aliaksella, quotella tai paikkakunnalla..."
@@ -143,15 +143,15 @@ function goSlide(m: Member, idx: number) {
           <option value="location">Paikkakunta</option>
           <option value="points">Pisteet</option>
         </select>
-        <ArrowUpDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
+        <ArrowUpDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
       </div>
     </div>
 
     <!-- Ladataan -->
-    <div v-if="loading" class="text-gray-600 py-20 text-center text-sm">Ladataan jäseniä...</div>
+    <div v-if="loading" class="text-gray-400 py-20 text-center text-sm">Ladataan jäseniä...</div>
 
     <!-- Ei tuloksia -->
-    <div v-else-if="filtered.length === 0" class="text-gray-600 italic py-20 text-center text-sm">
+    <div v-else-if="filtered.length === 0" class="text-gray-400 italic py-20 text-center text-sm">
       Ei tuloksia haulla "{{ search }}"
     </div>
 
@@ -243,31 +243,31 @@ function goSlide(m: Member, idx: number) {
           </div>
 
           <!-- Quote -->
-          <p v-if="m.quote" class="text-xs sm:text-sm italic text-dpurple-400/70 leading-relaxed line-clamp-2">
+          <p v-if="m.quote" class="text-xs sm:text-sm italic text-dpurple-400/90 leading-relaxed line-clamp-2">
             "{{ m.quote }}"
           </p>
 
           <!-- Meta-tiedot -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-500">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-400">
             <span v-if="m.born" class="flex items-center gap-1.5 truncate">
-              <Cake class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.born }}
+              <Cake class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.born }}
             </span>
             <span v-if="m.location" class="flex items-center gap-1.5 truncate">
-              <MapPin class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.location }}
+              <MapPin class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.location }}
             </span>
             <span v-if="m.favDrink" class="flex items-center gap-1.5 truncate">
-              <GlassWater class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.favDrink }}
+              <GlassWater class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.favDrink }}
             </span>
             <span v-if="m.highestPromille" class="flex items-center gap-1.5 truncate">
-              <Flame class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.highestPromille }}
+              <Flame class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.highestPromille }}
             </span>
             <a v-if="m.website && m.website.startsWith('http')"
               :href="m.website" target="_blank" rel="noopener noreferrer"
               class="flex items-center gap-1.5 hover:text-dgreen-400 transition-colors truncate">
-              <Globe class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.website.replace(/^https?:\/\//, '') }}
+              <Globe class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.website.replace(/^https?:\/\//, '') }}
             </a>
             <span v-if="m.email" class="flex items-center gap-1.5 truncate">
-              <Mail class="w-3.5 h-3.5 text-gray-700 shrink-0" />{{ m.email }}
+              <Mail class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.email }}
             </span>
           </div>
 
@@ -276,7 +276,7 @@ function goSlide(m: Member, idx: number) {
     </div>
 
     <!-- Laskuri -->
-    <p v-if="!loading && filtered.length > 0" class="text-xs text-gray-700 mt-8 text-center">
+    <p v-if="!loading && filtered.length > 0" class="text-xs text-gray-500 mt-8 text-center">
       {{ filtered.length }} / {{ members.length }} jäsentä
     </p>
 

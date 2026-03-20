@@ -268,7 +268,7 @@ function formatAmount(n: number): string {
               class="border-t border-dpurple-900/40 transition-colors hover:bg-dpurple-900/25"
               :class="i % 2 === 0 ? 'bg-dpurple-950/50' : ''"
             >
-              <td class="px-2 py-1.5 text-gray-600 text-xs tabular-nums text-right align-top">{{ i + 1 }}</td>
+              <td class="px-2 py-1.5 text-gray-500 text-xs tabular-nums text-right align-top">{{ i + 1 }}</td>
               <td class="px-3 py-1.5 align-top">
                 <div class="font-medium whitespace-nowrap" :class="donorBadge(d.name) ? 'text-amber-200' : 'text-dpurple-400'">
                   <span
@@ -277,7 +277,7 @@ function formatAmount(n: number): string {
                     :title="`Yhteensä ${formatAmount(donorTotals.get(d.name) ?? 0)} kultaa`"
                   >{{ donorBadge(d.name) }}</span>{{ d.name }}
                 </div>
-                <div v-if="d.message" class="text-gray-500 text-xs mt-0.5 sm:hidden leading-tight">{{ d.message }}</div>
+                <div v-if="d.message" class="text-gray-400 text-xs mt-0.5 sm:hidden leading-tight">{{ d.message }}</div>
               </td>
               <td
                 class="px-3 py-1.5 text-right font-mono whitespace-nowrap align-top"
@@ -295,7 +295,7 @@ function formatAmount(n: number): string {
               <td class="px-3 py-2.5 text-right font-bold font-mono text-amber-300 whitespace-nowrap">
                 {{ formatAmount(total) }}
               </td>
-              <td class="hidden sm:table-cell px-3 py-2.5 text-gray-500 text-xs">kultaa</td>
+              <td class="hidden sm:table-cell px-3 py-2.5 text-gray-400 text-xs">kultaa</td>
             </tr>
           </tfoot>
         </table>

@@ -184,7 +184,7 @@ onUnmounted(stopAuto);
 
   <!-- Navigaatiokortit -->
   <section class="px-4 sm:px-8 lg:px-12 pb-16 pt-10">
-    <h2 class="text-xs font-semibold text-gray-600 uppercase tracking-widest mb-4 text-center">
+    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 text-center">
       Mitä löydät
     </h2>
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
@@ -202,7 +202,7 @@ onUnmounted(stopAuto);
           :class="nav.indexOf(item) % 2 === 0 ? 'text-dgreen-400' : 'text-dpurple-400'" />
         <div>
           <p class="text-sm font-semibold text-gray-200 group-hover:text-white">{{ item.label }}</p>
-          <p class="text-xs text-gray-600 mt-0.5 leading-snug">{{ item.desc }}</p>
+          <p class="text-xs text-gray-400 mt-0.5 leading-snug">{{ item.desc }}</p>
         </div>
       </RouterLink>
     </div>

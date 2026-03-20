@@ -91,13 +91,13 @@ onUnmounted(() => {
             </span>
           </RouterLink>
           <button v-if="auth.isLoggedIn" @click="logout()"
-            class="ml-3 text-xs text-gray-600 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
+            class="ml-3 text-xs text-gray-500 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
             Kirjaudu ulos
           </button>
           <template v-else>
             <RouterLink to="/rekisteroidy"
-              class="ml-3 px-3 py-1.5 rounded-xl text-sm text-gray-500
-                     hover:text-gray-300 transition-all">
+              class="ml-3 px-3 py-1.5 rounded-xl text-sm text-gray-400
+                     hover:text-gray-200 transition-all">
               Rekisteröidy
             </RouterLink>
             <RouterLink to="/login"
@@ -154,7 +154,7 @@ onUnmounted(() => {
           </span>
         </RouterLink>
         <button v-if="auth.isLoggedIn" @click="logout()"
-          class="block px-3 py-2 rounded-xl text-sm text-gray-500 hover:text-red-400
+          class="block px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-red-400
                  transition-all border-0 bg-transparent text-left">
           Kirjaudu ulos
         </button>
