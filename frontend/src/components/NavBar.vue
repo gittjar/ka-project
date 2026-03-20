@@ -94,11 +94,18 @@ onUnmounted(() => {
             class="ml-3 text-xs text-gray-600 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
             Kirjaudu ulos
           </button>
-          <RouterLink v-else to="/login"
-            class="ml-3 px-3 py-1.5 rounded-xl text-sm font-medium text-dpurple-400 border border-dpurple-800/50
-                   hover:bg-dpurple-900/40 hover:border-dpurple-600/60 transition-all">
-            Kirjaudu
-          </RouterLink>
+          <template v-else>
+            <RouterLink to="/rekisteroidy"
+              class="ml-3 px-3 py-1.5 rounded-xl text-sm text-gray-500
+                     hover:text-gray-300 transition-all">
+              Rekisteröidy
+            </RouterLink>
+            <RouterLink to="/login"
+              class="ml-1 px-3 py-1.5 rounded-xl text-sm font-medium text-dpurple-400 border border-dpurple-800/50
+                     hover:bg-dpurple-900/40 hover:border-dpurple-600/60 transition-all">
+              Kirjaudu
+            </RouterLink>
+          </template>
         </div>
 
         <!-- Mobile hamburger -->
@@ -151,12 +158,20 @@ onUnmounted(() => {
                  transition-all border-0 bg-transparent text-left">
           Kirjaudu ulos
         </button>
-        <RouterLink v-else to="/login"
-          class="block px-3 py-2 rounded-xl text-sm font-medium text-dpurple-400
-                 hover:bg-dpurple-900/40 transition-all"
-          @click="mobileOpen = false">
-          Kirjaudu
-        </RouterLink>
+        <template v-else>
+          <RouterLink to="/rekisteroidy"
+            class="block px-3 py-2 rounded-xl text-sm text-gray-500
+                   hover:text-gray-300 transition-all"
+            @click="mobileOpen = false">
+            Rekisteröidy
+          </RouterLink>
+          <RouterLink to="/login"
+            class="block px-3 py-2 rounded-xl text-sm font-medium text-dpurple-400
+                   hover:bg-dpurple-900/40 transition-all"
+            @click="mobileOpen = false">
+            Kirjaudu
+          </RouterLink>
+        </template>
       </div>
     </nav>
   </div>

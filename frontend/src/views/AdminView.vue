@@ -6,7 +6,7 @@ import {
   ShieldCheck, LogOut, Users, Search, Plus,
   Pencil, Trash2, X, Upload, Check, AlertCircle, ImageOff, TriangleAlert,
   ChevronDown, ChevronUp, MapPin, GlassWater, Flame, Cake, Star, Globe, Mail,
-  MessageSquare, Link, Copy, UserCheck, UserX, Send,
+  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff,
 } from 'lucide-vue-next';
 import api from '../api';
 
@@ -20,7 +20,7 @@ interface Member {
 type FormData = Omit<Member, 'aliases'> & { aliasInput: string };
 
 interface AppUser {
-  _id: string; username: string; status: string;
+  _id: string; username: string; status: string; role: string;
   linkedMember: { _id: string; name: string } | null; createdAt: string;
 }
 
@@ -249,6 +249,7 @@ function avatarSrc(url: string): string {
 const users = ref<AppUser[]>([]);
 const usersLoading = ref(false);
 const linkSaving = ref<string | null>(null);
+const roleSaving = ref<string | null>(null);
 const linkSelections = ref<Record<string, string>>({});
 
 async function loadUsers() {
@@ -276,6 +277,20 @@ async function saveLink(userId: string) {
     showToast(err.response?.data?.message || 'Linkitys epäonnistui', 'error');
   } finally {
     linkSaving.value = null;
+  }
+}
+
+async function setRole(userId: string, role: 'user' | 'admin') {
+  roleSaving.value = userId;
+  try {
+    const { data } = await api.put(`/auth/users/${userId}/role`, { role });
+    const idx = users.value.findIndex(u => u._id === userId);
+    if (idx !== -1) users.value[idx] = { ...users.value[idx] as AppUser, role: data.role };
+    showToast(role === 'admin' ? 'Käyttäjä ylennetty adminiksi' : 'Admin-oikeus poistettu');
+  } catch (err: any) {
+    showToast(err.response?.data?.message || 'Roolin muutos epäonnistui', 'error');
+  } finally {
+    roleSaving.value = null;
   }
 }
 
@@ -585,25 +600,44 @@ onMounted(loadMembers);
         <div v-for="u in users" :key="u._id"
           class="bg-gray-950 border border-gray-800 rounded-2xl p-4">
           <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-            <div>
+            <div class="flex items-center gap-2 flex-wrap">
               <span class="text-sm font-medium text-white">{{ u.username }}</span>
-              <span class="ml-2 text-xs px-2 py-0.5 rounded-full"
+              <span class="text-xs px-2 py-0.5 rounded-full"
                 :class="{
                   'bg-yellow-950/40 border border-yellow-900/40 text-yellow-400': u.status === 'pending',
                   'bg-dgreen-950/40 border border-dgreen-900/40 text-dgreen-400': u.status === 'active',
                   'bg-red-950/40 border border-red-900/40 text-red-400': u.status === 'rejected',
                 }">{{ u.status }}</span>
+              <span v-if="u.role === 'admin'"
+                class="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full
+                       bg-dpurple-950/40 border border-dpurple-800/40 text-dpurple-400">
+                <Shield class="w-3 h-3" />admin
+              </span>
             </div>
-            <div class="flex items-center gap-1.5" v-if="u.status === 'pending'">
-              <button @click="approveUser(u._id)"
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <template v-if="u.status === 'pending'">
+                <button @click="approveUser(u._id)"
+                  class="flex items-center gap-1 px-2 py-1 rounded-xl text-xs border-0
+                         bg-dgreen-900/40 hover:bg-dgreen-800/40 text-dgreen-400 transition-all">
+                  <UserCheck class="w-3.5 h-3.5" />Hyväksy
+                </button>
+                <button @click="rejectUser(u._id)"
+                  class="flex items-center gap-1 px-2 py-1 rounded-xl text-xs border-0
+                         bg-red-900/40 hover:bg-red-800/40 text-red-400 transition-all">
+                  <UserX class="w-3.5 h-3.5" />Hylkää
+                </button>
+              </template>
+              <button v-if="u.username !== auth.username && u.role !== 'admin'"
+                @click="setRole(u._id, 'admin')" :disabled="roleSaving === u._id"
                 class="flex items-center gap-1 px-2 py-1 rounded-xl text-xs border-0
-                       bg-dgreen-900/40 hover:bg-dgreen-800/40 text-dgreen-400 transition-all">
-                <UserCheck class="w-3.5 h-3.5" />Hyväksy
+                       bg-dpurple-900/40 hover:bg-dpurple-800/40 text-dpurple-400 disabled:opacity-50 transition-all">
+                <Shield class="w-3.5 h-3.5" />{{ roleSaving === u._id ? '...' : 'Ylennä adminiksi' }}
               </button>
-              <button @click="rejectUser(u._id)"
+              <button v-if="u.username !== auth.username && u.role === 'admin'"
+                @click="setRole(u._id, 'user')" :disabled="roleSaving === u._id"
                 class="flex items-center gap-1 px-2 py-1 rounded-xl text-xs border-0
-                       bg-red-900/40 hover:bg-red-800/40 text-red-400 transition-all">
-                <UserX class="w-3.5 h-3.5" />Hylkää
+                       bg-gray-800/60 hover:bg-gray-700/60 text-gray-400 disabled:opacity-50 transition-all">
+                <ShieldOff class="w-3.5 h-3.5" />{{ roleSaving === u._id ? '...' : 'Poista admin' }}
               </button>
             </div>
           </div>

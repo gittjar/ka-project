@@ -113,8 +113,8 @@ const toFolderId = (q) => (!q || q === 'null') ? null : q;
 
 // â”€â”€ KANSIOT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// GET /api/images/folders?parent=null|id  â€” julkinen
-router.get('/folders', async (req, res) => {
+// GET /api/images/folders?parent=null|id  — kirjautunut käyttäjä
+router.get('/folders', authMiddleware, async (req, res) => {
   try {
     const parent = toFolderId(req.query.parent);
     const folders = await Folder.find({ parent }).sort({ name: 1 });
@@ -197,8 +197,8 @@ router.get('/storage', authMiddleware, async (req, res) => {
 
 // â”€â”€ MEDIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// GET /api/images?folder=null|id  â€” julkinen
-router.get('/', async (req, res) => {
+// GET /api/images?folder=null|id  — kirjautunut käyttäjä
+router.get('/', authMiddleware, async (req, res) => {
   try {
     const folderId = toFolderId(req.query.folder);
     const items = await GalleryImage.find({ folderId }).sort({ sortOrder: 1, createdAt: -1 });
@@ -220,7 +220,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
 
     const blobService = getBlobClient();
     const containerClient = blobService.getContainerClient(CONTAINER);
-    await containerClient.createIfNotExists({ access: 'blob' });
+    await containerClient.createIfNotExists(); // yksityinen — ei julkista pääsyä
 
     let buffer, mimetype, ext, mediaType, exifData = {};
 

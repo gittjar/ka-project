@@ -301,10 +301,10 @@ onMounted(() => { loadMember(); loadMessages(); });
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="sm:col-span-2">
-              <label class="block text-xs text-gray-600 mb-1">Nimi</label>
-              <input v-model="form.name" type="text"
-                class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
-                       placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+              <label class="block text-xs text-gray-600 mb-1">Nimi <span class="text-gray-700">(vain admin voi muuttaa)</span></label>
+              <div class="w-full px-3 py-2 rounded-xl bg-black/30 border border-gray-800/50 text-sm text-gray-500 select-none">
+                {{ form.name || '—' }}
+              </div>
             </div>
             <div class="sm:col-span-2">
               <label class="block text-xs text-gray-600 mb-1">Aliakset (pilkulla eroteltu)</label>

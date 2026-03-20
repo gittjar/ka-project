@@ -111,8 +111,8 @@ router.put('/mine', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user?.linkedMember) return res.status(404).json({ message: 'Ei linkitettyä jäsenprofiilia' });
-    // Käyttäjä ei saa muuttaa aktiivisuutta tai pisteitä
-    const { active, points, _id, photos: _p, ...rest } = req.body;
+    // Käyttäjä ei saa muuttaa nimeä, aktiivisuutta tai pisteitä — vain admin
+    const { name: _name, active, points, _id, photos: _p, ...rest } = req.body;
     const m = await Member.findByIdAndUpdate(user.linkedMember, rest, { new: true });
     if (!m) return res.status(404).json({ message: 'Jäsenprofiilia ei löydy' });
     res.json(m);

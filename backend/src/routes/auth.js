@@ -117,17 +117,36 @@ router.post('/reject/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/auth/users — admin listaa kaikki ei-admin käyttäjät
+// GET /api/auth/users — admin listaa kaikki käyttäjät
 router.get('/users', authMiddleware, async (req, res) => {
   try {
     if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
-    const users = await User.find({ role: 'user' })
+    const users = await User.find()
       .select('-password')
       .populate('linkedMember', 'name')
       .sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+  }
+});
+
+// PUT /api/auth/users/:id/role — admin asettaa käyttäjän roolin
+router.put('/users/:id/role', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const { role } = req.body;
+    if (!['user', 'admin'].includes(role)) return res.status(400).json({ message: 'Virheellinen rooli' });
+    if (req.params.id === req.userId) return res.status(400).json({ message: 'Et voi muuttaa omaa rooliasi' });
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      { new: true }
+    ).select('-password').populate('linkedMember', 'name');
+    if (!user) return res.status(404).json({ message: 'Käyttäjää ei löydy' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Roolin muutos epäonnistui', error: err.message });
   }
 });
 
