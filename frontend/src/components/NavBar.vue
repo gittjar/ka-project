@@ -24,8 +24,17 @@ const links = [
   { to: '/tarinat', label: 'Tarinoita' },
   { to: '/historia', label: 'Historiikki' },
   { to: '/juomat', label: 'Juomat' },
+  { to: '/tapahtumat', label: 'Tapahtumat' },
   { to: '/hakemus', label: 'Hakemus' },
 ];
+
+const upcomingEvents = ref(0);
+async function fetchUpcoming() {
+  try {
+    const { data } = await api.get('/events/upcoming');
+    upcomingEvents.value = data.count ?? 0;
+  } catch {}
+}
 
 // Poll unread reply count for non-admin logged-in users
 let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -40,7 +49,8 @@ async function fetchUnread() {
 
 onMounted(() => {
   fetchUnread();
-  pollTimer = setInterval(fetchUnread, 60_000);
+  fetchUpcoming();
+  pollTimer = setInterval(() => { fetchUnread(); fetchUpcoming(); }, 60_000);
 });
 
 onUnmounted(() => {
@@ -70,10 +80,17 @@ onUnmounted(() => {
             :to="l.to"
             class="px-3 py-1.5 rounded-xl text-sm text-gray-400
                    hover:text-green-300 hover:bg-dgreen-900/60 transition-all duration-150"
+            :class="l.to === '/tapahtumat' && upcomingEvents > 0
+              ? 'text-dgreen-400 bg-dgreen-900/20' : ''"
             active-class="!text-dpurple-400 bg-dpurple-900/50"
             exact-active-class="!text-dpurple-400 bg-dpurple-900/50"
           >
             {{ l.label }}
+            <span v-if="l.to === '/tapahtumat' && upcomingEvents > 0"
+              class="inline-flex items-center justify-center ml-0.5
+                     w-4 h-4 rounded-full bg-dgreen-700/80 text-white text-[10px] font-bold">
+              {{ upcomingEvents > 9 ? '9+' : upcomingEvents }}
+            </span>
           </RouterLink>
           <RouterLink v-if="auth.isAdmin" to="/admin"
             class="ml-2 px-3 py-1.5 rounded-xl text-sm text-yellow-400
@@ -127,12 +144,19 @@ onUnmounted(() => {
           v-for="l in links"
           :key="l.to"
           :to="l.to"
-          class="block px-3 py-2 rounded-xl text-sm text-gray-400
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-gray-400
                  hover:text-green-300 hover:bg-dgreen-900/50 transition-all"
+          :class="l.to === '/tapahtumat' && upcomingEvents > 0
+            ? 'text-dgreen-400 bg-dgreen-900/20' : ''"
           active-class="!text-dpurple-400 bg-dpurple-900/40"
           @click="mobileOpen = false"
         >
           {{ l.label }}
+          <span v-if="l.to === '/tapahtumat' && upcomingEvents > 0"
+            class="inline-flex items-center justify-center
+                   w-4 h-4 rounded-full bg-dgreen-700/80 text-white text-[10px] font-bold">
+            {{ upcomingEvents > 9 ? '9+' : upcomingEvents }}
+          </span>
         </RouterLink>
         <RouterLink v-if="auth.isAdmin" to="/admin"
           class="block px-3 py-2 rounded-xl text-sm text-yellow-400
