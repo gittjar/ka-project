@@ -367,6 +367,30 @@ function toggleMsg(id: string) {
 // ── KUTSUKOODIT ──
 const invites = ref<InviteCode[]>([]);
 const invitesLoading = ref(false);
+
+// ── GUIDES PIN ──
+const guidesPin = ref('');
+const guidesPinSaving = ref(false);
+const guidesPinSaved = ref(false);
+const guidesPinError = ref('');
+
+async function saveGuidesPin() {
+  if (!guidesPin.value.trim() || guidesPin.value.length < 4) {
+    guidesPinError.value = 'PIN oltava vähintään 4 merkkiä'; return;
+  }
+  guidesPinSaving.value = true; guidesPinError.value = ''; guidesPinSaved.value = false;
+  try {
+    await api.put('/guides/pin', { pin: guidesPin.value.trim() });
+    guidesPinSaved.value = true;
+    guidesPin.value = '';
+    showToast('Guides-PIN vaihdettu');
+    setTimeout(() => { guidesPinSaved.value = false; }, 3000);
+  } catch (err: any) {
+    guidesPinError.value = err.response?.data?.message || 'Tallennus epäonnistui';
+  } finally {
+    guidesPinSaving.value = false;
+  }
+}
 const generatingInvite = ref(false);
 const newInviteCode = ref('');
 const copiedCode = ref('');
@@ -769,6 +793,30 @@ onMounted(loadMembers);
             Vanhenee {{ fmtDate(inv.expiresAt) }}
           </span>
         </div>
+      </div>
+
+      <!-- Guides PIN reset -->
+      <div class="mt-6 border-t border-gray-800/60 pt-5">
+        <p class="text-xs font-semibold text-dpurple-400 uppercase tracking-wider mb-3">
+          Ohjesivu PIN (/guides)
+        </p>
+        <div class="flex gap-2 items-end flex-wrap">
+          <div class="flex-1 min-w-0">
+            <label class="block text-xs text-gray-500 mb-1.5">Uusi PIN (4–20 merkkiä)</label>
+            <input v-model="guidesPin" type="text" placeholder="esim. 123456"
+              class="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-gray-800
+                     text-gray-200 placeholder-gray-700 text-sm font-mono tracking-widest
+                     focus:outline-none focus:border-dpurple-700 transition-colors" />
+          </div>
+          <button @click="saveGuidesPin" :disabled="guidesPinSaving"
+            class="px-4 py-2.5 rounded-xl border-0 text-sm font-medium
+                   bg-dpurple-800/60 hover:bg-dpurple-700/60 text-white
+                   disabled:opacity-50 transition-all shrink-0">
+            {{ guidesPinSaving ? 'Tallennetaan...' : guidesPinSaved ? '✓ Tallennettu' : 'Vaihda PIN' }}
+          </button>
+        </div>
+        <p v-if="guidesPinError" class="text-red-400 text-xs mt-2">{{ guidesPinError }}</p>
+        <p class="text-xs text-gray-700 mt-2">Uusi PIN tulee voimaan välittömästi.</p>
       </div>
     </template>
 

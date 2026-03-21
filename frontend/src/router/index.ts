@@ -12,6 +12,7 @@ const router = createRouter({
     { path: '/historia', component: () => import('../views/HistoryView.vue'), meta: { title: 'Historiikki' } },
     { path: '/juomat', component: () => import('../views/DrinksView.vue'), meta: { title: 'Juomat' } },
     { path: '/tapahtumat', component: () => import('../views/EventsView.vue'), meta: { title: 'Tapahtumat' } },
+    { path: '/guides', component: () => import('../views/GuidesView.vue'), meta: { title: 'Ohjeet' } },
     { path: '/hakemus', component: () => import('../views/ApplicationView.vue'), meta: { title: 'Hakemus' } },
     { path: '/login', component: () => import('../views/LoginView.vue'), meta: { title: 'Kirjaudu sisään', guestOnly: true } },
     { path: '/rekisteroidy', component: () => import('../views/RegisterView.vue'), meta: { title: 'Rekisteröidy', guestOnly: true } },
