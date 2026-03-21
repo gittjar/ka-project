@@ -393,20 +393,21 @@ async function confirmDelete() {
           </div>
 
           <!-- ── Action bar ── -->
-          <div class="flex items-center gap-1 px-4 pb-3 pt-0 border-t border-gray-800/60">
+          <div class="flex items-center gap-0.5 sm:gap-1 px-3 sm:px-4 pb-3 pt-0 border-t border-gray-800/60 flex-wrap">
 
             <!-- Expand -->
             <button @click="toggleExpand(s)"
-              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs border-0
-                     text-gray-400 hover:text-white hover:bg-gray-800/60 transition-all">
+              class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs border-0
+                     text-gray-400 hover:text-white hover:bg-gray-800/60 transition-all whitespace-nowrap">
               <ChevronDown v-if="expandedId !== s._id" class="w-3.5 h-3.5" />
               <ChevronUp   v-else                       class="w-3.5 h-3.5" />
-              {{ expandedId === s._id ? 'Sulje' : 'Lue koko tarina' }}
+              <span class="hidden xs:inline">{{ expandedId === s._id ? 'Sulje' : 'Lue' }}</span>
+              <span class="xs:hidden">{{ expandedId === s._id ? 'Sulje' : 'Avaa' }}</span>
             </button>
 
             <!-- Like -->
             <button @click="toggleLike(s)"
-              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs border-0 transition-all"
+              class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs border-0 transition-all"
               :class="hasLiked(s)
                 ? 'text-red-400 bg-red-950/40'
                 : 'text-gray-500 hover:text-red-400 hover:bg-red-950/20'">
@@ -416,7 +417,7 @@ async function confirmDelete() {
 
             <!-- Comment count -->
             <button @click="toggleExpand(s)"
-              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs border-0
+              class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs border-0
                      text-gray-500 hover:text-gray-300 hover:bg-gray-800/60 transition-all">
               <MessageSquare class="w-3.5 h-3.5" />
               {{ s.comments?.length || 0 }}
@@ -434,12 +435,12 @@ async function confirmDelete() {
             <!-- Edit / delete (own stories + admin) -->
             <template v-if="isMyStory(s)">
               <button @click="openEditModal(s)"
-                class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs border-0
+                class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs border-0
                        text-gray-500 hover:text-white hover:bg-gray-800/60 transition-all">
                 <Pencil class="w-3.5 h-3.5" />
               </button>
               <button @click="deleteTarget = s"
-                class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs border-0
+                class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs border-0
                        text-gray-600 hover:text-red-400 hover:bg-red-950/20 transition-all">
                 <Trash2 class="w-3.5 h-3.5" />
               </button>
@@ -456,7 +457,7 @@ async function confirmDelete() {
 
             <!-- Media carousel -->
             <div v-if="s.media.length"
-              class="border-t border-gray-800/40 px-3 pb-3 pt-2"
+              class="border-t border-gray-800/40 px-1 sm:px-3 pb-3 pt-2"
               @touchstart.passive="onTouchStart"
               @touchend.passive="(e) => onTouchEnd(e as TouchEvent, s)"
               @vue:mounted="startSlideTimer(s)"
@@ -485,17 +486,17 @@ async function confirmDelete() {
                   :key="currentMedia(s)._id"
                   :src="currentMedia(s).url"
                   :alt="s.title"
-                  class="w-full h-72 sm:h-80 object-cover"
+                  class="w-full h-56 sm:h-72 md:h-80 object-cover"
                   @error="onImgError(currentMedia(s)._id)" />
 
                 <!-- Prev -->
                 <button v-if="s.media.length > 1"
                   @click.stop="prevSlide(s._id, s.media.length); resetSlideTimer(s)"
-                  class="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full
-                         bg-black/20 hover:bg-black/50 text-white/70 hover:text-white
+                  class="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-10 p-2.5 sm:p-2 rounded-full
+                         bg-black/30 hover:bg-black/60 text-white/80 hover:text-white
                          border border-white/15 backdrop-blur-sm transition-all touch-manipulation
-                         opacity-60 hover:opacity-100">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         active:scale-95">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
@@ -503,11 +504,11 @@ async function confirmDelete() {
                 <!-- Next -->
                 <button v-if="s.media.length > 1"
                   @click.stop="nextSlide(s._id, s.media.length); resetSlideTimer(s)"
-                  class="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full
-                         bg-black/20 hover:bg-black/50 text-white/70 hover:text-white
+                  class="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-10 p-2.5 sm:p-2 rounded-full
+                         bg-black/30 hover:bg-black/60 text-white/80 hover:text-white
                          border border-white/15 backdrop-blur-sm transition-all touch-manipulation
-                         opacity-60 hover:opacity-100">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         active:scale-95">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
@@ -537,10 +538,10 @@ async function confirmDelete() {
                 <button v-if="isMyStory(s) && !mediaDeleteConfirm"
                   @click.stop="mediaDeleteConfirm = { story: s, mediaId: currentMedia(s)._id }"
                   class="absolute top-2 right-2 px-2 py-1 rounded-lg z-20
-                         bg-black/20 hover:bg-red-950/80 text-white/60 hover:text-red-300
-                         border border-white/15 hover:border-red-800/60 text-[11px] font-medium
+                         bg-black/40 hover:bg-red-950/80 text-white/75 hover:text-red-300
+                         border border-white/20 hover:border-red-800/60 text-[11px] font-medium
                          flex items-center gap-1 transition-all backdrop-blur-sm
-                         opacity-50 hover:opacity-100">
+                         active:scale-95">
                   <Trash2 class="w-3 h-3" />
                   Poista
                 </button>
@@ -617,25 +618,26 @@ async function confirmDelete() {
               </div>
 
               <!-- Add comment input -->
-              <div class="flex gap-2">
+              <div class="flex gap-2 items-end">
                 <textarea
                   v-model="commentTexts[s._id]"
                   placeholder="Kirjoita kommentti..."
                   rows="2"
                   @keydown.ctrl.enter="submitComment(s)"
-                  class="flex-1 px-3 py-2 rounded-xl bg-black/60 border border-gray-800
+                  class="flex-1 px-3 py-2.5 rounded-xl bg-black/60 border border-gray-800
                          text-sm text-gray-200 placeholder-gray-700
                          focus:outline-none focus:border-dpurple-700 resize-none transition-colors"
                 />
                 <button @click="submitComment(s)"
                   :disabled="!commentTexts[s._id]?.trim() || commentSaving === s._id"
-                  class="px-3 py-2 rounded-xl border-0 bg-dpurple-800/60 hover:bg-dpurple-700/60
-                         text-white disabled:opacity-40 transition-all self-end">
+                  class="shrink-0 w-10 h-10 rounded-xl border-0 bg-dpurple-800/60 hover:bg-dpurple-700/60
+                         text-white disabled:opacity-40 transition-all flex items-center justify-center
+                         active:scale-95">
                   <Send v-if="commentSaving !== s._id" class="w-4 h-4" />
                   <span v-else class="text-xs">...</span>
                 </button>
               </div>
-              <p class="text-[10px] text-gray-700 mt-1">Ctrl+Enter tallentaa</p>
+              <p class="text-[10px] text-gray-700 mt-1 hidden sm:block">Ctrl+Enter tallentaa</p>
             </div>
           </div>
         </article>
@@ -645,7 +647,7 @@ async function confirmDelete() {
     <!-- ── Add / Edit modal ── -->
     <Teleport to="body">
       <div v-if="modalOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm"
         @click.self="closeModal">
         <div class="relative w-full max-w-2xl bg-gray-950 border border-gray-800/60 rounded-2xl
                     flex flex-col max-h-[90vh] overflow-hidden">
