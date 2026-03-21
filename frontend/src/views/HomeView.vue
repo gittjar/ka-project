@@ -27,6 +27,24 @@ const activeIdx = ref(0);
 const transitioning = ref(false);
 let autoTimer: ReturnType<typeof setInterval> | null = null;
 
+const timerProgress = ref(100);
+let timerTick: ReturnType<typeof setInterval> | null = null;
+const AUTO_MS = 6000;
+const TICK_MS = 50;
+const CIRC = 2 * Math.PI * 9; // r=9 → ≈56.55
+
+function startTimerTick() {
+  if (timerTick) clearInterval(timerTick);
+  timerProgress.value = 100;
+  timerTick = setInterval(() => {
+    timerProgress.value = Math.max(0, timerProgress.value - (100 * TICK_MS / AUTO_MS));
+  }, TICK_MS);
+}
+function stopTimerTick() {
+  if (timerTick) { clearInterval(timerTick); timerTick = null; }
+  timerProgress.value = 100;
+}
+
 const activeItem = computed(() => carouselItems.value[activeIdx.value] ?? null);
 const hasCarousel = computed(() => carouselItems.value.length > 0);
 
@@ -53,11 +71,14 @@ function startAuto() {
   stopAuto();
   if (carouselItems.value.length <= 1) return;
   // Videos advance via @ended; only set interval for images
-  if (activeItem.value?.mediaType !== 'video')
-    autoTimer = setInterval(next, 6000);
+  if (activeItem.value?.mediaType !== 'video') {
+    autoTimer = setInterval(next, AUTO_MS);
+    startTimerTick();
+  }
 }
 function stopAuto() {
   if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  stopTimerTick();
 }
 function onVideoEnded() {
   if (carouselItems.value.length > 1) next();
@@ -169,6 +190,20 @@ onUnmounted(stopAuto);
           :class="i === activeIdx
             ? 'w-6 h-2.5 bg-white'
             : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/70'" />
+      </div>
+
+      <!-- Countdown ring -->
+      <div v-if="activeItem?.mediaType !== 'video'"
+        class="absolute bottom-3 right-4 z-20 opacity-60 pointer-events-none">
+        <svg width="28" height="28" viewBox="0 0 28 28" style="transform: rotate(-90deg)">
+          <circle cx="14" cy="14" r="9" fill="none"
+            stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+          <circle cx="14" cy="14" r="9" fill="none"
+            stroke="white" stroke-width="2" stroke-linecap="round"
+            :stroke-dasharray="CIRC"
+            :stroke-dashoffset="CIRC * (1 - timerProgress / 100)"
+            style="transition: stroke-dashoffset 0.05s linear" />
+        </svg>
       </div>
 
       <!-- Caption -->

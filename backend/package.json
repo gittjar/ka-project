@@ -7,7 +7,10 @@
     "start": "node src/index.js",
     "import:members": "node src/scrape-members.js",
     "import:members:dry": "node src/scrape-members.js --dry-run",
-    "import:members:update": "node src/scrape-members.js --update"
+    "import:members:update": "node src/scrape-members.js --update",
+    "import:stories": "node src/seed-stories.js",
+    "import:stories:dry": "node src/seed-stories.js --dry-run",
+    "import:stories:clear": "node src/seed-stories.js --clear"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.27.0",
