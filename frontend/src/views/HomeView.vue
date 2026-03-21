@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import { Users, Camera, BookOpen, ScrollText, GlassWater, ClipboardList, Play } from 'lucide-vue-next';
+import { Users, Camera, BookOpen, ScrollText, GlassWater, ClipboardList } from 'lucide-vue-next';
 import api from '../api';
 
 interface CarouselItem {

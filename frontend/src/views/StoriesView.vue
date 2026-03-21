@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   BookOpen, Heart, MessageSquare, Plus, Pencil, Trash2, X,
-  Upload, Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
+  Upload, Check, ChevronDown, ChevronUp,
   Send, Film, Lock, ImageOff,
 } from 'lucide-vue-next';
 import api from '../api';
@@ -89,11 +89,11 @@ function getIdx(id: string)                   { return carouselIdx.value[id] ?? 
 function nextSlide(id: string, total: number) { carouselIdx.value[id] = (getIdx(id) + 1) % total; }
 function prevSlide(id: string, total: number) { carouselIdx.value[id] = (getIdx(id) - 1 + total) % total; }
 function setSlide(id: string, i: number)      { carouselIdx.value[id] = i; }
-function currentMedia(s: Story)               { return s.media[getIdx(s._id)]; }
+function currentMedia(s: Story): StoryMedia    { return s.media[getIdx(s._id)]!; }
 function onImgError(mediaId: string)          { brokenMedia.value = new Set([...brokenMedia.value, mediaId]); }
-function onTouchStart(e: TouchEvent)          { touchStartX.value = e.touches[0].clientX; }
+function onTouchStart(e: TouchEvent)          { touchStartX.value = e.touches[0]?.clientX ?? 0; }
 function onTouchEnd(e: TouchEvent, s: Story)  {
-  const dx = e.changedTouches[0].clientX - touchStartX.value;
+  const dx = (e.changedTouches[0]?.clientX ?? touchStartX.value) - touchStartX.value;
   if (Math.abs(dx) > 40) dx < 0 ? nextSlide(s._id, s.media.length) : prevSlide(s._id, s.media.length);
 }
 
@@ -230,22 +230,22 @@ async function saveModal() {
   try {
     let story: Story;
     if (editingStory.value) {
-      const { data } = await api.put(`/stories/${editingStory.value._id}`, {
+      const { data } = await api.put<Story>(`/stories/${editingStory.value._id}`, {
         title: mTitle.value, content: mContent.value,
       });
       story = data;
       const idx = stories.value.findIndex(s => s._id === story._id);
-      if (idx !== -1) stories.value[idx] = { ...stories.value[idx], title: story.title, content: story.content };
+      if (idx !== -1) stories.value[idx] = { ...stories.value[idx]!, title: story.title, content: story.content };
     } else {
-      const { data } = await api.post('/stories', { title: mTitle.value, content: mContent.value });
+      const { data } = await api.post<Story>('/stories', { title: mTitle.value, content: mContent.value });
       story = data;
-      stories.value.unshift({ ...story, likes: [], comments: [], media: [] });
+      stories.value.unshift({ ...story, likes: story.likes ?? [], comments: story.comments ?? [], media: story.media ?? [] });
     }
     if (mFiles.value.length) {
       mUploading.value = true;
       for (let i = 0; i < mFiles.value.length; i++) {
         const fd = new FormData();
-        fd.append('file', mFiles.value[i]);
+        fd.append('file', mFiles.value[i] as File);
         mProgress.value[i] = 0;
         try {
           const { data } = await api.post(`/stories/${story._id}/media`, fd, {
@@ -255,7 +255,7 @@ async function saveModal() {
             },
           });
           const idx = stories.value.findIndex(s => s._id === story._id);
-          if (idx !== -1) stories.value[idx].media = data.media;
+          if (idx !== -1) stories.value[idx]!.media = data.media;
         } catch { /* single upload failure is non-fatal */ }
         mProgress.value[i] = 100;
       }
@@ -277,7 +277,7 @@ async function deleteMedia(story: Story, mediaId: string) {
     const { data } = await api.delete(`/stories/${story._id}/media/${mediaId}`);
     const idx = stories.value.findIndex(s => s._id === story._id);
     if (idx !== -1) {
-      stories.value[idx].media = data.media;
+      stories.value[idx]!.media = data.media;
       const cur = carouselIdx.value[story._id] ?? 0;
       if (cur >= data.media.length) carouselIdx.value[story._id] = Math.max(0, data.media.length - 1);
     }
@@ -365,16 +365,16 @@ async function confirmDelete() {
             <!-- Media thumbnail — first item -->
             <div v-if="s.media.length"
               class="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-black/40 border border-gray-800">
-              <video v-if="s.media[0].mediaType === 'video'"
-                :src="s.media[0].url" muted preload="metadata"
+              <video v-if="s.media[0]?.mediaType === 'video'"
+                :src="s.media[0]?.url ?? ''" muted preload="metadata"
                 class="w-full h-full object-cover" />
-              <div v-else-if="brokenMedia.has(s.media[0]._id)"
+              <div v-else-if="brokenMedia.has(s.media[0]?._id ?? '')"
                 class="w-full h-full flex items-center justify-center">
                 <ImageOff class="w-5 h-5 text-gray-600" />
               </div>
-              <img v-else :src="s.media[0].url" :alt="s.title"
+              <img v-else :src="s.media[0]?.url ?? ''" :alt="s.title"
                 class="w-full h-full object-cover"
-                @error="onImgError(s.media[0]._id)" />
+                @error="onImgError(s.media[0]?._id ?? '')" />
             </div>
             <div v-else
               class="shrink-0 w-20 h-20 rounded-xl bg-dpurple-900/30 border border-dpurple-800/20

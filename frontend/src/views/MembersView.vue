@@ -108,10 +108,7 @@ function prevSlide(m: Member) {
   slideIdx[m._id] = ((slideIdx[m._id] ?? 0) - 1 + slides.length) % slides.length;
   startSlideTimer(m._id);
 }
-function goSlide(m: Member, idx: number) {
-  slideIdx[m._id] = idx;
-  startSlideTimer(m._id);
-}
+
 </script>
 
 <template>

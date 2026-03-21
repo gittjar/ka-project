@@ -85,7 +85,6 @@ const isUploading = computed(() => uploadTasks.value.some(t => t.status === 'upl
 // Lightbox
 const lightboxItem = ref<MediaItem | null>(null);
 const lightboxIdx = ref(0);
-const lightboxInfoOpen = ref(true);
 
 // Caption editing (in lightbox)
 const editingCaption = ref(false);
@@ -103,7 +102,6 @@ const multiDeleteConfirm = ref(false);
 const multiDeleting = ref(false);
 
 // Drag-sort (admin)
-const dragSortActive = ref(false);
 const dragSrcIdx = ref<number | null>(null);
 const dragOverIdx = ref<number | null>(null);
 const dragOverFolder = ref<string | null>(null); // folder._id being hovered

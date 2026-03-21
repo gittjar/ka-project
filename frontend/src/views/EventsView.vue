@@ -187,7 +187,7 @@ async function saveModal() {
       const { data } = await api.put(`/events/${editingEvent.value._id}`, payload);
       saved = data;
       const idx = events.value.findIndex(e => e._id === saved._id);
-      if (idx !== -1) events.value[idx] = { ...events.value[idx], ...saved };
+      if (idx !== -1) events.value[idx] = { ...events.value[idx]!, ...saved };
     } else {
       const { data } = await api.post('/events', payload);
       saved = data;
@@ -202,7 +202,7 @@ async function saveModal() {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         const idx = events.value.findIndex(e => e._id === saved._id);
-        if (idx !== -1) events.value[idx].imageUrl = data.imageUrl;
+        if (idx !== -1) events.value[idx]!.imageUrl = data.imageUrl;
         if (editingEvent.value) editingEvent.value.imageUrl = data.imageUrl;
       } catch { /* image upload failure non-fatal */ }
       mUploading.value = false;
@@ -236,7 +236,7 @@ async function deleteImage(event: Event) {
   try {
     await api.delete(`/events/${event._id}/image`);
     const idx = events.value.findIndex(e => e._id === event._id);
-    if (idx !== -1) events.value[idx].imageUrl = '';
+    if (idx !== -1) events.value[idx]!.imageUrl = '';
   } catch (err: any) {
     showToast(err.response?.data?.message || 'Poisto epäonnistui', 'error');
   }
@@ -386,10 +386,10 @@ async function deleteImage(event: Event) {
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="text-xs text-gray-500 mr-1">Ilmoittaudu:</span>
                   <button
-                    v-for="[status, label, cls] in ([
-                      ['attending',     'Osallistun',  'dgreen'],
-                      ['maybe',         'Ehkä',        'dpurple'],
-                      ['not_attending', 'En osallistu','red'],
+                    v-for="[status, label] in ([
+                      ['attending',     'Osallistun'],
+                      ['maybe',         'Ehkä'],
+                      ['not_attending', 'En osallistu'],
                     ] as const)"
                     :key="status"
                     @click="setRsvp(e, status)"
