@@ -60,6 +60,31 @@ const carouselIdx = ref<Record<string, number>>({});
 const brokenMedia = ref<Set<string>>(new Set());
 const touchStartX = ref(0);
 
+const STORY_AUTO_MS = 6000;
+const STORY_TICK_MS = 50;
+const STORY_CIRC = 2 * Math.PI * 9;
+const carouselProgress = ref<Record<string, number>>({});
+const carouselTimers: Record<string, ReturnType<typeof setInterval>> = {};
+const carouselTicks:  Record<string, ReturnType<typeof setInterval>> = {};
+
+function stopSlideTimer(id: string) {
+  if (carouselTimers[id]) { clearInterval(carouselTimers[id]); delete carouselTimers[id]; }
+  if (carouselTicks[id])  { clearInterval(carouselTicks[id]);  delete carouselTicks[id]; }
+}
+function startSlideTimer(s: Story) {
+  stopSlideTimer(s._id);
+  if (s.media.length <= 1) return;
+  carouselProgress.value[s._id] = 100;
+  carouselTicks[s._id] = setInterval(() => {
+    carouselProgress.value[s._id] = Math.max(0, (carouselProgress.value[s._id] ?? 100) - (100 * STORY_TICK_MS / STORY_AUTO_MS));
+  }, STORY_TICK_MS);
+  carouselTimers[s._id] = setInterval(() => {
+    nextSlide(s._id, s.media.length);
+    carouselProgress.value[s._id] = 100;
+  }, STORY_AUTO_MS);
+}
+function resetSlideTimer(s: Story) { startSlideTimer(s); }
+
 function getIdx(id: string)                   { return carouselIdx.value[id] ?? 0; }
 function nextSlide(id: string, total: number) { carouselIdx.value[id] = (getIdx(id) + 1) % total; }
 function prevSlide(id: string, total: number) { carouselIdx.value[id] = (getIdx(id) - 1 + total) % total; }
@@ -433,7 +458,9 @@ async function confirmDelete() {
             <div v-if="s.media.length"
               class="border-t border-gray-800/40 px-3 pb-3 pt-2"
               @touchstart.passive="onTouchStart"
-              @touchend.passive="(e) => onTouchEnd(e as TouchEvent, s)">
+              @touchend.passive="(e) => onTouchEnd(e as TouchEvent, s)"
+              @vue:mounted="startSlideTimer(s)"
+              @vue:unmounted="stopSlideTimer(s._id)">
 
               <!-- Slide area -->
               <div class="relative bg-gray-950 rounded-xl overflow-hidden select-none"
@@ -463,7 +490,7 @@ async function confirmDelete() {
 
                 <!-- Prev -->
                 <button v-if="s.media.length > 1"
-                  @click.stop="prevSlide(s._id, s.media.length)"
+                  @click.stop="prevSlide(s._id, s.media.length); resetSlideTimer(s)"
                   class="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full
                          bg-black/20 hover:bg-black/50 text-white/70 hover:text-white
                          border border-white/15 backdrop-blur-sm transition-all touch-manipulation
@@ -475,7 +502,7 @@ async function confirmDelete() {
 
                 <!-- Next -->
                 <button v-if="s.media.length > 1"
-                  @click.stop="nextSlide(s._id, s.media.length)"
+                  @click.stop="nextSlide(s._id, s.media.length); resetSlideTimer(s)"
                   class="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full
                          bg-black/20 hover:bg-black/50 text-white/70 hover:text-white
                          border border-white/15 backdrop-blur-sm transition-all touch-manipulation
@@ -490,6 +517,20 @@ async function confirmDelete() {
                   class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60
                          text-[11px] font-medium text-gray-300 tabular-nums pointer-events-none">
                   {{ getIdx(s._id) + 1 }}&nbsp;/&nbsp;{{ s.media.length }}
+                </div>
+
+                <!-- Countdown ring -->
+                <div v-if="s.media.length > 1"
+                  class="absolute bottom-2 right-2 z-10 opacity-60 pointer-events-none">
+                  <svg width="28" height="28" viewBox="0 0 28 28" style="transform: rotate(-90deg)">
+                    <circle cx="14" cy="14" r="9" fill="none"
+                      stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                    <circle cx="14" cy="14" r="9" fill="none"
+                      stroke="white" stroke-width="2" stroke-linecap="round"
+                      :stroke-dasharray="STORY_CIRC"
+                      :stroke-dashoffset="STORY_CIRC * (1 - (carouselProgress[s._id] ?? 100) / 100)"
+                      style="transition: stroke-dashoffset 0.05s linear" />
+                  </svg>
                 </div>
 
                 <!-- Delete current media (owner/admin) -->
