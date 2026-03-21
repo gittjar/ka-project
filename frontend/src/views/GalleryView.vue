@@ -801,7 +801,7 @@ onUnmounted(() => {
     <template v-else>
       <!-- ── Kansioruudukko (+ Carousel-virtuaalikansio admin-juuressa) ── -->
       <div v-if="folders.length || (auth.isAdmin && !currentFolderId && !inCarouselView)"
-        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+        class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
 
         <!-- Carousel virtual folder card -->
         <div v-if="auth.isAdmin && !currentFolderId && !inCarouselView"
@@ -816,27 +816,29 @@ onUnmounted(() => {
         </div>
         <div
           v-for="folder in folders" :key="folder._id"
-          class="group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer
-                 bg-gray-950 border transition-all"
+          class="group rounded-2xl bg-gray-950 border transition-all overflow-hidden"
           :class="dragOverFolder === folder._id
             ? 'border-dpurple-600 bg-dpurple-950/30 scale-[1.02]'
             : 'border-gray-800/50 hover:border-gray-700'"
-          @click="navigateInto(folder)"
           @dragover.prevent="auth.isAdmin && onDragOverFolder($event, folder._id)"
           @dragleave="onDragLeaveFolder"
           @drop.prevent="auth.isAdmin && onDropFolder($event, folder._id)">
-          <FolderOpen class="w-7 h-7 text-dpurple-500/70 shrink-0" />
-          <span class="text-sm font-medium text-white truncate">{{ folder.name }}</span>
-          <div v-if="auth.isAdmin" class="absolute top-1.5 right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+          <!-- Klikattava osa: avaa kansio -->
+          <div class="flex items-center gap-3 p-4 cursor-pointer" @click="navigateInto(folder)">
+            <FolderOpen class="w-6 h-6 text-dpurple-500/70 shrink-0" />
+            <span class="text-sm font-medium text-white">{{ folder.name }}</span>
+          </div>
+          <!-- Admin-toiminnot: pienet tekstilinkit alla -->
+          <div v-if="auth.isAdmin" class="flex gap-3 px-4 pb-3 border-t border-gray-800/40 pt-2">
             <button
               @click.stop="renameFolderTarget = folder; renameDraft = folder.name; nextTick(() => renameInputRef?.focus())"
-              class="p-1 rounded-lg bg-black/70 text-gray-500 hover:text-white border-0 transition-all">
-              <Pencil class="w-3.5 h-3.5" />
+              class="text-xs text-gray-600 hover:text-gray-300 border-0 bg-transparent transition-colors p-0 leading-none">
+              muokkaa
             </button>
             <button
               @click.stop="deleteFolderTarget = folder"
-              class="p-1 rounded-lg bg-black/70 text-gray-500 hover:text-red-400 border-0 transition-all">
-              <X class="w-3.5 h-3.5" />
+              class="text-xs text-gray-600 hover:text-red-400 border-0 bg-transparent transition-colors p-0 leading-none">
+              poista
             </button>
           </div>
         </div>
@@ -852,7 +854,7 @@ onUnmounted(() => {
 
       <!-- ── Mediaruudukko ── -->
       <div v-if="mediaItems.length"
-        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"
         @dragover.prevent
         @drop.prevent="onDropItem($event, -1)">
         <template v-for="slot in gridSlots" :key="slot.type === 'drop' ? '__drop__' : slot.item._id">
@@ -921,19 +923,20 @@ onUnmounted(() => {
 
           <!-- Carousel star badge (admin) -->
           <div v-if="auth.isAdmin && carouselIds.has(slot.item._id)"
-            class="absolute bottom-8 right-1.5 pointer-events-none">
+            class="absolute bottom-1.5 right-1.5 pointer-events-none"
+            :class="slot.item.caption ? 'bottom-7' : 'bottom-1.5'">
             <Star class="w-4 h-4 text-yellow-400 fill-yellow-400 drop-shadow" />
           </div>
 
-          <!-- Bottom caption bar -->
+          <!-- Caption overlay — only when caption exists -->
           <div v-if="slot.item.caption"
-            class="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-black/45 backdrop-blur-[2px]">
-            <p class="text-[11px] text-white/90 truncate leading-tight">{{ slot.item.caption }}</p>
+            class="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-black/50 backdrop-blur-[2px]">
+            <p class="text-[11px] text-white/80 truncate leading-tight">{{ slot.item.caption }}</p>
           </div>
 
-          <!-- Hover actions (delete / edit) -->
-          <div class="absolute top-2 right-2 flex flex-col gap-1
-                      opacity-0 group-hover:opacity-100 transition-all">
+          <!-- Actions (edit / delete) — always visible on mobile, hover-only on desktop -->
+          <div class="absolute top-2 right-2 flex flex-col gap-1 transition-all
+                      sm:opacity-0 sm:group-hover:opacity-100">
             <button v-if="canEdit(slot.item)"
               @click.stop="openLightbox(slot.origIdx); nextTick(startEditCaption)"
               class="p-1.5 rounded-lg bg-black/70 border-0 text-gray-400 hover:text-white hover:bg-black/90">
@@ -945,6 +948,7 @@ onUnmounted(() => {
               <Trash2 class="w-3.5 h-3.5" />
             </button>
           </div>
+
           </div><!-- /item card -->
         </template>
       </div>
@@ -955,49 +959,131 @@ onUnmounted(() => {
   <!-- ── LIGHTBOX ── -->
   <Teleport to="body">
     <div v-if="lightboxItem"
-      class="fixed inset-0 z-50 bg-black/95 flex"
+      class="fixed inset-0 z-50 bg-black/95 flex flex-col sm:flex-row"
       @click="closeLightbox">
 
       <!-- Sulje -->
-      <button class="absolute top-4 right-[308px] p-2 rounded-xl bg-white/10 hover:bg-white/20
+      <button class="absolute top-3 right-3 sm:top-4 sm:right-[308px] p-2 rounded-xl bg-white/10 hover:bg-white/20
                      text-white border-0 transition-all z-30" @click.stop="closeLightbox">
         <X class="w-5 h-5" />
       </button>
 
-      <!-- Edellinen -->
+      <!-- Edellinen (desktop) -->
       <button v-if="mediaItems.length > 1"
-        class="absolute left-3 top-1/2 -translate-y-1/2 p-3 rounded-full
-               bg-white/10 hover:bg-white/20 text-white border-0 transition-all z-20"
+        class="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 p-3 rounded-full
+               bg-white/10 hover:bg-white/20 text-white border-0 transition-all z-20 items-center justify-center"
         @click.stop="lightboxPrev">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
       </button>
 
-      <!-- Media area (flex-grow) -->
-      <div class="flex-1 flex items-center justify-center p-4 min-w-0" @click.stop>
+      <!-- Media area -->
+      <div class="flex items-center justify-center sm:flex-1 sm:p-4 min-w-0 shrink-0 sm:shrink" @click.stop>
         <img v-if="lightboxItem.mediaType === 'image'" :src="lightboxItem.url"
-          class="max-h-[92vh] max-w-full rounded-xl shadow-2xl object-contain" />
+          class="w-full sm:max-h-[92vh] sm:max-w-full sm:rounded-xl shadow-2xl object-contain
+                 max-h-[55vh] rounded-none" />
         <video v-else :src="lightboxItem.url" controls autoplay
-          class="max-h-[92vh] max-w-full rounded-xl shadow-2xl" />
+          class="w-full sm:max-h-[92vh] sm:max-w-full sm:rounded-xl shadow-2xl max-h-[55vh]" />
       </div>
 
-      <!-- Seuraava -->
+      <!-- Mobile nav bar (prev/next + counter) -->
+      <div v-if="mediaItems.length > 1"
+        class="sm:hidden flex items-center justify-between px-4 py-2 shrink-0 border-t border-gray-800/60"
+        @click.stop>
+        <button @click.stop="lightboxPrev"
+          class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white border-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <span class="text-xs text-gray-600">{{ lightboxIdx + 1 }} / {{ mediaItems.length }}</span>
+        <button @click.stop="lightboxNext"
+          class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white border-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Seuraava (desktop) -->
       <button v-if="mediaItems.length > 1"
-        class="absolute right-[320px] top-1/2 -translate-y-1/2 p-3 rounded-full
-               bg-white/10 hover:bg-white/20 text-white border-0 transition-all z-20"
+        class="hidden sm:flex absolute right-[320px] top-1/2 -translate-y-1/2 p-3 rounded-full
+               bg-white/10 hover:bg-white/20 text-white border-0 transition-all z-20 items-center justify-center"
         @click.stop="lightboxNext">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>
       </button>
 
-      <!-- ── Info panel (right sidebar) ── -->
-      <div class="w-72 shrink-0 bg-gray-950/95 border-l border-gray-800/60 flex flex-col overflow-y-auto z-20"
+      <!-- ── Info panel — right sidebar on desktop, scrollable bottom sheet on mobile ── -->
+      <div class="sm:w-72 shrink-0 bg-gray-950/95 sm:border-l border-t border-gray-800/60
+                  flex flex-col overflow-y-auto z-20 flex-1 sm:flex-none"
         @click.stop>
 
+        <!-- ── MOBILE: compact strip ── -->
+        <div class="sm:hidden px-4 py-3 flex items-center gap-3 border-b border-gray-800/40">
+          <!-- caption / meta -->
+          <div class="flex-1 min-w-0">
+            <p v-if="lightboxItem.caption" class="text-xs text-gray-300 truncate">{{ lightboxItem.caption }}</p>
+            <p class="text-[11px] text-gray-600 truncate mt-0.5">
+              <span v-if="lightboxItem.uploadedBy">{{ lightboxItem.uploadedBy }} · </span>
+              {{ new Date(lightboxItem.createdAt).toLocaleDateString('fi-FI') }}
+              <span v-if="lightboxItem.fileSize"> · {{ fmtBytes(lightboxItem.fileSize) }}</span>
+            </p>
+          </div>
+          <!-- action icons (spans, no button style) -->
+          <div class="flex items-center gap-4 shrink-0">
+            <!-- edit caption -->
+            <span v-if="canEdit(lightboxItem) && !editingCaption"
+              @click="startEditCaption"
+              class="cursor-pointer text-gray-600 active:text-gray-300">
+              <Pencil class="w-4 h-4" />
+            </span>
+            <!-- carousel star (admin) -->
+            <span v-if="auth.isAdmin"
+              @click="!carouselSaving && (!(!carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5)) && toggleCarousel(lightboxItem!)"
+              class="cursor-pointer transition-colors"
+              :class="carouselIds.has(lightboxItem!._id) ? 'text-yellow-400' : 'text-gray-600 active:text-yellow-400'">
+              <Star class="w-4 h-4" :class="carouselIds.has(lightboxItem!._id) ? 'fill-yellow-400' : ''" />
+            </span>
+            <!-- delete -->
+            <span v-if="canDelete(lightboxItem!) && !inCarouselView"
+              @click="deleteTarget = lightboxItem; closeLightbox()"
+              class="cursor-pointer text-gray-600 active:text-red-400">
+              <Trash2 class="w-4 h-4" />
+            </span>
+          </div>
+        </div>
+
+        <!-- mobile caption edit (shown below strip when active) -->
+        <div v-if="editingCaption" class="sm:hidden px-4 py-3 border-b border-gray-800/40 space-y-2">
+          <textarea
+            ref="captionInputRef"
+            v-model="captionDraft"
+            rows="2"
+            maxlength="500"
+            placeholder="Kuvateksti..."
+            class="w-full px-3 py-2 rounded-xl text-sm bg-gray-900 border border-gray-700
+                   text-white placeholder-gray-700 focus:outline-none focus:border-dpurple-700
+                   resize-none transition-all"
+            @keydown.ctrl.enter="saveCaption"
+            @keydown.escape="editingCaption = false" />
+          <div class="flex gap-2">
+            <button @click="editingCaption = false"
+              class="flex-1 px-3 py-1.5 rounded-lg text-xs border border-gray-700
+                     text-gray-400 bg-transparent transition-all">Peruuta</button>
+            <button @click="saveCaption" :disabled="captionSaving"
+              class="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg
+                     text-xs border-0 bg-dpurple-900/60 text-dpurple-300 disabled:opacity-50 transition-all">
+              <Check class="w-3 h-3" />{{ captionSaving ? '...' : 'Tallenna' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- ── DESKTOP: full panel ── -->
         <!-- Caption section -->
-        <div class="px-5 pt-5 pb-4 border-b border-gray-800/50">
+        <div class="hidden sm:block px-5 pt-5 pb-4 border-b border-gray-800/50">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Kuvateksti</span>
             <button v-if="canEdit(lightboxItem) && !editingCaption"
@@ -1006,13 +1092,11 @@ onUnmounted(() => {
               <Pencil class="w-3.5 h-3.5" />
             </button>
           </div>
-          <!-- View mode -->
           <p v-if="!editingCaption"
             class="text-sm text-gray-300 leading-relaxed min-h-[2.5rem]"
             :class="!lightboxItem.caption ? 'text-gray-700 italic' : ''">
             {{ lightboxItem.caption || 'Ei kuvatekstiä' }}
           </p>
-          <!-- Edit mode -->
           <div v-else class="space-y-2">
             <textarea
               ref="captionInputRef"
@@ -1028,9 +1112,7 @@ onUnmounted(() => {
             <div class="flex gap-2">
               <button @click="editingCaption = false"
                 class="flex-1 px-3 py-1.5 rounded-lg text-xs border border-gray-700
-                       text-gray-400 hover:text-white bg-transparent transition-all">
-                Peruuta
-              </button>
+                       text-gray-400 hover:text-white bg-transparent transition-all">Peruuta</button>
               <button @click="saveCaption" :disabled="captionSaving"
                 class="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg
                        text-xs border-0 bg-dpurple-900/60 hover:bg-dpurple-800/60
@@ -1042,11 +1124,10 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- EXIF section (images only) -->
+        <!-- EXIF section (desktop only) -->
         <div v-if="lightboxItem.mediaType === 'image' && lightboxItem.exif"
-          class="px-5 py-4 border-b border-gray-800/50 space-y-3">
+          class="hidden sm:block px-5 py-4 border-b border-gray-800/50 space-y-3">
           <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Kameratiedot</span>
-
           <div v-if="lightboxItem.exif.model" class="flex items-start gap-2">
             <Camera class="w-3.5 h-3.5 text-gray-600 mt-0.5 shrink-0" />
             <span class="text-xs text-gray-300 leading-snug">
@@ -1055,81 +1136,48 @@ onUnmounted(() => {
             </span>
           </div>
           <div v-if="lightboxItem.exif.lens" class="text-xs text-gray-500 pl-5">{{ lightboxItem.exif.lens }}</div>
-
-          <!-- Settings row -->
-          <div class="flex flex-wrap gap-x-3 gap-y-1 pl-0">
-            <span v-if="lightboxItem.exif.fNumber" class="text-xs text-gray-400">
-              <span class="text-gray-600">f/</span>{{ lightboxItem.exif.fNumber }}
-            </span>
-            <span v-if="lightboxItem.exif.exposureTime" class="text-xs text-gray-400">
-              {{ lightboxItem.exif.exposureTime }}
-            </span>
-            <span v-if="lightboxItem.exif.iso" class="text-xs text-gray-400">
-              <span class="text-gray-600">ISO </span>{{ lightboxItem.exif.iso }}
-            </span>
+          <div class="flex flex-wrap gap-x-3 gap-y-1">
+            <span v-if="lightboxItem.exif.fNumber" class="text-xs text-gray-400"><span class="text-gray-600">f/</span>{{ lightboxItem.exif.fNumber }}</span>
+            <span v-if="lightboxItem.exif.exposureTime" class="text-xs text-gray-400">{{ lightboxItem.exif.exposureTime }}</span>
+            <span v-if="lightboxItem.exif.iso" class="text-xs text-gray-400"><span class="text-gray-600">ISO </span>{{ lightboxItem.exif.iso }}</span>
             <span v-if="lightboxItem.exif.focalLength" class="text-xs text-gray-400">
               {{ lightboxItem.exif.focalLength }}mm
-              <span v-if="lightboxItem.exif.focalLength35" class="text-gray-600">
-                ({{ lightboxItem.exif.focalLength35 }}mm eq.)
-              </span>
+              <span v-if="lightboxItem.exif.focalLength35" class="text-gray-600">({{ lightboxItem.exif.focalLength35 }}mm eq.)</span>
             </span>
           </div>
-
-          <!-- Dimensions -->
-          <div v-if="lightboxItem.exif.width && lightboxItem.exif.height"
-            class="text-xs text-gray-600">
+          <div v-if="lightboxItem.exif.width && lightboxItem.exif.height" class="text-xs text-gray-600">
             {{ lightboxItem.exif.width }} × {{ lightboxItem.exif.height }} px
           </div>
-
-          <!-- Date -->
           <div v-if="lightboxItem.exif.dateTaken" class="flex items-center gap-2">
             <Clock class="w-3.5 h-3.5 text-gray-600 shrink-0" />
-            <span class="text-xs text-gray-400">
-              {{ new Date(lightboxItem.exif.dateTaken!).toLocaleString('fi-FI', { dateStyle:'medium', timeStyle:'short' }) }}
-            </span>
+            <span class="text-xs text-gray-400">{{ new Date(lightboxItem.exif.dateTaken!).toLocaleString('fi-FI', { dateStyle:'medium', timeStyle:'short' }) }}</span>
           </div>
-
-          <!-- GPS -->
           <div v-if="lightboxItem.exif.latitude" class="flex items-center gap-2">
             <MapPin class="w-3.5 h-3.5 text-gray-600 shrink-0" />
             <a :href="`https://maps.google.com/?q=${lightboxItem.exif.latitude},${lightboxItem.exif.longitude}`"
-              target="_blank" rel="noopener"
-              class="text-xs text-dpurple-400 hover:text-dpurple-300">
+              target="_blank" rel="noopener" class="text-xs text-dpurple-400 hover:text-dpurple-300">
               {{ lightboxItem.exif.latitude!.toFixed(5) }}, {{ lightboxItem.exif.longitude!.toFixed(5) }}
             </a>
           </div>
         </div>
 
-        <!-- Meta section -->
-        <div class="px-5 py-4 space-y-2 text-xs text-gray-600">
-          <div v-if="lightboxItem.uploadedBy">
-            Ladannut <span class="text-gray-400">{{ lightboxItem.uploadedBy }}</span>
-          </div>
+        <!-- Meta (desktop only) -->
+        <div class="hidden sm:block px-5 py-4 space-y-2 text-xs text-gray-600">
+          <div v-if="lightboxItem.uploadedBy">Ladannut <span class="text-gray-400">{{ lightboxItem.uploadedBy }}</span></div>
           <div>{{ new Date(lightboxItem.createdAt).toLocaleString('fi-FI', { dateStyle:'medium', timeStyle:'short' }) }}</div>
           <div v-if="lightboxItem.fileSize">{{ fmtBytes(lightboxItem.fileSize) }}</div>
-
-          <!-- Katselustatistiikka -->
           <div v-if="lightboxItem.viewCount" class="pt-1 border-t border-gray-800/60">
             <div class="flex items-center gap-1.5 text-gray-500">
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
               </svg>
               <span>{{ lightboxItem.viewCount }} avausta</span>
-            </div>
-            <div v-if="lightboxItem.openedAt?.length" class="mt-1.5 space-y-0.5 pl-4.5">
-              <div v-for="ts in [...(lightboxItem.openedAt ?? [])].reverse()" :key="ts"
-                class="text-[10px] text-gray-700">
-                {{ new Date(ts).toLocaleString('fi-FI', { dateStyle:'short', timeStyle:'short' }) }}
-              </div>
             </div>
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="mt-auto px-5 pb-5 pt-3 border-t border-gray-800/50 flex flex-col gap-2">
-
-          <!-- Carousel toggle (admin) -->
+        <!-- Actions (desktop only) -->
+        <div class="hidden sm:flex mt-auto px-5 pb-5 pt-3 border-t border-gray-800/50 flex-col gap-2">
           <button v-if="auth.isAdmin"
             @click="toggleCarousel(lightboxItem!)"
             :disabled="carouselSaving || (!carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5)"
@@ -1147,7 +1195,6 @@ onUnmounted(() => {
               {{ carouselIds.size }}/5
             </span>
           </button>
-
           <button v-if="canDelete(lightboxItem!) && !inCarouselView"
             @click="deleteTarget = lightboxItem; closeLightbox()"
             class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
@@ -1156,8 +1203,8 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <!-- Counter -->
-        <div class="px-5 pb-4 text-xs text-gray-700 text-center">
+        <!-- Counter (desktop only) -->
+        <div class="hidden sm:block px-5 pb-4 text-xs text-gray-700 text-center">
           {{ lightboxIdx + 1 }} / {{ mediaItems.length }}
         </div>
       </div>

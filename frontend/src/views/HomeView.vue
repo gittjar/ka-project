@@ -87,6 +87,17 @@ function onVideoEnded() {
 // Restart timer whenever active slide changes (image vs video may differ)
 watch(activeIdx, startAuto);
 
+// ── Touch swipe ───────────────────────────────────────────────────────────────
+let touchStartX = 0;
+function onTouchStart(e: TouchEvent) { touchStartX = e.touches[0].clientX; }
+function onTouchEnd(e: TouchEvent) {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 40) {
+    if (dx < 0) { next(); stopAuto(); startAuto(); }
+    else { prev(); stopAuto(); startAuto(); }
+  }
+}
+
 onMounted(async () => {
   await loadCarousel();
   startAuto();
@@ -96,7 +107,11 @@ onUnmounted(stopAuto);
 
 <template>
   <!-- ── Hero – carousel tai staattinen taustahehku ── -->
-  <section class="relative overflow-hidden min-h-[70vh] flex flex-col rounded-2xl mx-3 sm:mx-4">
+  <section
+    class="relative overflow-hidden min-h-[82vh] sm:min-h-[70vh] flex flex-col rounded-lg sm:rounded-2xl sm:mx-[5px]"
+    @touchstart.passive="onTouchStart"
+    @touchend.passive="onTouchEnd"
+  >
 
     <!-- Carousel-taustakuva -->
     <Transition name="carousel-fade" mode="out-in">
@@ -109,7 +124,7 @@ onUnmounted(stopAuto);
         <video v-else
           :key="'vid-' + activeItem._id"
           :src="activeItem.url"
-          autoplay muted playsinline
+          autoplay muted playsinline preload="auto"
           :loop="carouselItems.length <= 1"
           @ended="onVideoEnded"
           class="absolute inset-0 w-full h-full object-cover" />
@@ -129,34 +144,38 @@ onUnmounted(stopAuto);
     </div>
 
     <!-- Sisältö -->
-    <div class="relative z-10 px-4 sm:px-8 lg:px-12 pt-24 pb-16 text-center flex-1 flex flex-col items-center justify-center">
-      <div class="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full
+    <div class="relative z-10 px-4 sm:px-8 lg:px-12 pt-20 pb-16 text-center flex-1 flex flex-col items-center justify-center">
+      <div class="inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full
                   bg-dgreen-900/60 border border-dgreen-800/60 text-dgreen-400 text-xs font-medium backdrop-blur-sm">
         <span class="w-1.5 h-1.5 rounded-full bg-dgreen-400 animate-pulse"></span>
         Vuodesta 2003
       </div>
 
-      <h1 class="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-4 tracking-tight leading-tight
+      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-3 tracking-tight leading-tight
                  drop-shadow-[0_2px_16px_rgba(0,0,0,0.8)]">
         Kanniaalio<span class="text-dpurple-400">+</span>
       </h1>
-      <div class="rounded-2xl border border-dpurple-800/40 bg-black/30 backdrop-blur-sm px-6 py-4 max-w-xl mx-auto shadow-lg">
+
+      <!-- Lyhyt teksti mobiilissa, pidempi isommilla näytöillä -->
+      <p class="sm:hidden text-gray-400 text-sm mb-5 max-w-[280px] leading-relaxed drop-shadow">
+        BatMUD-pelaajien yhteisö vuodesta 2003.
+      </p>
+      <div class="hidden sm:block rounded-2xl border border-dpurple-800/40 bg-black/30 backdrop-blur-sm
+                  px-6 py-4 max-w-xl mx-auto shadow-lg mb-2">
         <p class="text-gray-300 text-lg sm:text-xl leading-relaxed drop-shadow">
           BatMUD-pelaajien yhteisö, joka on toiminut jo vuodesta 2003. Päivän polttavat keskustelut käydään BatMUD:in puolella, mutta täällä voit tutustua jäseniin, selailla kuvia ja tarinoita sekä hakea mukaan!
         </p>
       </div>
 
-      <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+      <div class="mt-5 flex items-center justify-center gap-2 flex-wrap">
         <RouterLink to="/jasenet"
-          class="w-full sm:w-auto px-6 py-3 rounded-xl bg-dgreen-800 hover:bg-dgreen-600
-                 text-white font-semibold transition-all duration-200 shadow-lg shadow-dgreen-900/40
-                 hover:shadow-dgreen-800/40 hover:-translate-y-0.5">
-          Tutustu jäseniin
+          class="px-4 py-2 rounded-lg border border-dgreen-700/60 text-dgreen-300 text-sm font-medium
+                 hover:bg-dgreen-900/40 hover:border-dgreen-600 backdrop-blur-sm transition-colors">
+          Jäsenet
         </RouterLink>
         <RouterLink to="/hakemus"
-          class="w-full sm:w-auto px-6 py-3 rounded-xl border border-white/20
-                 hover:border-dpurple-600 hover:bg-dpurple-900/40 backdrop-blur-sm
-                 text-gray-300 hover:text-white font-semibold transition-all duration-200">
+          class="px-4 py-2 rounded-lg border border-dpurple-700/60 text-dpurple-300 text-sm font-medium
+                 hover:bg-dpurple-900/40 hover:border-dpurple-600 backdrop-blur-sm transition-colors">
           Hae jäseneksi
         </RouterLink>
       </div>
@@ -164,32 +183,32 @@ onUnmounted(stopAuto);
 
     <!-- Carousel navigaatio (vain jos useampi kuva) -->
     <template v-if="hasCarousel && carouselItems.length > 1">
-      <!-- Nuolinapit -->
+      <!-- Nuolinapit — piilotettu mobiilissa, pyyhkäisy hoitaa navigoinnin -->
       <button @click="prev(); stopAuto(); startAuto()"
-        class="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full
+        class="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full
                bg-black/30 hover:bg-black/60 text-white border border-white/10
-               backdrop-blur-sm transition-all">
+               backdrop-blur-sm transition-all items-center justify-center">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
       <button @click="next(); stopAuto(); startAuto()"
-        class="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full
+        class="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full
                bg-black/30 hover:bg-black/60 text-white border border-white/10
-               backdrop-blur-sm transition-all">
+               backdrop-blur-sm transition-all items-center justify-center">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
       </button>
 
-      <!-- Dots -->
-      <div class="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+      <!-- Dots (piilotettu mobiilissa) -->
+      <div class="hidden sm:flex absolute bottom-4 left-1/2 -translate-x-1/2 z-20 gap-1.5">
         <button v-for="(_, i) in carouselItems" :key="i"
           @click="goTo(i); stopAuto(); startAuto()"
-          class="rounded-full transition-all duration-300 border-0"
+          class="rounded-full transition-all duration-300 border-0 bg-black"
           :class="i === activeIdx
-            ? 'w-6 h-2.5 bg-white'
-            : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/70'" />
+            ? 'w-2.5 h-2.5 ring-1 ring-dgreen-500 bg-dgreen-500'
+            : 'w-2 h-2 bg-black ring-1 ring-dgreen-900/80 hover:ring-dgreen-700'" />
       </div>
 
       <!-- Countdown ring -->
@@ -217,28 +236,24 @@ onUnmounted(stopAuto);
     </template>
   </section>
 
-  <!-- Navigaatiokortit -->
-  <section class="px-4 sm:px-8 lg:px-12 pb-16 pt-10">
-    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 text-center">
+  <!-- Navigaatiolinkit -->
+  <section class="px-4 sm:px-8 lg:px-12 pb-12 pt-7">
+    <p class="text-xs font-semibold text-gray-600 uppercase tracking-widest mb-4 text-center">
       Mitä löydät
-    </h2>
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+    </p>
+    <div class="flex flex-wrap gap-2 justify-center">
       <RouterLink
         v-for="item in nav"
         :key="item.to"
         :to="item.to"
-        class="group flex flex-col gap-2 p-4 sm:p-5 rounded-2xl
-               bg-black/60 border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+        class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm
+               transition-colors duration-150"
         :class="nav.indexOf(item) % 2 === 0
-          ? 'border-dgreen-900/50 hover:bg-dgreen-950/60 hover:border-dgreen-800/70 hover:shadow-dgreen-900/20'
-          : 'border-dpurple-900/50 hover:bg-dpurple-950/60 hover:border-dpurple-800/70 hover:shadow-dpurple-900/20'"
+          ? 'border-dgreen-900/60 text-dgreen-300/80 hover:text-dgreen-200 hover:border-dgreen-700/60 hover:bg-dgreen-950/40'
+          : 'border-dpurple-900/60 text-dpurple-300/80 hover:text-dpurple-200 hover:border-dpurple-700/60 hover:bg-dpurple-950/40'"
       >
-        <component :is="item.icon" class="w-7 h-7 sm:w-8 sm:h-8 stroke-[1.5]"
-          :class="nav.indexOf(item) % 2 === 0 ? 'text-dgreen-400' : 'text-dpurple-400'" />
-        <div>
-          <p class="text-sm font-semibold text-gray-200 group-hover:text-white">{{ item.label }}</p>
-          <p class="text-xs text-gray-400 mt-0.5 leading-snug">{{ item.desc }}</p>
-        </div>
+        <component :is="item.icon" class="w-4 h-4 shrink-0 stroke-[1.5]" />
+        {{ item.label }}
       </RouterLink>
     </div>
   </section>
