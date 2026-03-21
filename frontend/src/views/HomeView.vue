@@ -52,7 +52,19 @@ async function loadCarousel() {
   try {
     const { data } = await api.get('/images/carousel');
     carouselItems.value = data;
+    preloadAll();
   } catch { /* näytetään normaali hero ilman carousel-kuvia */ }
+}
+
+function preloadAll() {
+  carouselItems.value.forEach(item => {
+    if (item.mediaType === 'image') {
+      const img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.src = item.url;
+    }
+    // Videot: esil. piilotettujen <video preload="auto"> -elementtien kautta templatessa
+  });
 }
 
 function goTo(idx: number) {
@@ -70,11 +82,11 @@ function prev() { goTo((activeIdx.value - 1 + carouselItems.value.length) % caro
 function startAuto() {
   stopAuto();
   if (carouselItems.value.length <= 1) return;
-  // Videos advance via @ended; only set interval for images
-  if (activeItem.value?.mediaType !== 'video') {
-    autoTimer = setInterval(next, AUTO_MS);
-    startTimerTick();
-  }
+  // Käytä suoraa taulukkoa — computed voi olla stale watch-kutsuhetkellä
+  const current = carouselItems.value[activeIdx.value];
+  if (!current || current.mediaType === 'video') return;
+  autoTimer = setInterval(next, AUTO_MS);
+  startTimerTick();
 }
 function stopAuto() {
   if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
@@ -85,13 +97,14 @@ function onVideoEnded() {
 }
 
 // Restart timer whenever active slide changes (image vs video may differ)
-watch(activeIdx, startAuto);
+// flush:'post' varmistaa että DOM + computed ovat ajan tasalla ennen startAuto-kutsua
+watch(activeIdx, startAuto, { flush: 'post' });
 
 // ── Touch swipe ───────────────────────────────────────────────────────────────
 let touchStartX = 0;
-function onTouchStart(e: TouchEvent) { touchStartX = e.touches[0].clientX; }
+function onTouchStart(e: TouchEvent) { touchStartX = e.touches[0]?.clientX ?? 0; }
 function onTouchEnd(e: TouchEvent) {
-  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dx = (e.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
   if (Math.abs(dx) > 40) {
     if (dx < 0) { next(); stopAuto(); startAuto(); }
     else { prev(); stopAuto(); startAuto(); }
@@ -112,6 +125,19 @@ onUnmounted(stopAuto);
     @touchstart.passive="onTouchStart"
     @touchend.passive="onTouchEnd"
   >
+
+    <!-- Esilataajat: piilotetut <video> -elementit kaikille video-kohteille joita ei juuri näytetä -->
+    <template v-if="hasCarousel">
+      <video
+        v-for="item in carouselItems.filter(i => i.mediaType === 'video' && i._id !== activeItem?._id)"
+        :key="'preload-' + item._id"
+        :src="item.url"
+        preload="auto"
+        muted
+        playsinline
+        style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden"
+      />
+    </template>
 
     <!-- Carousel-taustakuva -->
     <Transition name="carousel-fade" mode="out-in">
