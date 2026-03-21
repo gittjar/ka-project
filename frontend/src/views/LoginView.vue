@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
-import { LogIn, Lock, User } from 'lucide-vue-next';
+import { LogIn, Lock, User, HelpCircle, ChevronDown } from 'lucide-vue-next';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -12,13 +12,14 @@ const username = ref('');
 const password = ref('');
 const error = ref('');
 const loading = ref(false);
+const showHelp = ref(false);
 
 async function submit() {
   error.value = '';
   loading.value = true;
   try {
     await auth.login(username.value, password.value);
-    const redirect = (route.query.redirect as string) || '/admin';
+    const redirect = (route.query.redirect as string) || (auth.isAdmin ? '/admin' : '/profiili');
     router.push(redirect);
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Kirjautuminen epäonnistui';
@@ -107,6 +108,56 @@ async function submit() {
           {{ loading ? 'Kirjaudutaan...' : 'Kirjaudu sisään' }}
         </button>
       </form>
+
+      <!-- Ei tunnuksia? -->
+      <div class="mt-4">
+        <button
+          @click="showHelp = !showHelp"
+          class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-dpurple-900/50 bg-dpurple-950/30 text-gray-500 text-sm hover:border-dpurple-800/60 hover:text-gray-400 transition-colors"
+        >
+          <span class="flex items-center gap-2">
+            <HelpCircle class="w-4 h-4 text-dpurple-400/70" />
+            Ei tunnuksia? Miten pääsen mukaan?
+          </span>
+          <ChevronDown
+            class="w-4 h-4 transition-transform duration-200"
+            :class="showHelp ? 'rotate-180' : ''"
+          />
+        </button>
+
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 -translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 -translate-y-1"
+        >
+          <div
+            v-if="showHelp"
+            class="mt-2 rounded-xl border border-dpurple-800/50 bg-dpurple-950/50 px-5 py-4 space-y-3 text-sm"
+          >
+            <p class="text-gray-300 font-medium">Tunnukset myönnetään kutsulla</p>
+            <p class="text-gray-500 leading-relaxed">
+              Kanniaalio+:aan ei voi rekisteröityä vapaasti. Jäsenyys myönnetään hallitusti
+              BatMUD-pelin kautta — ota yhteyttä kiltamestareihin suoraan pelissä.
+            </p>
+            <div class="rounded-lg border border-dpurple-900/60 bg-black/40 px-4 py-3 space-y-1.5">
+              <p class="text-dpurple-400 text-xs font-semibold uppercase tracking-wider">BatMUD-ohjeet</p>
+              <p class="text-gray-400">
+                Kirjaudu BatMUD:iin (<span class="text-gray-300 font-mono text-xs">telnet:bat.org 23</span>)
+                ja lähetä viestiä kiltamestareille!
+              </p>
+            </div>
+            <p class="text-gray-600 text-xs">
+              Voit myös lähettää hakemuksen
+              <RouterLink to="/hakemus" class="text-dpurple-400 hover:text-dpurple-300 underline underline-offset-2">hakemussivun</RouterLink>
+              kautta.
+            </p>
+          </div>
+        </Transition>
+      </div>
+
     </div>
   </div>
 </template>

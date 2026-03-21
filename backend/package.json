@@ -7,17 +7,23 @@
     "start": "node src/index.js",
     "import:members": "node src/scrape-members.js",
     "import:members:dry": "node src/scrape-members.js --dry-run",
-    "import:members:update": "node src/scrape-members.js --update"
+    "import:members:update": "node src/scrape-members.js --update",
+    "import:stories": "node src/seed-stories.js",
+    "import:stories:dry": "node src/seed-stories.js --dry-run",
+    "import:stories:clear": "node src/seed-stories.js --clear"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.27.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
+    "exifr": "^7.1.3",
     "express": "^5.1.0",
+    "heic-convert": "^2.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.13.1",
-    "multer": "^2.0.0"
+    "multer": "^2.0.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "node-html-parser": "^7.1.0",

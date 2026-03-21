@@ -12,6 +12,12 @@ const memberSchema = new mongoose.Schema({
   website: { type: String, default: '' },
   avatarUrl: { type: String, default: '' },
   points: { type: Number, default: 0 },
+  photos: [{
+    url:       { type: String, required: true },
+    mediaType: { type: String, enum: ['image', 'video'], default: 'image' },
+    blobName:  { type: String, default: '' },
+    sortOrder: { type: Number, default: 0 },
+  }],
   active: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
 });

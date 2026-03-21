@@ -26,7 +26,7 @@ const year = new Date().getFullYear();
                    hover:from-dpurple-300 hover:to-dgreen-300 transition-all">
             Kanniaalio+
           </RouterLink>
-          <p class="text-gray-600 text-sm mt-2 max-w-xs leading-relaxed">
+          <p class="text-gray-400 text-sm mt-2 max-w-xs leading-relaxed">
             Internet-aikakausien perintöä vuodesta&nbsp;2003.
           </p>
         </div>
@@ -37,7 +37,7 @@ const year = new Date().getFullYear();
             v-for="l in links"
             :key="l.to"
             :to="l.to"
-            class="text-sm text-gray-600 hover:text-dgreen-400 transition-colors"
+            class="text-sm text-gray-400 hover:text-dgreen-400 transition-colors"
           >
             {{ l.label }}
           </RouterLink>
@@ -46,9 +46,9 @@ const year = new Date().getFullYear();
 
       <!-- Alatunniste -->
       <div class="mt-8 pt-6 border-t border-dgreen-900/30 flex flex-col sm:flex-row
-                  items-center justify-between gap-2 text-xs text-gray-700">
+                  items-center justify-between gap-2 text-xs text-gray-500">
         <span>© Kanniaalio+ 2003–{{ year }}. Kaikki oikeudet pidätetään.</span>
-        <span class="text-gray-800">Rakennettu Vue&nbsp;3 + Node.js</span>
+        <span class="text-gray-600">Rakennettu Vue&nbsp;3 + Node.js</span>
       </div>
     </div>
   </footer>

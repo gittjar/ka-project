@@ -1,10 +1,21 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useInboxStore } from '../stores/inbox';
+import api from '../api';
 
 const auth = useAuthStore();
+const inbox = useInboxStore();
+const router = useRouter();
 const mobileOpen = ref(false);
+
+function logout() {
+  auth.logout();
+  inbox.setUnread(0);
+  mobileOpen.value = false;
+  router.push('/login');
+}
 
 const links = [
   { to: '/', label: 'Etusivu' },
@@ -13,8 +24,38 @@ const links = [
   { to: '/tarinat', label: 'Tarinoita' },
   { to: '/historia', label: 'Historiikki' },
   { to: '/juomat', label: 'Juomat' },
+  { to: '/tapahtumat', label: 'Tapahtumat' },
   { to: '/hakemus', label: 'Hakemus' },
 ];
+
+const upcomingEvents = ref(0);
+async function fetchUpcoming() {
+  try {
+    const { data } = await api.get('/events/upcoming');
+    upcomingEvents.value = data.count ?? 0;
+  } catch {}
+}
+
+// Poll unread reply count for non-admin logged-in users
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+async function fetchUnread() {
+  if (!auth.isLoggedIn || auth.isAdmin) return;
+  try {
+    const { data } = await api.get('/messages/mine');
+    inbox.setUnread(data.filter((m: any) => !m.repliesRead && m.replies?.length > 0).length);
+  } catch {}
+}
+
+onMounted(() => {
+  fetchUnread();
+  fetchUpcoming();
+  pollTimer = setInterval(() => { fetchUnread(); fetchUpcoming(); }, 60_000);
+});
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer);
+});
 </script>
 
 <template>
@@ -39,20 +80,49 @@ const links = [
             :to="l.to"
             class="px-3 py-1.5 rounded-xl text-sm text-gray-400
                    hover:text-green-300 hover:bg-dgreen-900/60 transition-all duration-150"
+            :class="l.to === '/tapahtumat' && upcomingEvents > 0
+              ? 'text-dgreen-400 bg-dgreen-900/20' : ''"
             active-class="!text-dpurple-400 bg-dpurple-900/50"
             exact-active-class="!text-dpurple-400 bg-dpurple-900/50"
           >
             {{ l.label }}
+            <span v-if="l.to === '/tapahtumat' && upcomingEvents > 0"
+              class="inline-flex items-center justify-center ml-0.5
+                     w-4 h-4 rounded-full bg-dgreen-700/80 text-white text-[10px] font-bold">
+              {{ upcomingEvents > 9 ? '9+' : upcomingEvents }}
+            </span>
           </RouterLink>
           <RouterLink v-if="auth.isAdmin" to="/admin"
             class="ml-2 px-3 py-1.5 rounded-xl text-sm text-yellow-400
                    hover:bg-yellow-900/20 transition-all">
             Admin
           </RouterLink>
-          <button v-if="auth.isLoggedIn" @click="auth.logout()"
-            class="ml-3 text-xs text-gray-600 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
+          <RouterLink v-else-if="auth.isLoggedIn" to="/profiili"
+            class="ml-2 relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-dgreen-400
+                   hover:bg-dgreen-900/20 transition-all">
+            {{ auth.username }}
+            <span v-if="inbox.unreadReplies > 0"
+              class="inline-flex items-center justify-center w-4 h-4 rounded-full
+                     bg-dgreen-600 text-white text-[10px] font-bold leading-none">
+              {{ inbox.unreadReplies > 9 ? '9+' : inbox.unreadReplies }}
+            </span>
+          </RouterLink>
+          <button v-if="auth.isLoggedIn" @click="logout()"
+            class="ml-3 text-xs text-gray-500 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
             Kirjaudu ulos
           </button>
+          <template v-else>
+            <RouterLink to="/rekisteroidy"
+              class="ml-3 px-3 py-1.5 rounded-xl text-sm text-gray-400
+                     hover:text-gray-200 transition-all">
+              Rekisteröidy
+            </RouterLink>
+            <RouterLink to="/login"
+              class="ml-1 px-3 py-1.5 rounded-xl text-sm font-medium text-dpurple-400 border border-dpurple-800/50
+                     hover:bg-dpurple-900/40 hover:border-dpurple-600/60 transition-all">
+              Kirjaudu
+            </RouterLink>
+          </template>
         </div>
 
         <!-- Mobile hamburger -->
@@ -74,13 +144,58 @@ const links = [
           v-for="l in links"
           :key="l.to"
           :to="l.to"
-          class="block px-3 py-2 rounded-xl text-sm text-gray-400
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-gray-400
                  hover:text-green-300 hover:bg-dgreen-900/50 transition-all"
+          :class="l.to === '/tapahtumat' && upcomingEvents > 0
+            ? 'text-dgreen-400 bg-dgreen-900/20' : ''"
           active-class="!text-dpurple-400 bg-dpurple-900/40"
           @click="mobileOpen = false"
         >
           {{ l.label }}
+          <span v-if="l.to === '/tapahtumat' && upcomingEvents > 0"
+            class="inline-flex items-center justify-center
+                   w-4 h-4 rounded-full bg-dgreen-700/80 text-white text-[10px] font-bold">
+            {{ upcomingEvents > 9 ? '9+' : upcomingEvents }}
+          </span>
         </RouterLink>
+        <RouterLink v-if="auth.isAdmin" to="/admin"
+          class="block px-3 py-2 rounded-xl text-sm text-yellow-400
+                 hover:bg-yellow-900/20 transition-all"
+          active-class="bg-yellow-900/20"
+          @click="mobileOpen = false">
+          Admin
+        </RouterLink>
+        <RouterLink v-else-if="auth.isLoggedIn" to="/profiili"
+          class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-dgreen-400
+                 hover:bg-dgreen-900/20 transition-all"
+          active-class="bg-dgreen-900/20"
+          @click="mobileOpen = false">
+          {{ auth.username }}
+          <span v-if="inbox.unreadReplies > 0"
+            class="inline-flex items-center justify-center w-4 h-4 rounded-full
+                   bg-dgreen-600 text-white text-[10px] font-bold leading-none">
+            {{ inbox.unreadReplies > 9 ? '9+' : inbox.unreadReplies }}
+          </span>
+        </RouterLink>
+        <button v-if="auth.isLoggedIn" @click="logout()"
+          class="block px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-red-400
+                 transition-all border-0 bg-transparent text-left">
+          Kirjaudu ulos
+        </button>
+        <template v-else>
+          <RouterLink to="/rekisteroidy"
+            class="block px-3 py-2 rounded-xl text-sm text-gray-500
+                   hover:text-gray-300 transition-all"
+            @click="mobileOpen = false">
+            Rekisteröidy
+          </RouterLink>
+          <RouterLink to="/login"
+            class="block px-3 py-2 rounded-xl text-sm font-medium text-dpurple-400
+                   hover:bg-dpurple-900/40 transition-all"
+            @click="mobileOpen = false">
+            Kirjaudu
+          </RouterLink>
+        </template>
       </div>
     </nav>
   </div>
