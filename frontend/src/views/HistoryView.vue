@@ -245,17 +245,17 @@ function formatAmount(n: number): string {
         </p>
       </div>
 
-      <div class="overflow-x-auto overflow-y-auto max-h-[70vh] rounded-xl border border-dpurple-800/50 shadow-lg">
+      <div class="overflow-y-auto max-h-[70vh] rounded-xl border border-dpurple-800/50 shadow-lg">
         <table class="w-full text-sm border-collapse">
           <thead class="sticky top-0 z-10">
             <tr class="bg-dpurple-900 text-dpurple-400 text-left">
               <th class="px-2 py-2.5 font-semibold border-b border-dpurple-800/60 text-right w-8 tabular-nums">#</th>
               <th
-                class="px-3 py-2.5 font-semibold border-b border-dpurple-800/60 cursor-pointer select-none hover:text-dpurple-300 whitespace-nowrap"
+                class="px-3 py-2.5 font-semibold border-b border-dpurple-800/60 cursor-pointer select-none hover:text-dpurple-300"
                 @click="sortBy('name')"
               >Pelaaja<span class="text-xs opacity-50">{{ sortIcon('name') }}</span></th>
               <th
-                class="px-3 py-2.5 font-semibold border-b border-dpurple-800/60 text-right whitespace-nowrap cursor-pointer select-none hover:text-dpurple-300"
+                class="px-3 py-2.5 font-semibold border-b border-dpurple-800/60 text-right cursor-pointer select-none hover:text-dpurple-300 whitespace-nowrap"
                 @click="sortBy('amount')"
               >Kulta<span class="text-xs opacity-50">{{ sortIcon('amount') }}</span></th>
               <th class="px-3 py-2.5 font-semibold border-b border-dpurple-800/60 hidden sm:table-cell">Viesti</th>
@@ -270,7 +270,7 @@ function formatAmount(n: number): string {
             >
               <td class="px-2 py-1.5 text-gray-500 text-xs tabular-nums text-right align-top">{{ i + 1 }}</td>
               <td class="px-3 py-1.5 align-top">
-                <div class="font-medium whitespace-nowrap" :class="donorBadge(d.name) ? 'text-amber-200' : 'text-dpurple-400'">
+                <div class="font-medium" :class="donorBadge(d.name) ? 'text-amber-200' : 'text-dpurple-400'">
                   <span
                     v-if="donorBadge(d.name)"
                     class="mr-1"
