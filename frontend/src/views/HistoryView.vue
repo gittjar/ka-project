@@ -245,7 +245,57 @@ function formatAmount(n: number): string {
         </p>
       </div>
 
-      <div class="overflow-y-auto max-h-[70vh] rounded-xl border border-dpurple-800/50 shadow-lg">
+      <!-- Mobiili: korttilistaus -->
+      <div class="sm:hidden overflow-y-auto max-h-[70vh] rounded-xl border border-dpurple-800/50 shadow-lg">
+        <!-- Lajittelunapit mobiilissa -->
+        <div class="flex gap-2 px-3 py-2 bg-dpurple-900 border-b border-dpurple-800/60">
+          <button @click="sortBy('name')"
+            class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs border-0 bg-transparent
+                   text-dpurple-400 hover:text-dpurple-300 transition-colors">
+            Pelaaja<span class="opacity-50">{{ sortIcon('name') }}</span>
+          </button>
+          <button @click="sortBy('amount')"
+            class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs border-0 bg-transparent
+                   text-dpurple-400 hover:text-dpurple-300 transition-colors">
+            Kulta<span class="opacity-50">{{ sortIcon('amount') }}</span>
+          </button>
+        </div>
+        <div
+          v-for="(d, i) in sortedDonations"
+          :key="d._orig"
+          class="flex gap-3 px-3 py-2.5 border-t border-dpurple-900/40"
+          :class="i % 2 === 0 ? 'bg-dpurple-950/50' : ''"
+        >
+          <!-- Järjestysnumero-pallukka -->
+          <div class="shrink-0 w-7 h-7 rounded-full bg-dpurple-900/80 border border-dpurple-800/60
+                      flex items-center justify-center text-[10px] font-bold text-gray-500 tabular-nums mt-0.5">
+            {{ i + 1 }}
+          </div>
+          <!-- Tiedot -->
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-sm leading-snug" :class="donorBadge(d.name) ? 'text-amber-200' : 'text-dpurple-400'">
+              <span v-if="donorBadge(d.name)" class="mr-1"
+                :title="`Yhteensä ${formatAmount(donorTotals.get(d.name) ?? 0)} kultaa`"
+              >{{ donorBadge(d.name) }}</span>{{ d.name }}
+            </div>
+            <div v-if="d.message" class="text-gray-400 text-xs mt-0.5 leading-snug">{{ d.message }}</div>
+            <div class="text-xs font-mono mt-1" :class="d.amount < 0 ? 'text-red-400' : 'text-amber-300'">
+              {{ formatAmount(d.amount) }} kultaa
+            </div>
+          </div>
+        </div>
+        <!-- Yhteensä -->
+        <div class="flex gap-3 px-3 py-2.5 bg-dpurple-900 border-t-2 border-dpurple-700/60 sticky bottom-0">
+          <div class="shrink-0 w-7" />
+          <div class="flex-1 flex items-center justify-between">
+            <span class="text-sm font-bold text-dpurple-400">Yhteensä</span>
+            <span class="text-sm font-bold font-mono text-amber-300">{{ formatAmount(total) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop: taulukko -->
+      <div class="hidden sm:block overflow-y-auto max-h-[70vh] rounded-xl border border-dpurple-800/50 shadow-lg">
         <table class="w-full text-sm border-collapse">
           <thead class="sticky top-0 z-10">
             <tr class="bg-dpurple-900 text-dpurple-400 text-left">
@@ -258,7 +308,7 @@ function formatAmount(n: number): string {
                 class="px-3 py-2.5 font-semibold border-b border-dpurple-800/60 text-right cursor-pointer select-none hover:text-dpurple-300 whitespace-nowrap"
                 @click="sortBy('amount')"
               >Kulta<span class="text-xs opacity-50">{{ sortIcon('amount') }}</span></th>
-              <th class="px-3 py-2.5 font-semibold border-b border-dpurple-800/60 hidden sm:table-cell">Viesti</th>
+              <th class="px-3 py-2.5 font-semibold border-b border-dpurple-800/60">Viesti</th>
             </tr>
           </thead>
           <tbody>
@@ -277,7 +327,6 @@ function formatAmount(n: number): string {
                     :title="`Yhteensä ${formatAmount(donorTotals.get(d.name) ?? 0)} kultaa`"
                   >{{ donorBadge(d.name) }}</span>{{ d.name }}
                 </div>
-                <div v-if="d.message" class="text-gray-400 text-xs mt-0.5 sm:hidden leading-tight">{{ d.message }}</div>
               </td>
               <td
                 class="px-3 py-1.5 text-right font-mono whitespace-nowrap align-top"
@@ -285,7 +334,7 @@ function formatAmount(n: number): string {
               >
                 {{ formatAmount(d.amount) }}
               </td>
-              <td class="px-3 py-1.5 text-gray-400 text-xs leading-relaxed hidden sm:table-cell align-top">{{ d.message }}</td>
+              <td class="px-3 py-1.5 text-gray-400 text-xs leading-relaxed align-top">{{ d.message }}</td>
             </tr>
           </tbody>
           <tfoot class="sticky bottom-0 z-10">
@@ -295,7 +344,7 @@ function formatAmount(n: number): string {
               <td class="px-3 py-2.5 text-right font-bold font-mono text-amber-300 whitespace-nowrap">
                 {{ formatAmount(total) }}
               </td>
-              <td class="hidden sm:table-cell px-3 py-2.5 text-gray-400 text-xs">kultaa</td>
+              <td class="px-3 py-2.5 text-gray-400 text-xs">kultaa</td>
             </tr>
           </tfoot>
         </table>
