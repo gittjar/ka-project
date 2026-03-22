@@ -253,7 +253,7 @@ function drinkMedia(d: Drink): { url: string; type: 'image' | 'video' } | null {
                 v-if="canEdit(d)"
                 @click.stop="openEdit(d)"
                 class="p-1.5 rounded-lg text-gray-700 hover:text-dpurple-400 hover:bg-dpurple-900/20
-                       opacity-0 group-hover:opacity-100 transition-all border-0 bg-transparent"
+                       sm:opacity-0 sm:group-hover:opacity-100 transition-all border-0 bg-transparent"
                 title="Muokkaa"
               >
                 <Pencil class="w-3.5 h-3.5" />
@@ -264,7 +264,7 @@ function drinkMedia(d: Drink): { url: string; type: 'image' | 'video' } | null {
                 @click.stop="confirmDelete(d)"
                 :disabled="deleting === d._id"
                 class="p-1.5 rounded-lg text-gray-700 hover:text-red-400 hover:bg-red-900/20
-                       opacity-0 group-hover:opacity-100 transition-all border-0 bg-transparent"
+                       sm:opacity-0 sm:group-hover:opacity-100 transition-all border-0 bg-transparent"
                 title="Poista"
               >
                 <Trash2 class="w-3.5 h-3.5" />
@@ -326,17 +326,17 @@ function drinkMedia(d: Drink): { url: string; type: 'image' | 'video' } | null {
             </div>
           </div>
 
-          <!-- Muokkaa/Poista expanded (mobiili hover ei toimi) -->
-          <div v-if="canEdit(d)" class="mt-4 flex justify-end gap-2">
+          <!-- Muokkaa/Poista expanded -->
+          <div v-if="canEdit(d)" class="mt-4 pt-3 border-t border-gray-800/40 flex flex-col sm:flex-row sm:justify-end gap-0.5 sm:gap-2">
             <button @click.stop="openEdit(d)"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border-0
-                     text-dpurple-400/70 hover:text-dpurple-300 hover:bg-dpurple-900/20 transition-all bg-transparent">
-              <Pencil class="w-3.5 h-3.5" />Muokkaa
+              class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs border-0
+                     text-dpurple-400/70 hover:text-dpurple-300 transition-all bg-transparent text-left">
+              <Pencil class="w-3 h-3 shrink-0" />Muokkaa
             </button>
             <button @click.stop="confirmDelete(d)" :disabled="deleting === d._id"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border-0
-                     text-red-500/70 hover:text-red-400 hover:bg-red-900/20 transition-all bg-transparent">
-              <Trash2 class="w-3.5 h-3.5" />Poista
+              class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs border-0
+                     text-red-500/70 hover:text-red-400 transition-all bg-transparent text-left">
+              <Trash2 class="w-3 h-3 shrink-0" />Poista
             </button>
           </div>
         </div>
