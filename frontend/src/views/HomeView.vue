@@ -48,8 +48,8 @@ function stopTimerTick() {
 const activeItem = computed(() => carouselItems.value[activeIdx.value] ?? null);
 const hasCarousel = computed(() => carouselItems.value.length > 0);
 
-// Ref aktiiviseen video-elementtiin (tarvitaan mobiili-autoplay-korjaukseen)
-const videoRef = ref<HTMLVideoElement | null>(null);
+// Ref-taulukko kaikille video-elementeille (v-for täyttää tämän automaattisesti)
+const videoRefs = ref<(HTMLVideoElement | null)[]>([]);
 
 async function loadCarousel() {
   try {
@@ -60,8 +60,6 @@ async function loadCarousel() {
 }
 
 function preloadAll() {
-  // Ladataan kuvat porrastetusti: aktiivinen välittömästi, seuraava 400ms viiveellä,
-  // loput 800ms + välein — vältetään kaistanleveyden ylikuormitus mobiilissa
   const items = carouselItems.value;
   items.forEach((item, i) => {
     if (item.mediaType !== 'image') return;
@@ -72,6 +70,17 @@ function preloadAll() {
       img.src = item.url;
     }, delay);
   });
+}
+
+function playVideoAt(idx: number) {
+  const v = videoRefs.value[idx];
+  if (!v) return;
+  v.currentTime = 0;
+  v.play().catch(() => {});
+}
+function pauseVideoAt(idx: number) {
+  const v = videoRefs.value[idx];
+  if (v && !v.paused) { v.pause(); v.currentTime = 0; }
 }
 
 function goTo(idx: number) {
@@ -103,20 +112,17 @@ function onVideoEnded() {
   if (carouselItems.value.length > 1) next();
 }
 
-// Restart timer whenever active slide changes (image vs video may differ).
-// mode="out-in" poistettu templatesta, joten uusi video-elementti on DOM:issa flush:'post' aikana.
-// .play() varmistaa iOS Safarin autoplayn myös siitä suunnasta.
-watch(activeIdx, () => {
+// Watch: soita oikeaa videota kun aktiivinen slide vaihtuu.
+// Koska kaikki videot ovat DOM:issa (v-for), .play() toimii
+// luotettavasti myös iOS Safarilla — elementti ei tule DOM:iin myöhässä.
+watch(activeIdx, (newIdx, oldIdx) => {
   startAuto();
-  const current = carouselItems.value[activeIdx.value];
+  // Pysäytä edellinen video
+  if (oldIdx !== undefined) pauseVideoAt(oldIdx);
+  // Käynnistä uusi video jos slide on video
+  const current = carouselItems.value[newIdx];
   if (current?.mediaType === 'video') {
-    nextTick(() => {
-      const v = videoRef.value;
-      if (v) {
-        v.load(); // pakottaa iOS:n lataamaan uudelleen
-        v.play().catch(() => {});
-      }
-    });
+    nextTick(() => playVideoAt(newIdx));
   }
 }, { flush: 'post' });
 
@@ -134,6 +140,11 @@ function onTouchEnd(e: TouchEvent) {
 onMounted(async () => {
   await loadCarousel();
   startAuto();
+  // Jos ensimmäinen slide on video, käynnistä se
+  const first = carouselItems.value[0];
+  if (first?.mediaType === 'video') {
+    nextTick(() => playVideoAt(0));
+  }
 });
 onUnmounted(stopAuto);
 </script>
@@ -146,45 +157,29 @@ onUnmounted(stopAuto);
     @touchend.passive="onTouchEnd"
   >
 
-    <!-- Esilataajat: piilotetut <video> -elementit ei-aktiivisille videoille.
-         Käytetään preload="metadata" (ei "auto") mobiilikaistan säästämiseksi —
-         haetaan vain ensimmäinen kehys eikä koko videota. -->
+    <!-- Carousel-slidet: kaikki renderoidaan DOM:iin (v-for), näkyvyys
+         vaihdetaan opacity-CSS:llä. Tämä on luotettavin tapa iOS Safarin
+         kanssa: video on jo DOM:issa kun .play() kutsutaan. -->
     <template v-if="hasCarousel">
-      <video
-        v-for="item in carouselItems.filter(i => i.mediaType === 'video' && i._id !== activeItem?._id)"
-        :key="'preload-' + item._id"
-        :src="item.url"
-        preload="metadata"
-        muted
-        playsinline
-        style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden"
-      />
-    </template>
-
-    <!-- Carousel-taustakuva -->
-    <!-- mode="out-in" poistettu: uusi video liitetään DOM:iin HETI kun activeIdx vaihtuu,
-         ei vasta 700ms jälkeen. iOS Safari tarvitsee elementin DOM:issa ennen .play()-kutsua.
-         Molemmat elementit ovat absolute inset-0, joten ristiinhhäipyminen toimii silti. -->
-    <Transition name="carousel-fade">
-      <template v-if="hasCarousel && activeItem">
-        <img v-if="activeItem.mediaType === 'image'"
-          :key="'img-' + activeItem._id"
-          :src="activeItem.url"
+      <template v-for="(item, idx) in carouselItems" :key="item._id">
+        <img v-if="item.mediaType === 'image'"
+          :src="item.url"
           referrerpolicy="no-referrer"
-          fetchpriority="high"
-          class="absolute inset-0 w-full h-full object-cover rounded-none" />
+          :fetchpriority="idx === 0 ? 'high' : 'low'"
+          class="absolute inset-0 w-full h-full object-cover rounded-none
+                 transition-opacity duration-700"
+          :class="idx === activeIdx ? 'opacity-100' : 'opacity-0'" />
         <video v-else
-          ref="videoRef"
-          :key="'vid-' + activeItem._id"
-          :src="activeItem.url"
-          autoplay muted playsinline webkit-playsinline preload="auto"
+          :ref="(el) => { videoRefs[idx] = el as HTMLVideoElement | null }"
+          :src="item.url"
+          muted playsinline preload="auto"
           :loop="carouselItems.length <= 1"
-          @loadedmetadata="(e) => (e.target as HTMLVideoElement).play().catch(() => {})"
-          @canplay="(e) => (e.target as HTMLVideoElement).play().catch(() => {})"
-          @ended="onVideoEnded"
-          class="absolute inset-0 w-full h-full object-cover" />
+          @ended="idx === activeIdx && onVideoEnded()"
+          class="absolute inset-0 w-full h-full object-cover
+                 transition-opacity duration-700"
+          :class="idx === activeIdx ? 'opacity-100' : 'opacity-0'" />
       </template>
-    </Transition>
+    </template>
 
     <!-- Tummentaja overlay -->
     <div v-if="hasCarousel"
@@ -315,21 +310,6 @@ onUnmounted(stopAuto);
 </template>
 
 <style scoped>
-.carousel-fade-enter-active {
-  transition: opacity 0.7s ease;
-}
-.carousel-fade-leave-active {
-  transition: opacity 0.7s ease;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.carousel-fade-enter-from,
-.carousel-fade-leave-to {
-  opacity: 0;
-}
-
 .caption-fade-enter-active,
 .caption-fade-leave-active {
   transition: opacity 0.3s ease;
