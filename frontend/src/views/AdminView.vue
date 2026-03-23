@@ -453,7 +453,7 @@ onMounted(loadMembers);
   <div class="px-4 sm:px-8 lg:px-12 py-10">
 
     <!-- Header -->
-    <div class="flex items-center gap-3 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
       <div class="flex items-center justify-center w-10 h-10 rounded-xl
                   bg-dpurple-900/60 border border-dpurple-800/50">
         <ShieldCheck class="w-5 h-5 text-dpurple-400" />
@@ -463,17 +463,17 @@ onMounted(loadMembers);
         <p class="text-xs text-gray-600">{{ auth.username }}</p>
       </div>
       <button @click="logout"
-        class="ml-auto flex items-center gap-1.5 text-xs text-gray-600 hover:text-red-400
+        class="self-start sm:ml-auto flex items-center gap-1.5 text-xs text-gray-600 hover:text-red-400
                transition-colors border-0 bg-transparent">
         <LogOut class="w-4 h-4" />Kirjaudu ulos
       </button>
     </div>
 
     <!-- Tabs -->
-    <div class="flex gap-1 mb-6 bg-gray-950 border border-gray-800 rounded-2xl p-1">
+    <div class="grid grid-cols-2 sm:flex gap-1 mb-6 bg-gray-950 border border-gray-800 rounded-2xl p-1">
       <button v-for="(label, key) in { jasenet: 'Jäsenet', kayttajat: 'Käyttäjät', viestit: 'Viestit', kutsukoodit: 'Kutsukoodit' }"
         :key="key" @click="switchTab(key as any)"
-        class="flex-1 px-3 py-1.5 rounded-xl text-sm font-medium transition-all border-0 relative"
+        class="sm:flex-1 px-3 py-1.5 rounded-xl text-sm font-medium transition-all border-0 relative"
         :class="tab === key
           ? 'bg-dpurple-900/50 text-dpurple-300 border border-dpurple-800/50'
           : 'text-gray-600 hover:text-gray-400 bg-transparent'">
@@ -504,21 +504,21 @@ onMounted(loadMembers);
       </div>
 
       <!-- Header + search + add -->
-      <div class="flex flex-wrap items-center gap-3 mb-4">
-        <h2 class="text-base font-semibold text-white flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2 mb-4">
+        <h2 class="text-base font-semibold text-white flex items-center gap-2 shrink-0">
           <Users class="w-4 h-4 text-gray-600" />Jäsenet
         </h2>
-        <div class="relative">
+        <div class="relative flex-1 min-w-32">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
           <input v-model="search" placeholder="Hae..."
             class="pl-8 pr-3 py-1.5 text-sm rounded-xl bg-gray-950 border border-gray-800
-                   text-gray-300 placeholder-gray-700 focus:outline-none focus:border-dgreen-800 transition-colors w-56" />
+                   text-gray-300 placeholder-gray-700 focus:outline-none focus:border-dgreen-800 transition-colors w-full" />
         </div>
         <button @click="openAdd"
-          class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium
+          class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium
                  bg-dgreen-900/50 hover:bg-dgreen-800/50 border border-dgreen-800/50
                  text-dgreen-300 transition-all duration-150">
-          <Plus class="w-4 h-4" />Lisää jäsen
+          <Plus class="w-4 h-4" /><span class="hidden sm:inline">Lisää jäsen</span><span class="sm:hidden">Lisää</span>
         </button>
       </div>
 
@@ -533,24 +533,24 @@ onMounted(loadMembers);
             expandedId === m._id ? 'border-dgreen-900/50' : ''
           ]"
         >
-          <div class="flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none"
+          <div class="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none"
                @click="toggleExpand(m._id)">
-            <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0
+            <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0
                         bg-dpurple-900/40 flex items-center justify-center text-xs font-bold text-dpurple-400">
               <img v-if="m.avatarUrl" :src="avatarSrc(m.avatarUrl)" :alt="m.name" referrerpolicy="no-referrer"
                    class="w-full h-full object-cover" />
               <span v-else>{{ initials(m.name) }}</span>
             </div>
-            <div class="w-52 shrink-0 min-w-0">
+            <div class="flex-1 min-w-0">
               <div class="text-sm text-gray-200 font-medium truncate">{{ m.name }}</div>
               <div v-if="m.aliases.length" class="text-xs text-gray-700 truncate">{{ m.aliases.join(', ') }}</div>
             </div>
-            <div class="flex-1 hidden sm:block text-xs text-gray-700 truncate">{{ m.location }}</div>
+            <div class="hidden sm:block flex-1 text-xs text-gray-700 truncate px-2">{{ m.location }}</div>
             <span v-if="!m.active"
-              class="text-xs text-red-900/80 bg-red-950/40 px-2 py-0.5 rounded-full border border-red-900/30 shrink-0">
+              class="text-[10px] text-red-900/80 bg-red-950/40 px-1.5 py-0.5 rounded-full border border-red-900/30 shrink-0">
               piilotettu
             </span>
-            <div class="flex items-center gap-0.5 shrink-0 ml-auto">
+            <div class="flex items-center gap-0 shrink-0">
               <button @click.stop="openEdit(m)"
                 class="p-1.5 rounded-lg text-gray-600 hover:text-dgreen-400 hover:bg-dgreen-900/20
                        transition-colors border-0 bg-transparent">
@@ -570,9 +570,9 @@ onMounted(loadMembers);
           </div>
 
           <div v-if="expandedId === m._id"
-            class="px-4 pb-4 pt-1 border-t border-gray-800/50">
-            <div class="flex gap-4">
-              <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden
+            class="px-3 pb-3 pt-2 border-t border-gray-800/50">
+            <div class="flex gap-3">
+              <div class="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden
                           bg-dpurple-900/30 border border-dpurple-800/20
                           flex items-center justify-center">
                 <img v-if="m.avatarUrl" :src="avatarSrc(m.avatarUrl)" :alt="m.name" referrerpolicy="no-referrer"
@@ -841,7 +841,7 @@ onMounted(loadMembers);
           </button>
         </div>
 
-        <div class="px-6 py-5 space-y-5 max-h-[72vh] overflow-y-auto">
+        <div class="px-4 sm:px-6 py-4 sm:py-5 space-y-4 max-h-[80vh] sm:max-h-[72vh] overflow-y-auto">
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0
                         bg-dpurple-900/40 border border-dpurple-800/30
@@ -1015,7 +1015,7 @@ onMounted(loadMembers);
         </div>
 
         <div v-if="!confirmSaveOpen"
-          class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800">
+          class="flex items-center justify-end gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-800">
           <button @click="modalOpen = false"
             class="px-4 py-2 rounded-xl text-sm text-gray-600 hover:text-gray-300
                    transition-colors border-0 bg-transparent">Peruuta</button>

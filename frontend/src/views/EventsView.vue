@@ -273,13 +273,13 @@ async function deleteImage(event: Event) {
     <template v-else>
 
       <!-- Header -->
-      <div class="flex items-center justify-between mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-3">
         <div>
           <h1 class="text-3xl font-extrabold text-white">Tapahtumat</h1>
           <p class="text-gray-400 text-sm mt-1">Seuran tulevat ja menneet tapahtumat</p>
         </div>
         <button @click="openAddModal"
-          class="flex items-center gap-1.5 px-4 py-2 rounded-xl border-0
+          class="self-start sm:self-auto flex items-center gap-1.5 px-4 py-2 rounded-xl border-0
                  bg-dgreen-800/60 hover:bg-dgreen-700/60 text-white text-sm font-medium transition-all">
           <Plus class="w-4 h-4" />Lisää tapahtuma
         </button>

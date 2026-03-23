@@ -27,7 +27,7 @@ const year = new Date().getFullYear();
             Kanniaalio+
           </RouterLink>
           <p class="text-gray-400 text-sm mt-2 max-w-xs leading-relaxed">
-            Internet-aikakausien perintöä vuodesta&nbsp;2003.
+            Batmud pelaajien perintöä vuodesta&nbsp;2003.
           </p>
         </div>
 
@@ -47,7 +47,7 @@ const year = new Date().getFullYear();
       <!-- Alatunniste -->
       <div class="mt-8 pt-6 border-t border-dgreen-900/30 flex flex-col sm:flex-row
                   items-center justify-between gap-2 text-xs text-gray-500">
-        <span>© Kanniaalio+ 2003–{{ year }}. Kaikki oikeudet pidätetään.</span>
+        <span>© Kanniaalio+ 2003–{{ year }}. Kaikki oikeudet ja tekijät pidätetään.</span>
         <span class="text-gray-600">Rakennettu Vue&nbsp;3 + Node.js</span>
       </div>
     </div>

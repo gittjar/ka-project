@@ -4,7 +4,7 @@ import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Camera, Clock, FolderOpen, Plus, Play,
   ChevronRight, HardDrive, Pencil, Check, GripVertical,
-  CheckSquare, Square, ArrowUpDown, ImagePlus, Star,
+  CheckSquare, Square, ArrowUpDown, ImagePlus, Star, FileText,
 } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -34,6 +34,7 @@ interface FolderItem {
   parent: string | null;
   createdBy: string;
   createdAt: string;
+  description?: string;
 }
 interface MediaItem {
   _id: string;
@@ -112,6 +113,15 @@ const showNewFolder = ref(false);
 const newFolderName = ref('');
 const creatingFolder = ref(false);
 
+// Folder description / story (admin)
+const storyModalOpen = ref(false);
+const storyFolderTarget = ref<FolderItem | null>(null);
+const storyDraft = ref('');
+const storySaving = ref(false);
+
+// Current folder (for showing description inside folder view)
+const currentFolder = ref<FolderItem | null>(null);
+
 // Delete folder
 const deleteFolderTarget = ref<FolderItem | null>(null);
 const deletingFolder = ref(false);
@@ -172,6 +182,7 @@ async function loadFolder(folderId: string | null) {
 
 async function navigateInto(folder: FolderItem) {
   currentFolderId.value = folder._id;
+  currentFolder.value = folder;
   breadcrumb.value.push({ id: folder._id, name: folder.name });
   await loadFolder(folder._id);
 }
@@ -182,6 +193,7 @@ async function navigateTo(idx: number) {
   inCarouselView.value = false;
   const folderId = crumb.id === CAROUSEL_VIRTUAL_ID ? null : crumb.id;
   currentFolderId.value = folderId;
+  currentFolder.value = null;
   await loadFolder(folderId);
 }
 
@@ -533,6 +545,27 @@ async function doRenameFolder() {
   }
 }
 
+async function saveDescription() {
+  if (!storyFolderTarget.value) return;
+  storySaving.value = true;
+  try {
+    const { data } = await api.patch(`/images/folders/${storyFolderTarget.value._id}`, {
+      description: storyDraft.value,
+    });
+    const idx = folders.value.findIndex(f => f._id === storyFolderTarget.value!._id);
+    if (idx !== -1) folders.value[idx]!.description = data.description;
+    if (currentFolder.value?._id === storyFolderTarget.value._id) {
+      currentFolder.value.description = data.description;
+    }
+    storyModalOpen.value = false;
+    storyFolderTarget.value = null;
+  } catch (e: any) {
+    uploadError.value = e.response?.data?.message || 'Tallennus epäonnistui';
+  } finally {
+    storySaving.value = false;
+  }
+}
+
 // ── Carousel (admin) ──────────────────────────────────────────────────────────
 
 async function loadCarouselIds() {
@@ -692,7 +725,7 @@ onUnmounted(() => {
           {{ crumb.name }}
         </button>
       </nav>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <input ref="fileInputRef" type="file"
           accept="image/*,video/*,.heic,.heif,.avif,.tiff,.tif,.bmp,.mov,.m4v,.mkv,.avi,.3gp"
           multiple class="hidden" @change="onFileChange" />
@@ -788,10 +821,22 @@ onUnmounted(() => {
       @dragleave="dragOver = false"
       @drop.prevent="onDrop"
       @click="fileInputRef?.click()">
-      <Upload class="w-5 h-5 mx-auto mb-1.5" :class="dragOver ? 'text-dpurple-400' : 'text-gray-700'" />
-      <p class="text-xs" :class="dragOver ? 'text-dpurple-400' : 'text-gray-700'">
+      <Upload class="w-5 h-5 mx-auto mb-1.5" :class="dragOver ? 'text-dpurple-400' : 'text-gray-600'" />
+      <p class="text-xs" :class="dragOver ? 'text-dpurple-400' : 'text-gray-500'">
         Raahaa kuvia tai videoita tähän · JPG, PNG, WebP, HEIC, MP4, MOV · max 500 MB
       </p>
+    </div>
+
+    <!-- ── Kuvaukset kansiolle ── -->
+    <div v-if="currentFolder?.description && !loading"
+      class="mb-6 p-4 rounded-2xl bg-gray-950 border border-gray-800/50 flex items-start gap-3">
+      <FileText class="w-4 h-4 text-dpurple-500/60 shrink-0 mt-0.5" />
+      <p class="text-sm text-gray-400 leading-relaxed whitespace-pre-wrap">{{ currentFolder.description }}</p>
+      <button v-if="auth.isAdmin"
+        @click="storyFolderTarget = currentFolder; storyDraft = currentFolder.description ?? ''; storyModalOpen = true"
+        class="ml-auto shrink-0 p-1 rounded-lg border-0 bg-transparent text-gray-700 hover:text-dpurple-400 transition-colors">
+        <Pencil class="w-3.5 h-3.5" />
+      </button>
     </div>
 
     <!-- ── Lataus ── -->
@@ -834,6 +879,12 @@ onUnmounted(() => {
               @click.stop="renameFolderTarget = folder; renameDraft = folder.name; nextTick(() => renameInputRef?.focus())"
               class="text-xs text-gray-600 hover:text-gray-300 border-0 bg-transparent transition-colors p-0 leading-none">
               muokkaa
+            </button>
+            <button
+              @click.stop="storyFolderTarget = folder; storyDraft = folder.description ?? ''; storyModalOpen = true"
+              class="flex items-center gap-1 text-xs border-0 bg-transparent transition-colors p-0 leading-none"
+              :class="folder.description ? 'text-dpurple-500 hover:text-dpurple-300' : 'text-gray-600 hover:text-gray-300'">
+              <FileText class="w-3 h-3" />tarina
             </button>
             <button
               @click.stop="deleteFolderTarget = folder"
@@ -1364,6 +1415,55 @@ onUnmounted(() => {
                      text-sm font-medium border-0 bg-dpurple-900/60 hover:bg-dpurple-800/60
                      text-dpurple-300 disabled:opacity-50 transition-all">
               <Check class="w-3.5 h-3.5" />{{ renaming ? 'Tallennetaan...' : 'Tallenna' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- ── KANSION TARINA ── -->
+  <Teleport to="body">
+    <div v-if="storyModalOpen"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" @click="storyModalOpen = false" />
+      <div class="relative w-full sm:max-w-md bg-gray-950 border border-gray-800/60
+                  rounded-t-2xl sm:rounded-2xl shadow-2xl z-10 overflow-hidden">
+        <div class="h-1 w-full bg-gradient-to-r from-dpurple-900/60 via-dpurple-700/60 to-dpurple-900/60" />
+        <div class="px-6 pt-5 pb-2 flex items-center gap-2 border-b border-gray-800/50">
+          <FileText class="w-4 h-4 text-dpurple-400" />
+          <h3 class="text-sm font-bold text-white">Kansion tarina</h3>
+          <span class="text-xs text-gray-600 ml-1">{{ storyFolderTarget?.name }}</span>
+          <button @click="storyModalOpen = false"
+            class="ml-auto p-1 rounded-lg border-0 bg-transparent text-gray-600 hover:text-white transition-colors">
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+        <div class="px-6 py-4">
+          <textarea v-model="storyDraft" rows="5" maxlength="2000"
+            placeholder="Kirjoita kansion tarina tai kuvaus..."
+            class="w-full px-4 py-3 rounded-xl text-sm bg-gray-900 border border-gray-800
+                   text-white placeholder-gray-700 focus:outline-none focus:border-dpurple-700
+                   transition-all resize-none leading-relaxed mb-1"
+            autofocus />
+          <p class="text-right text-xs text-gray-700 mb-4">{{ storyDraft.length }} / 2000</p>
+          <div class="flex gap-2">
+            <button @click="storyModalOpen = false"
+              class="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-800
+                     text-gray-400 hover:text-white transition-all bg-transparent">
+              Peruuta
+            </button>
+            <button v-if="storyDraft"
+              @click="storyDraft = ''; saveDescription()"
+              class="px-4 py-2.5 rounded-xl text-sm font-medium border-0
+                     bg-red-900/40 hover:bg-red-800/40 text-red-400 transition-all">
+              Poista
+            </button>
+            <button @click="saveDescription" :disabled="storySaving"
+              class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                     text-sm font-medium border-0 bg-dpurple-900/60 hover:bg-dpurple-800/60
+                     text-dpurple-300 disabled:opacity-50 transition-all">
+              <Check class="w-3.5 h-3.5" />{{ storySaving ? 'Tallennetaan...' : 'Tallenna' }}
             </button>
           </div>
         </div>

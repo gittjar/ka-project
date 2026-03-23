@@ -137,21 +137,25 @@ router.post('/folders', authMiddleware, async (req, res) => {
   }
 });
 
-// PATCH /api/images/folders/:id  – uudelleennimeäminen, vain admin
+// PATCH /api/images/folders/:id  – uudelleennimeäminen tai kuvaus, vain admin
 router.patch('/folders/:id', authMiddleware, async (req, res) => {
   try {
     if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
-    const { name } = req.body;
-    if (!name?.trim()) return res.status(400).json({ message: 'Kansion nimi vaaditaan' });
-    const folder = await Folder.findByIdAndUpdate(
-      req.params.id,
-      { name: name.trim() },
-      { new: true }
-    );
+    const updates = {};
+    const { name, description } = req.body;
+    if (name !== undefined) {
+      if (!name.trim()) return res.status(400).json({ message: 'Kansion nimi ei voi olla tyhjä' });
+      updates.name = name.trim();
+    }
+    if (description !== undefined) {
+      updates.description = String(description).slice(0, 2000);
+    }
+    if (!Object.keys(updates).length) return res.status(400).json({ message: 'Ei muutoksia' });
+    const folder = await Folder.findByIdAndUpdate(req.params.id, updates, { new: true });
     if (!folder) return res.status(404).json({ message: 'Kansiota ei löydy' });
     res.json(folder);
   } catch (err) {
-    res.status(500).json({ message: 'Uudelleennimeäminen epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
   }
 });
 
