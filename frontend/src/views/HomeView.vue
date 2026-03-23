@@ -104,14 +104,19 @@ function onVideoEnded() {
 }
 
 // Restart timer whenever active slide changes (image vs video may differ).
-// flush:'post' varmistaa että DOM on ajan tasalla — käynnistetään myös video
-// manuaalisesti, koska iOS Safari ei aina kunnioita autoplay-attribuuttia
-// dynaamisesti lisätyillä elementeillä.
+// mode="out-in" poistettu templatesta, joten uusi video-elementti on DOM:issa flush:'post' aikana.
+// .play() varmistaa iOS Safarin autoplayn myös siitä suunnasta.
 watch(activeIdx, () => {
   startAuto();
   const current = carouselItems.value[activeIdx.value];
   if (current?.mediaType === 'video') {
-    nextTick(() => videoRef.value?.play().catch(() => {}));
+    nextTick(() => {
+      const v = videoRef.value;
+      if (v) {
+        v.load(); // pakottaa iOS:n lataamaan uudelleen
+        v.play().catch(() => {});
+      }
+    });
   }
 }, { flush: 'post' });
 
@@ -157,7 +162,10 @@ onUnmounted(stopAuto);
     </template>
 
     <!-- Carousel-taustakuva -->
-    <Transition name="carousel-fade" mode="out-in">
+    <!-- mode="out-in" poistettu: uusi video liitetään DOM:iin HETI kun activeIdx vaihtuu,
+         ei vasta 700ms jälkeen. iOS Safari tarvitsee elementin DOM:issa ennen .play()-kutsua.
+         Molemmat elementit ovat absolute inset-0, joten ristiinhhäipyminen toimii silti. -->
+    <Transition name="carousel-fade">
       <template v-if="hasCarousel && activeItem">
         <img v-if="activeItem.mediaType === 'image'"
           :key="'img-' + activeItem._id"
@@ -169,9 +177,10 @@ onUnmounted(stopAuto);
           ref="videoRef"
           :key="'vid-' + activeItem._id"
           :src="activeItem.url"
-          autoplay muted playsinline preload="auto"
+          autoplay muted playsinline webkit-playsinline preload="auto"
           :loop="carouselItems.length <= 1"
-          @canplay.once="($event.target as HTMLVideoElement).play().catch(() => {})"
+          @loadedmetadata="(e) => (e.target as HTMLVideoElement).play().catch(() => {})"
+          @canplay="(e) => (e.target as HTMLVideoElement).play().catch(() => {})"
           @ended="onVideoEnded"
           class="absolute inset-0 w-full h-full object-cover" />
       </template>
