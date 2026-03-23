@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { RouterLink } from 'vue-router';
 import { Users, Camera, BookOpen, ScrollText, GlassWater, ClipboardList } from 'lucide-vue-next';
 import api from '../api';
@@ -48,6 +48,9 @@ function stopTimerTick() {
 const activeItem = computed(() => carouselItems.value[activeIdx.value] ?? null);
 const hasCarousel = computed(() => carouselItems.value.length > 0);
 
+// Ref aktiiviseen video-elementtiin (tarvitaan mobiili-autoplay-korjaukseen)
+const videoRef = ref<HTMLVideoElement | null>(null);
+
 async function loadCarousel() {
   try {
     const { data } = await api.get('/images/carousel');
@@ -57,13 +60,17 @@ async function loadCarousel() {
 }
 
 function preloadAll() {
-  carouselItems.value.forEach(item => {
-    if (item.mediaType === 'image') {
+  // Ladataan kuvat porrastetusti: aktiivinen välittömästi, seuraava 400ms viiveellä,
+  // loput 800ms + välein — vältetään kaistanleveyden ylikuormitus mobiilissa
+  const items = carouselItems.value;
+  items.forEach((item, i) => {
+    if (item.mediaType !== 'image') return;
+    const delay = i === 0 ? 0 : i === 1 ? 400 : 400 + (i - 1) * 800;
+    setTimeout(() => {
       const img = new Image();
       img.referrerPolicy = 'no-referrer';
       img.src = item.url;
-    }
-    // Videot: esil. piilotettujen <video preload="auto"> -elementtien kautta templatessa
+    }, delay);
   });
 }
 
@@ -96,9 +103,17 @@ function onVideoEnded() {
   if (carouselItems.value.length > 1) next();
 }
 
-// Restart timer whenever active slide changes (image vs video may differ)
-// flush:'post' varmistaa että DOM + computed ovat ajan tasalla ennen startAuto-kutsua
-watch(activeIdx, startAuto, { flush: 'post' });
+// Restart timer whenever active slide changes (image vs video may differ).
+// flush:'post' varmistaa että DOM on ajan tasalla — käynnistetään myös video
+// manuaalisesti, koska iOS Safari ei aina kunnioita autoplay-attribuuttia
+// dynaamisesti lisätyillä elementeillä.
+watch(activeIdx, () => {
+  startAuto();
+  const current = carouselItems.value[activeIdx.value];
+  if (current?.mediaType === 'video') {
+    nextTick(() => videoRef.value?.play().catch(() => {}));
+  }
+}, { flush: 'post' });
 
 // ── Touch swipe ───────────────────────────────────────────────────────────────
 let touchStartX = 0;
@@ -126,13 +141,15 @@ onUnmounted(stopAuto);
     @touchend.passive="onTouchEnd"
   >
 
-    <!-- Esilataajat: piilotetut <video> -elementit kaikille video-kohteille joita ei juuri näytetä -->
+    <!-- Esilataajat: piilotetut <video> -elementit ei-aktiivisille videoille.
+         Käytetään preload="metadata" (ei "auto") mobiilikaistan säästämiseksi —
+         haetaan vain ensimmäinen kehys eikä koko videota. -->
     <template v-if="hasCarousel">
       <video
         v-for="item in carouselItems.filter(i => i.mediaType === 'video' && i._id !== activeItem?._id)"
         :key="'preload-' + item._id"
         :src="item.url"
-        preload="auto"
+        preload="metadata"
         muted
         playsinline
         style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden"
@@ -146,12 +163,15 @@ onUnmounted(stopAuto);
           :key="'img-' + activeItem._id"
           :src="activeItem.url"
           referrerpolicy="no-referrer"
+          fetchpriority="high"
           class="absolute inset-0 w-full h-full object-cover rounded-none" />
         <video v-else
+          ref="videoRef"
           :key="'vid-' + activeItem._id"
           :src="activeItem.url"
           autoplay muted playsinline preload="auto"
           :loop="carouselItems.length <= 1"
+          @canplay.once="($event.target as HTMLVideoElement).play().catch(() => {})"
           @ended="onVideoEnded"
           class="absolute inset-0 w-full h-full object-cover" />
       </template>
