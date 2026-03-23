@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -26,7 +27,8 @@ app.use(cors({
     ? process.env.FRONTEND_URL.split(',').map(s => s.trim())
     : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
 }));
-app.use(express.json());
+app.use(helmet());
+app.use(express.json({ limit: '500kb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/members', memberRoutes);

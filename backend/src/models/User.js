@@ -2,13 +2,15 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true, trim: true },
+  username: { type: String, required: true, unique: true, trim: true, maxlength: 32 },
   password: { type: String, required: true },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   status: { type: String, enum: ['pending', 'active', 'rejected'], default: 'pending' },
   inviteCode: { type: String, default: null },
   linkedMember: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', default: null },
   createdAt: { type: Date, default: Date.now },
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockedUntil: { type: Date, default: null },
 });
 
 userSchema.pre('save', async function () {

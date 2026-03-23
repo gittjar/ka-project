@@ -1,11 +1,15 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import User from '../models/User.js';
 import InviteCode from '../models/InviteCode.js';
 import authMiddleware from '../middleware/auth.js';
 
 const router = express.Router();
+
+const LOGIN_MAX_ATTEMPTS = 10;
+const LOGIN_LOCK_MS = 60 * 60 * 1000; // 1h
 
 // POST /api/auth/invite — admin luo kutsukoodin
 router.post('/invite', authMiddleware, async (req, res) => {
@@ -39,6 +43,12 @@ router.post('/register', async (req, res) => {
     if (!username || !password || !inviteCode) {
       return res.status(400).json({ message: 'Käyttäjänimi, salasana ja kutsukoodi vaaditaan' });
     }
+    if (typeof username !== 'string' || username.trim().length < 2 || username.trim().length > 32) {
+      return res.status(400).json({ message: 'Käyttäjänimen tulee olla 2–32 merkkiä' });
+    }
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      return res.status(400).json({ message: 'Salasanan tulee olla 8–128 merkkiä' });
+    }
     const invite = await InviteCode.findOne({ code: inviteCode });
     if (!invite) return res.status(400).json({ message: 'Virheellinen kutsukoodi' });
     if (invite.usedBy) return res.status(400).json({ message: 'Kutsukoodi on jo käytetty' });
@@ -64,15 +74,48 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Käyttäjänimi ja salasana vaaditaan' });
+    }
+
     const user = await User.findOne({ username });
-    if (!user) return res.status(401).json({ message: 'Väärä käyttäjänimi tai salasana' });
+
+    // Timing-hyökkäyssuoja: tee bcrypt-vertailu myös kun käyttäjää ei löydy
+    if (!user) {
+      await bcrypt.compare(password, '$2b$12$invalidhashpaddingtomatchtime000000000000000000000000000');
+      return res.status(401).json({ message: 'Väärä käyttäjänimi tai salasana' });
+    }
+
+    // Tarkista lukitus
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const mins = Math.ceil((user.lockedUntil - Date.now()) / 60000);
+      return res.status(429).json({ message: `Tili lukittu liian monien epäonnistuneiden kirjautumisyritysten takia. Yritä uudelleen ${mins} minuutin kuluttua.` });
+    }
+
     const ok = await user.comparePassword(password);
-    if (!ok) return res.status(401).json({ message: 'Väärä käyttäjänimi tai salasana' });
+    if (!ok) {
+      const attempts = (user.failedLoginAttempts || 0) + 1;
+      const update = { failedLoginAttempts: attempts };
+      if (attempts >= LOGIN_MAX_ATTEMPTS) {
+        update.lockedUntil = new Date(Date.now() + LOGIN_LOCK_MS);
+      }
+      await User.findByIdAndUpdate(user._id, update);
+      const remaining = LOGIN_MAX_ATTEMPTS - attempts;
+      const msg = remaining > 0
+        ? `Väärä käyttäjänimi tai salasana (${remaining} yritystä jäljellä)`
+        : 'Tili lukittu tunniksi liian monien epäonnistuneiden kirjautumisyritysten takia.';
+      return res.status(401).json({ message: msg });
+    }
+
     // Admins always get through; regular users need active status
     if (user.role !== 'admin') {
       if (user.status === 'pending') return res.status(403).json({ message: 'Tili odottaa hyväksyntää' });
       if (user.status === 'rejected') return res.status(403).json({ message: 'Tili on hylätty' });
     }
+
+    // Nollaa epäonnistuneet yritykset onnistuneen kirjautumisen jälkeen
+    await User.findByIdAndUpdate(user._id, { failedLoginAttempts: 0, lockedUntil: null });
+
     const token = jwt.sign(
       { userId: user._id, username: user.username, role: user.role },
       process.env.JWT_SECRET,

@@ -45,7 +45,7 @@ async function submit() {
           <Lock class="w-6 h-6 text-dpurple-400" />
         </div>
         <h1 class="text-2xl font-bold text-white">Kirjaudu sisään</h1>
-        <p class="text-gray-600 text-sm mt-1">Admin-paneeli · Kanniaalio+</p>
+        <p class="text-gray-600 text-sm mt-1">Kirjaudu sisään tunnuksillasi · Kanniaalio+</p>
       </div>
 
       <!-- Lomake -->
