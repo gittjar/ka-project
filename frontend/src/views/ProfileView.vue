@@ -5,7 +5,7 @@ import { useInboxStore } from '../stores/inbox';
 import { useRouter } from 'vue-router';
 import {
   User, LogOut, Pencil, Check, AlertCircle, Upload, ImageOff, X,
-  Send, MessageSquare, ChevronDown, ChevronUp, Plus, MailOpen, Mail
+  Send, MessageSquare, ChevronDown, ChevronUp, Plus, MailOpen, Mail, KeyRound, Eye, EyeOff
 } from 'lucide-vue-next';
 import api from '../api';
 
@@ -152,7 +152,7 @@ async function deleteOwnPhoto(photoId: string) {
 }
 
 // ── VIESTIT ──
-interface Reply { content: string; createdAt: string }
+interface Reply { content: string; byUsername?: string; createdAt: string }
 interface Message { _id: string; content: string; read: boolean; repliesRead: boolean; replies: Reply[]; createdAt: string }
 const messages = ref<Message[]>([]);
 const messagesLoading = ref(true);
@@ -216,6 +216,38 @@ function fmtDate(d: string) {
     day: 'numeric', month: 'numeric', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+// ── SALASANA ──
+const pwOld = ref('');
+const pwNew = ref('');
+const pwConfirm = ref('');
+const pwSaving = ref(false);
+const pwError = ref('');
+const pwOk = ref(false);
+const showPwOld = ref(false);
+const showPwNew = ref(false);
+const showPwConfirm = ref(false);
+
+async function changePassword() {
+  pwError.value = '';
+  pwOk.value = false;
+  if (!pwOld.value) { pwError.value = 'Vanha salasana vaaditaan'; return; }
+  if (pwNew.value.length < 8) { pwError.value = 'Uuden salasanan tulee olla vähintään 8 merkkiä'; return; }
+  if (pwNew.value !== pwConfirm.value) { pwError.value = 'Salasanat eivät täsmää'; return; }
+  pwSaving.value = true;
+  try {
+    await api.post('/auth/change-password', { oldPassword: pwOld.value, newPassword: pwNew.value });
+    pwOk.value = true;
+    pwOld.value = '';
+    pwNew.value = '';
+    pwConfirm.value = '';
+    setTimeout(() => { pwOk.value = false; }, 3000);
+  } catch (err: any) {
+    pwError.value = err.response?.data?.message || 'Salasananvaihto epäonnistui';
+  } finally {
+    pwSaving.value = false;
+  }
 }
 
 onMounted(() => { loadMember(); loadMessages(); });
@@ -453,6 +485,71 @@ onMounted(() => { loadMember(); loadMessages(); });
       </div>
     </section>
 
+    <!-- ── SALASANA ── -->
+    <section class="mb-8">
+      <div class="flex items-center gap-3 mb-3">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Salasana</h2>
+      </div>
+      <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4 sm:p-6 flex flex-col gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Vanha salasana</label>
+          <div class="relative">
+            <input v-model="pwOld" :type="showPwOld ? 'text' : 'password'" autocomplete="current-password"
+              placeholder="Nykyinen salasana"
+              class="w-full px-3 py-2 pr-10 rounded-xl bg-black/60 border border-gray-800 text-sm
+                     text-gray-200 placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+            <button type="button" @click="showPwOld = !showPwOld"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400
+                     border-0 bg-transparent transition-colors">
+              <Eye v-if="!showPwOld" class="w-4 h-4" />
+              <EyeOff v-else class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Uusi salasana</label>
+          <div class="relative">
+            <input v-model="pwNew" :type="showPwNew ? 'text' : 'password'" autocomplete="new-password"
+              placeholder="Vähintään 8 merkkiä"
+              class="w-full px-3 py-2 pr-10 rounded-xl bg-black/60 border border-gray-800 text-sm
+                     text-gray-200 placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+            <button type="button" @click="showPwNew = !showPwNew"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400
+                     border-0 bg-transparent transition-colors">
+              <Eye v-if="!showPwNew" class="w-4 h-4" />
+              <EyeOff v-else class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Vahvista uusi salasana</label>
+          <div class="relative">
+            <input v-model="pwConfirm" :type="showPwConfirm ? 'text' : 'password'" autocomplete="new-password"
+              placeholder="Toista uusi salasana"
+              class="w-full px-3 py-2 pr-10 rounded-xl bg-black/60 border border-gray-800 text-sm
+                     text-gray-200 placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+            <button type="button" @click="showPwConfirm = !showPwConfirm"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400
+                     border-0 bg-transparent transition-colors">
+              <Eye v-if="!showPwConfirm" class="w-4 h-4" />
+              <EyeOff v-else class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <p v-if="pwError" class="text-xs text-red-400 flex items-center gap-1">
+          <AlertCircle class="w-3.5 h-3.5 shrink-0" />{{ pwError }}
+        </p>
+        <p v-if="pwOk" class="text-xs text-dgreen-400 flex items-center gap-1">
+          <Check class="w-3.5 h-3.5" />Salasana vaihdettu!
+        </p>
+        <button @click="changePassword" :disabled="pwSaving || pwOk"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border-0
+                 bg-dgreen-800/80 hover:bg-dgreen-700/80 text-white disabled:opacity-60 transition-all">
+          <KeyRound class="w-4 h-4" />{{ pwOk ? 'Tallennettu!' : pwSaving ? 'Tallennetaan...' : 'Vaihda salasana' }}
+        </button>
+      </div>
+    </section>
+
     <!-- ── VIESTIT ── -->
     <section>
       <!-- Section header -->
@@ -569,7 +666,7 @@ onMounted(() => { loadMember(); loadMessages(); });
             </div>
             <div v-for="r in m.replies" :key="r.createdAt" class="flex justify-start">
               <div class="max-w-[85%] bg-dpurple-950/30 border border-dpurple-900/30 rounded-2xl rounded-tl-sm px-4 py-3">
-                <p class="text-xs text-dpurple-700 mb-1">Admin · {{ fmtDate(r.createdAt) }}</p>
+                <p class="text-xs text-dpurple-700 mb-1">{{ r.byUsername || 'Admin' }} · {{ fmtDate(r.createdAt) }}</p>
                 <p class="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{{ r.content }}</p>
               </div>
             </div>

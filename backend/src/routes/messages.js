@@ -32,17 +32,22 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
     const messages = await Message.find({}).sort({ createdAt: -1 });
-    res.json(messages);
+    // Annotate read per requesting admin
+    const userId = req.userId.toString();
+    res.json(messages.map(m => ({
+      ...m.toObject(),
+      read: m.readBy.some(id => id.toString() === userId),
+    })));
   } catch (err) {
     res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
   }
 });
 
-// PUT /api/messages/:id/read — admin merkitsee luetuksi
+// PUT /api/messages/:id/read — admin merkitsee luetuksi (vain itsellään)
 router.put('/:id/read', authMiddleware, async (req, res) => {
   try {
     if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
-    await Message.findByIdAndUpdate(req.params.id, { read: true });
+    await Message.findByIdAndUpdate(req.params.id, { $addToSet: { readBy: req.userId } });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
@@ -57,7 +62,7 @@ router.post('/:id/reply', authMiddleware, async (req, res) => {
     if (!content?.trim()) return res.status(400).json({ message: 'Vastaus ei voi olla tyhjä' });
     const msg = await Message.findByIdAndUpdate(
       req.params.id,
-      { $push: { replies: { content: content.trim() } }, read: true, repliesRead: false },
+      { $push: { replies: { content: content.trim(), byUsername: req.username } }, $addToSet: { readBy: req.userId }, repliesRead: false },
       { new: true }
     );
     if (!msg) return res.status(404).json({ message: 'Viestiä ei löydy' });

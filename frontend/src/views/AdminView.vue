@@ -6,7 +6,7 @@ import {
   ShieldCheck, LogOut, Users, Search, Plus,
   Pencil, Trash2, X, Upload, Check, AlertCircle, ImageOff, TriangleAlert,
   ChevronDown, ChevronUp, MapPin, GlassWater, Flame, Cake, Star, Globe, Mail,
-  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff,
+  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff, KeyRound, Eye, EyeOff,
 } from 'lucide-vue-next';
 import api from '../api';
 
@@ -22,9 +22,10 @@ type FormData = Omit<Member, 'aliases'> & { aliasInput: string };
 interface AppUser {
   _id: string; username: string; status: string; role: string;
   linkedMember: { _id: string; name: string } | null; createdAt: string;
+  mustChangePassword?: boolean;
 }
 
-interface Reply { content: string; createdAt: string }
+interface Reply { content: string; byUsername?: string; createdAt: string }
 interface Message {
   _id: string; fromUsername: string; content: string;
   read: boolean; repliesRead: boolean; replies: Reply[]; createdAt: string;
@@ -309,6 +310,73 @@ async function rejectUser(userId: string) {
     if (u) u.status = 'rejected';
     showToast('Käyttäjä hylätty');
   } catch { showToast('Hylkäys epäonnistui', 'error'); }
+}
+
+// ── KÄYTTIÄJÄT: SALASANA ──
+const pwModalOpen = ref(false);
+const pwTarget = ref<AppUser | null>(null);
+const pwOld = ref('');
+const pwNew = ref('');
+const pwConfirm = ref('');
+const pwSaving = ref(false);
+const pwError = ref('');
+const showPwOld = ref(false);
+const showPwNew = ref(false);
+const showPwConfirm = ref(false);
+const forceChangeSaving = ref<string | null>(null);
+const pwIsSelf = computed(() => pwTarget.value?.username === auth.username);
+
+function openPwModal(u: AppUser) {
+  pwTarget.value = u;
+  pwOld.value = '';
+  pwNew.value = '';
+  pwConfirm.value = '';
+  pwError.value = '';
+  showPwOld.value = false;
+  showPwNew.value = false;
+  showPwConfirm.value = false;
+  pwModalOpen.value = true;
+}
+
+function closePwModal() {
+  pwModalOpen.value = false;
+  pwTarget.value = null;
+}
+
+async function setUserPassword() {
+  pwError.value = '';
+  if (pwIsSelf.value && !pwOld.value) { pwError.value = 'Vanha salasana vaaditaan'; return; }
+  if (pwNew.value.length < 8) { pwError.value = 'Salasanan tulee olla vähintään 8 merkkiä'; return; }
+  if (pwNew.value !== pwConfirm.value) { pwError.value = 'Salasanat eivät täsmää'; return; }
+  if (!pwTarget.value) return;
+  pwSaving.value = true;
+  try {
+    if (pwIsSelf.value) {
+      await api.post('/auth/change-password', { oldPassword: pwOld.value, newPassword: pwNew.value });
+    } else {
+      await api.put(`/auth/users/${pwTarget.value._id}/password`, { newPassword: pwNew.value });
+    }
+    closePwModal();
+    showToast('Salasana vaihdettu');
+  } catch (err: any) {
+    pwError.value = err.response?.data?.message || 'Tallennus epäonnistui';
+  } finally {
+    pwSaving.value = false;
+  }
+}
+
+async function forcePasswordChange(userId: string, force: boolean) {
+  forceChangeSaving.value = userId;
+  try {
+    const { data } = await api.put(`/auth/users/${userId}/force-password-change`, { force });
+    const u = users.value.find(u => u._id === userId);
+    if (u) u.mustChangePassword = data.mustChangePassword;
+    showToast(force ? 'Salasananvaihto pakotettu' : 'Pakotus poistettu');
+  } catch (err: any) {
+    showToast(err.response?.data?.message || 'Toiminto epäonnistui', 'error');
+  } finally {
+    forceChangeSaving.value = null;
+  }
 }
 
 // ── VIESTIT ──
@@ -681,6 +749,23 @@ onMounted(loadMembers);
             </button>
           </div>
           <p class="text-xs text-gray-700 mt-2">Rekisteröityi {{ fmtDate(u.createdAt) }}</p>
+          <!-- Salasana & pakotus -->
+          <div class="flex items-center gap-2 flex-wrap mt-2">
+            <button @click="openPwModal(u)"
+              class="flex items-center gap-1 px-2 py-1 rounded-xl text-xs border-0
+                     bg-gray-800/60 hover:bg-gray-700/60 text-gray-400 transition-all">
+              <KeyRound class="w-3.5 h-3.5" />Vaihda salasana
+            </button>
+            <button v-if="u.username !== auth.username"
+              @click="forcePasswordChange(u._id, !u.mustChangePassword)"
+              :disabled="forceChangeSaving === u._id"
+              class="flex items-center gap-1 px-2 py-1 rounded-xl text-xs border-0 transition-all disabled:opacity-50"
+              :class="u.mustChangePassword
+                ? 'bg-yellow-950/40 hover:bg-yellow-900/40 text-yellow-400'
+                : 'bg-gray-800/60 hover:bg-gray-700/60 text-gray-500'">
+              <TriangleAlert class="w-3.5 h-3.5" />{{ forceChangeSaving === u._id ? '...' : u.mustChangePassword ? 'Pakotus päällä' : 'Pakota vaihto' }}
+            </button>
+          </div>
         </div>
       </div>
     </template>
@@ -734,7 +819,7 @@ onMounted(loadMembers);
             <div v-if="m.replies.length" class="space-y-2">
               <div v-for="r in m.replies" :key="r.createdAt" class="flex justify-start">
                 <div class="max-w-[85%] bg-dgreen-950/20 border border-dgreen-900/30 rounded-2xl rounded-tl-sm px-4 py-3">
-                  <p class="text-xs text-gray-500 mb-1">Sinä · {{ fmtDate(r.createdAt) }}</p>
+                  <p class="text-xs text-gray-500 mb-1">{{ r.byUsername || 'Admin' }} · {{ fmtDate(r.createdAt) }}</p>
                   <p class="text-sm text-gray-200 whitespace-pre-wrap">{{ r.content }}</p>
                 </div>
               </div>
@@ -1117,6 +1202,80 @@ onMounted(loadMembers);
           {{ t.message }}
         </div>
       </TransitionGroup>
+    </div>
+  </Teleport>
+
+  <!-- ── SALASANA MODAL (admin asettaa käyttäjän salasanan) ── -->
+  <Teleport to="body">
+    <div v-if="pwModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+      @click.self="closePwModal">
+      <div class="w-full max-w-sm bg-gray-950 border border-gray-800 rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-white flex items-center gap-2">
+            <KeyRound class="w-4 h-4 text-gray-400" />Vaihda salasana
+          </h3>
+          <button @click="closePwModal" class="text-gray-600 hover:text-white border-0 bg-transparent transition-colors">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">{{ pwTarget?.username }}</p>
+        <div class="flex flex-col gap-3">
+          <div v-if="pwIsSelf">
+            <label class="text-xs text-gray-500 mb-1 block">Vanha salasana</label>
+            <div class="relative">
+              <input v-model="pwOld" :type="showPwOld ? 'text' : 'password'" autocomplete="current-password"
+                placeholder="Nykyinen salasana"
+                class="w-full px-3 py-2 pr-10 rounded-xl bg-black/60 border border-gray-800 text-sm
+                       text-gray-200 placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+              <button type="button" @click="showPwOld = !showPwOld"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400
+                       border-0 bg-transparent transition-colors">
+                <Eye v-if="!showPwOld" class="w-4 h-4" />
+                <EyeOff v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">Uusi salasana</label>
+            <div class="relative">
+              <input v-model="pwNew" :type="showPwNew ? 'text' : 'password'" autocomplete="new-password"
+                placeholder="Vähintään 8 merkkiä"
+                class="w-full px-3 py-2 pr-10 rounded-xl bg-black/60 border border-gray-800 text-sm
+                       text-gray-200 placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+              <button type="button" @click="showPwNew = !showPwNew"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400
+                       border-0 bg-transparent transition-colors">
+                <Eye v-if="!showPwNew" class="w-4 h-4" />
+                <EyeOff v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">Vahvista salasana</label>
+            <div class="relative">
+              <input v-model="pwConfirm" :type="showPwConfirm ? 'text' : 'password'" autocomplete="new-password"
+                placeholder="Toista uusi salasana"
+                class="w-full px-3 py-2 pr-10 rounded-xl bg-black/60 border border-gray-800 text-sm
+                       text-gray-200 placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
+              <button type="button" @click="showPwConfirm = !showPwConfirm"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400
+                       border-0 bg-transparent transition-colors">
+                <Eye v-if="!showPwConfirm" class="w-4 h-4" />
+                <EyeOff v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <p v-if="pwError" class="text-xs text-red-400 flex items-center gap-1">
+            <AlertCircle class="w-3.5 h-3.5 shrink-0" />{{ pwError }}
+          </p>
+          <button @click="setUserPassword" :disabled="pwSaving"
+            class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-0
+                   bg-dgreen-800/80 hover:bg-dgreen-700/80 text-white disabled:opacity-60 transition-all">
+            <Check class="w-4 h-4" />{{ pwSaving ? 'Tallennetaan...' : 'Aseta salasana' }}
+          </button>
+        </div>
+      </div>
     </div>
   </Teleport>
 </template>

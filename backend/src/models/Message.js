@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 const replySchema = new mongoose.Schema({
   content: { type: String, required: true },
+  byUsername: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -9,7 +10,7 @@ const messageSchema = new mongoose.Schema({
   from: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   fromUsername: { type: String, required: true },
   content: { type: String, required: true },
-  read: { type: Boolean, default: false },          // admin has read user's msg
+  readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // per-admin read tracking
   repliesRead: { type: Boolean, default: true },     // user has read admin's replies
   replies: [replySchema],
   createdAt: { type: Date, default: Date.now },

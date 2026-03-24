@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
-import { LogIn, Lock, User, HelpCircle, ChevronDown } from 'lucide-vue-next';
+import { LogIn, Lock, User, HelpCircle, ChevronDown, Eye, EyeOff } from 'lucide-vue-next';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -13,6 +13,7 @@ const password = ref('');
 const error = ref('');
 const loading = ref(false);
 const showHelp = ref(false);
+const showPassword = ref(false);
 
 async function submit() {
   error.value = '';
@@ -76,15 +77,21 @@ async function submit() {
             <Lock class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
             <input
               v-model="password"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               placeholder="••••••••"
               required
               autocomplete="current-password"
-              class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/60 border border-gray-800
+              class="w-full pl-10 pr-10 py-2.5 rounded-xl bg-black/60 border border-gray-800
                      text-white placeholder-gray-700 text-sm
                      focus:outline-none focus:border-dpurple-700 focus:ring-1 focus:ring-dpurple-800/50
                      transition-colors"
             />
+            <button type="button" @click="showPassword = !showPassword"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400
+                     border-0 bg-transparent transition-colors">
+              <Eye v-if="!showPassword" class="w-4 h-4" />
+              <EyeOff v-else class="w-4 h-4" />
+            </button>
           </div>
         </div>
 

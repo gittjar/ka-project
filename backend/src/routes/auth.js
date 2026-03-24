@@ -210,5 +210,63 @@ router.put('/users/:id/link', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/auth/change-password — oma salasananvaihto (vaatii vanhan)
+router.post('/change-password', authMiddleware, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: 'Vanha ja uusi salasana vaaditaan' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 128) {
+      return res.status(400).json({ message: 'Salasanan tulee olla 8–128 merkkiä' });
+    }
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: 'Käyttäjää ei löydy' });
+    const ok = await user.comparePassword(oldPassword);
+    if (!ok) return res.status(400).json({ message: 'Vanha salasana on virheellinen' });
+    user.password = newPassword;
+    user.mustChangePassword = false;
+    await user.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Salasananvaihto epäonnistui', error: err.message });
+  }
+});
+
+// PUT /api/auth/users/:id/password — admin asettaa salasanan suoraan (ei vaadi vanhaa)
+router.put('/users/:id/password', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const { newPassword } = req.body;
+    if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 128) {
+      return res.status(400).json({ message: 'Salasanan tulee olla 8–128 merkkiä' });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'Käyttäjää ei löydy' });
+    user.password = newPassword;
+    await user.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Salasananvaihto epäonnistui', error: err.message });
+  }
+});
+
+// PUT /api/auth/users/:id/force-password-change — admin pakottaa / poistaa pakotuksen
+router.put('/users/:id/force-password-change', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const force = req.body.force !== false;
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { mustChangePassword: force },
+      { new: true }
+    ).select('-password');
+    if (!user) return res.status(404).json({ message: 'Käyttäjää ei löydy' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Toiminto epäonnistui', error: err.message });
+  }
+});
+
 export default router;
 
