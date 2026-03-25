@@ -12,6 +12,8 @@ const userSchema = new mongoose.Schema({
   failedLoginAttempts: { type: Number, default: 0 },
   lockedUntil: { type: Date, default: null },
   mustChangePassword: { type: Boolean, default: false },
+  lastLoginAt: { type: Date, default: null },
+  lastSeenAt: { type: Date, default: null },
 });
 
 userSchema.pre('save', async function () {

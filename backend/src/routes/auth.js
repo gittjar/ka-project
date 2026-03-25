@@ -114,7 +114,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Nollaa epäonnistuneet yritykset onnistuneen kirjautumisen jälkeen
-    await User.findByIdAndUpdate(user._id, { failedLoginAttempts: 0, lockedUntil: null });
+    await User.findByIdAndUpdate(user._id, { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() });
 
     const token = jwt.sign(
       { userId: user._id, username: user.username, role: user.role },

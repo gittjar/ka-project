@@ -23,6 +23,8 @@ interface AppUser {
   _id: string; username: string; status: string; role: string;
   linkedMember: { _id: string; name: string } | null; createdAt: string;
   mustChangePassword?: boolean;
+  lastLoginAt?: string | null;
+  lastSeenAt?: string | null;
 }
 
 interface Reply { content: string; byUsername?: string; createdAt: string }
@@ -501,6 +503,39 @@ function fmtDate(d: string) {
   });
 }
 
+type OnlineStatus = 'online' | 'recent' | 'away' | 'offline';
+function onlineStatus(lastSeenAt?: string | null): OnlineStatus {
+  if (!lastSeenAt) return 'offline';
+  const diff = Date.now() - new Date(lastSeenAt).getTime();
+  if (diff < 5 * 60 * 1000)   return 'online';   // < 5 min
+  if (diff < 30 * 60 * 1000)  return 'recent';   // < 30 min
+  if (diff < 24 * 60 * 60 * 1000) return 'away'; // < 24h
+  return 'offline';
+}
+function onlineLabel(s: OnlineStatus) {
+  return { online: 'Online', recent: 'Aktiivinen', away: 'Nähty tänään', offline: 'Offline' }[s];
+}
+function onlineDotClass(s: OnlineStatus) {
+  return {
+    online: 'bg-dgreen-400',
+    recent: 'bg-yellow-400',
+    away:   'bg-gray-500',
+    offline:'bg-gray-700',
+  }[s];
+}
+function fmtRelative(d?: string | null): string {
+  if (!d) return 'Ei koskaan';
+  const diff = Date.now() - new Date(d).getTime();
+  const min  = Math.floor(diff / 60000);
+  const h    = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (min < 1)   return 'juuri nyt';
+  if (min < 60)  return `${min} min sitten`;
+  if (h < 24)    return `${h} h sitten`;
+  if (days < 7)  return `${days} pv sitten`;
+  return new Date(d).toLocaleDateString('fi-FI');
+}
+
 function logout() {
   auth.logout();
   router.push('/login');
@@ -693,6 +728,11 @@ onMounted(loadMembers);
           class="bg-gray-950 border border-gray-800 rounded-2xl p-4">
           <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
             <div class="flex items-center gap-2 flex-wrap">
+              <span class="relative flex items-center justify-center w-2 h-2">
+                <span v-if="onlineStatus(u.lastSeenAt) === 'online'"
+                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-dgreen-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full w-2 h-2" :class="onlineDotClass(onlineStatus(u.lastSeenAt))"></span>
+              </span>
               <span class="text-sm font-medium text-white">{{ u.username }}</span>
               <span class="text-xs px-2 py-0.5 rounded-full"
                 :class="{
@@ -749,6 +789,18 @@ onMounted(loadMembers);
             </button>
           </div>
           <p class="text-xs text-gray-700 mt-2">Rekisteröityi {{ fmtDate(u.createdAt) }}</p>
+          <div class="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
+            <p class="text-xs text-gray-700">
+              <span class="text-gray-600">Viimeksi nähty:</span>
+              <span :class="onlineStatus(u.lastSeenAt) === 'online' ? 'text-dgreen-500' : 'text-gray-600'">
+                {{ ' ' }}{{ onlineLabel(onlineStatus(u.lastSeenAt)) }} &middot; {{ fmtRelative(u.lastSeenAt) }}
+              </span>
+            </p>
+            <p class="text-xs text-gray-700">
+              <span class="text-gray-600">Kirjautui:</span>
+              {{ ' ' }}{{ fmtRelative(u.lastLoginAt) }}
+            </p>
+          </div>
           <!-- Salasana & pakotus -->
           <div class="flex items-center gap-2 flex-wrap mt-2">
             <button @click="openPwModal(u)"
