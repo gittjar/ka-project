@@ -6,7 +6,7 @@ import {
   ShieldCheck, LogOut, Users, Search, Plus,
   Pencil, Trash2, X, Upload, Check, AlertCircle, ImageOff, TriangleAlert,
   ChevronDown, ChevronUp, MapPin, GlassWater, Flame, Cake, Star, Globe, Mail,
-  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff, KeyRound, Eye, EyeOff,
+  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff, KeyRound, Eye, EyeOff, FileText,
 } from 'lucide-vue-next';
 import api from '../api';
 
@@ -39,7 +39,7 @@ const auth = useAuthStore();
 const router = useRouter();
 
 // ── TABS ──
-const tab = ref<'jasenet' | 'kayttajat' | 'viestit' | 'kutsukoodit'>('jasenet');
+const tab = ref<'jasenet' | 'kayttajat' | 'viestit' | 'kutsukoodit' | 'hakemukset'>('jasenet');
 
 // ── JÄSENET ──
 const members = ref<Member[]>([]);
@@ -438,6 +438,44 @@ function toggleMsg(id: string) {
 const invites = ref<InviteCode[]>([]);
 const invitesLoading = ref(false);
 
+// ── HAKEMUKSET ──
+interface Application {
+  _id: string; name: string; email: string; location: string;
+  favDrink: string; motivation: string; status: 'pending' | 'approved' | 'rejected';
+  handledBy: string | null; handledAt: string | null; createdAt: string;
+}
+const applications = ref<Application[]>([]);
+const applicationsLoading = ref(false);
+const pendingAppsCount = ref(0);
+const expandedAppId = ref<string | null>(null);
+const appHandlingSaving = ref<string | null>(null);
+
+async function loadApplications() {
+  applicationsLoading.value = true;
+  try {
+    const { data } = await api.get('/applications');
+    applications.value = data;
+    pendingAppsCount.value = data.filter((a: Application) => a.status === 'pending').length;
+  } finally {
+    applicationsLoading.value = false;
+  }
+}
+
+async function handleApplication(id: string, status: 'approved' | 'rejected') {
+  appHandlingSaving.value = id;
+  try {
+    const { data } = await api.put(`/applications/${id}`, { status });
+    const idx = applications.value.findIndex(a => a._id === id);
+    if (idx !== -1) applications.value[idx] = data;
+    pendingAppsCount.value = applications.value.filter(a => a.status === 'pending').length;
+    showToast(status === 'approved' ? 'Hakemus hyväksytty' : 'Hakemus hylätty');
+  } catch (err: any) {
+    showToast(err.response?.data?.message || 'Toiminto epäonnistui', 'error');
+  } finally {
+    appHandlingSaving.value = null;
+  }
+}
+
 // ── GUIDES PIN ──
 const guidesPin = ref('');
 const guidesPinSaving = ref(false);
@@ -547,9 +585,10 @@ async function switchTab(t: typeof tab.value) {
   if (t === 'kayttajat' && !users.value.length) loadUsers();
   if (t === 'viestit' && !messages.value.length) loadMessages();
   if (t === 'kutsukoodit' && !invites.value.length) loadInvites();
+  if (t === 'hakemukset' && !applications.value.length) loadApplications();
 }
 
-onMounted(loadMembers);
+onMounted(() => { loadMembers(); api.get('/applications/pending-count').then(r => { pendingAppsCount.value = r.data.count; }).catch(() => {}); });
 </script>
 
 <template>
@@ -574,7 +613,7 @@ onMounted(loadMembers);
 
     <!-- Tabs -->
     <div class="grid grid-cols-2 sm:flex gap-1 mb-6 bg-gray-950 border border-gray-800 rounded-2xl p-1">
-      <button v-for="(label, key) in { jasenet: 'Jäsenet', kayttajat: 'Käyttäjät', viestit: 'Viestit', kutsukoodit: 'Kutsukoodit' }"
+      <button v-for="(label, key) in { jasenet: 'Jäsenet', kayttajat: 'Käyttäjät', viestit: 'Viestit', hakemukset: 'Hakemukset', kutsukoodit: 'Kutsukoodit' }"
         :key="key" @click="switchTab(key as any)"
         class="sm:flex-1 px-3 py-1.5 rounded-xl text-sm font-medium transition-all border-0 relative"
         :class="tab === key
@@ -584,6 +623,10 @@ onMounted(loadMembers);
         <span v-if="key === 'viestit' && unread > 0"
           class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-xs flex items-center justify-center">
           {{ unread }}
+        </span>
+        <span v-if="key === 'hakemukset' && pendingAppsCount > 0"
+          class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-xs flex items-center justify-center">
+          {{ pendingAppsCount }}
         </span>
       </button>
     </div>
@@ -886,6 +929,90 @@ onMounted(loadMembers);
                 class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border-0
                        bg-dgreen-900/40 hover:bg-dgreen-800/40 text-dgreen-400 disabled:opacity-50 transition-all">
                 <Send class="w-3.5 h-3.5" />{{ replySaving === m._id ? '...' : 'Vastaa' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── HAKEMUKSET ── -->
+    <template v-if="tab === 'hakemukset'">
+      <div v-if="applicationsLoading" class="text-gray-600 text-sm py-10 text-center">Ladataan...</div>
+      <div v-else-if="!applications.length" class="text-gray-700 text-sm py-10 text-center">Ei hakemuksia</div>
+      <div v-else class="flex flex-col gap-2">
+        <div v-for="a in applications" :key="a._id"
+          class="bg-gray-950 border rounded-2xl overflow-hidden transition-colors"
+          :class="{
+            'border-yellow-900/50': a.status === 'pending',
+            'border-dgreen-900/40': a.status === 'approved',
+            'border-red-900/40':    a.status === 'rejected',
+          }">
+          <!-- Row header -->
+          <div class="px-4 py-3 cursor-pointer flex items-start justify-between gap-3"
+               @click="expandedAppId = expandedAppId === a._id ? null : a._id">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="text-sm font-medium text-white">{{ a.name }}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full"
+                  :class="{
+                    'bg-yellow-950/40 border border-yellow-900/40 text-yellow-400': a.status === 'pending',
+                    'bg-dgreen-950/40 border border-dgreen-900/40 text-dgreen-400': a.status === 'approved',
+                    'bg-red-950/40 border border-red-900/40 text-red-400':          a.status === 'rejected',
+                  }">{{ a.status === 'pending' ? 'odottaa' : a.status === 'approved' ? 'hyväksytty' : 'hylätty' }}</span>
+              </div>
+              <p class="text-xs text-gray-600 truncate">{{ a.email }} · {{ a.location }}</p>
+              <p class="text-xs text-gray-700 mt-0.5">{{ fmtDate(a.createdAt) }}</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <FileText class="w-4 h-4 text-gray-700" />
+              <ChevronUp v-if="expandedAppId === a._id" class="w-3.5 h-3.5 text-gray-700" />
+              <ChevronDown v-else class="w-3.5 h-3.5 text-gray-700" />
+            </div>
+          </div>
+          <!-- Expanded detail -->
+          <div v-if="expandedAppId === a._id"
+            class="border-t border-gray-800 px-4 py-4 space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div>
+                <p class="text-xs text-gray-600 mb-0.5">Sähköposti</p>
+                <p class="text-gray-300">{{ a.email }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-600 mb-0.5">Paikkakunta</p>
+                <p class="text-gray-300">{{ a.location }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-600 mb-0.5">Lempijuoma</p>
+                <p class="text-gray-300">{{ a.favDrink }}</p>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs text-gray-600 mb-0.5">Motivaatio</p>
+              <p class="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{{ a.motivation }}</p>
+            </div>
+            <p v-if="a.handledBy" class="text-xs text-gray-700">
+              Käsitteli {{ a.handledBy }} · {{ fmtDate(a.handledAt!) }}
+            </p>
+            <!-- Action buttons -->
+            <div v-if="a.status === 'pending'" class="flex gap-2 flex-wrap pt-1">
+              <button @click="handleApplication(a._id, 'approved')" :disabled="appHandlingSaving === a._id"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border-0
+                       bg-dgreen-900/40 hover:bg-dgreen-800/40 text-dgreen-400 disabled:opacity-50 transition-all">
+                <UserCheck class="w-3.5 h-3.5" />{{ appHandlingSaving === a._id ? '...' : 'Hyväksy' }}
+              </button>
+              <button @click="handleApplication(a._id, 'rejected')" :disabled="appHandlingSaving === a._id"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border-0
+                       bg-red-900/40 hover:bg-red-800/40 text-red-400 disabled:opacity-50 transition-all">
+                <UserX class="w-3.5 h-3.5" />{{ appHandlingSaving === a._id ? '...' : 'Hylkää' }}
+              </button>
+            </div>
+            <div v-else class="flex gap-2 pt-1">
+              <button @click="handleApplication(a._id, a.status === 'approved' ? 'rejected' : 'approved')"
+                :disabled="appHandlingSaving === a._id"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border-0
+                       bg-gray-800/60 hover:bg-gray-700/60 text-gray-500 disabled:opacity-50 transition-all">
+                <TriangleAlert class="w-3.5 h-3.5" />{{ appHandlingSaving === a._id ? '...' : 'Muuta päätöstä' }}
               </button>
             </div>
           </div>

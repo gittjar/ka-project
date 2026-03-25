@@ -92,12 +92,26 @@ async function submit() {
     }
     if (CC_EMAILS) payload.cc = CC_EMAILS
 
-    const res = await fetch('https://api.web3forms.com/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const data = await res.json()
+    // Lähetä sekä Web3Forms-sähköpostiin että omaan backendiin rinnakkain
+    const [w3res] = await Promise.all([
+      fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      }),
+      fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.value.name,
+          email: form.value.email,
+          location: form.value.location,
+          favDrink: form.value.favDrink,
+          motivation: form.value.motivation,
+        }),
+      }).catch(() => null), // ei blokkaa vaikka backend olisi alhaalla
+    ])
+    const data = await w3res.json()
     if (!data.success) throw new Error(data.message ?? 'Lähetys epäonnistui')
 
     sent.value = true

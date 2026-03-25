@@ -15,6 +15,7 @@ import imageRoutes from './routes/images.js';
 import messageRoutes from './routes/messages.js';
 import eventRoutes from './routes/events.js';
 import guidesRoutes from './routes/guides.js';
+import applicationRoutes from './routes/applications.js';
 
 // Ladataan .env aina backend/-kansiosta riippumatta käynnistyshakemistosta
 dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') });
@@ -38,6 +39,7 @@ app.use('/api/images', imageRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/guides', guidesRoutes);
+app.use('/api/applications', applicationRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
