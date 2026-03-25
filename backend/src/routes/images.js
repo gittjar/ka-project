@@ -212,14 +212,30 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/images/upload?folder=null|id  â€” kirjautunut kÃ¤yttÃ¤jÃ¤
+// POST /api/images/upload?folder=null|id  — kirjautunut käyttäjä
+// POST /api/images/upload?container=avatars — profiilikuva, ei tallenneta galleriaan
 router.post('/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Tiedosto puuttuu' });
+
+    // Avatar-upload: eri container, ei GalleryImage-dokumenttia
+    if (req.query.container === 'avatars') {
+      const blobService = getBlobClient();
+      const containerClient = blobService.getContainerClient('avatars');
+      await containerClient.createIfNotExists({ access: 'blob' }); // julkinen luku avatareille
+      const processed = await processImageBuffer(req.file).catch(err => {
+        throw new Error('Kuvan konvertointi epäonnistui: ' + err.message);
+      });
+      const blobName  = `${Date.now()}-${Math.random().toString(36).slice(2)}.${processed.ext}`;
+      const blockBlob = containerClient.getBlockBlobClient(blobName);
+      await blockBlob.uploadData(processed.buffer, { blobHTTPHeaders: { blobContentType: processed.mimetype } });
+      return res.json({ url: blockBlob.url });
+    }
+
     const folderId = toFolderId(req.query.folder);
     if (folderId) {
       const folder = await Folder.findById(folderId);
-      if (!folder) return res.status(404).json({ message: 'Kansiota ei lÃ¶ydy' });
+      if (!folder) return res.status(404).json({ message: 'Kansiota ei löydy' });
     }
 
     const blobService = getBlobClient();
