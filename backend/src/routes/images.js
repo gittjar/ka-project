@@ -5,6 +5,12 @@ import heicConvert from 'heic-convert';
 import exifrPkg from 'exifr';
 const { parse: parseExif } = exifrPkg;
 import { BlobServiceClient } from '@azure/storage-blob';
+import { writeFile, readFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import ffmpegStatic from 'ffmpeg-static';
+import Ffmpeg from 'fluent-ffmpeg';
+Ffmpeg.setFfmpegPath(ffmpegStatic);
 import authMiddleware from '../middleware/auth.js';
 import GalleryImage from '../models/GalleryImage.js';
 import Folder from '../models/Folder.js';
@@ -109,18 +115,71 @@ function getBlobClient() {
   return BlobServiceClient.fromConnectionString(connStr);
 }
 
+// Siirtää moov-atomin MP4/MOV-tiedoston alkuun (web-streaming optimointi)
+async function applyFaststart(inputBuffer) {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const tmpIn  = join(tmpdir(), `ff-in-${id}.mp4`);
+  const tmpOut = join(tmpdir(), `ff-out-${id}.mp4`);
+  try {
+    await writeFile(tmpIn, inputBuffer);
+    await new Promise((resolve, reject) => {
+      Ffmpeg(tmpIn)
+        .outputOptions(['-movflags +faststart', '-c copy'])
+        .save(tmpOut)
+        .on('end', resolve)
+        .on('error', reject);
+    });
+    return await readFile(tmpOut);
+  } finally {
+    await unlink(tmpIn).catch(() => {});
+    await unlink(tmpOut).catch(() => {});
+  }
+}
+
 const toFolderId = (q) => (!q || q === 'null') ? null : q;
 
 // â”€â”€ KANSIOT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // GET /api/images/folders?parent=null|id  — kirjautunut käyttäjä
+// Palauttaa kansiot rikastettuna tilastoilla: imageCount, videoCount, totalViews, previewUrl
 router.get('/folders', authMiddleware, async (req, res) => {
   try {
     const parent = toFolderId(req.query.parent);
-    const folders = await Folder.find({ parent }).sort({ name: 1 });
-    res.json(folders);
+    const folders = await Folder.find({ parent }).sort({ name: 1 }).lean();
+    if (folders.length === 0) return res.json([]);
+
+    const folderIds = folders.map(f => f._id);
+    const stats = await GalleryImage.aggregate([
+      { $match: { folderId: { $in: folderIds } } },
+      { $group: {
+        _id: '$folderId',
+        imageCount: { $sum: { $cond: [{ $eq: ['$mediaType', 'image'] }, 1, 0] } },
+        videoCount: { $sum: { $cond: [{ $eq: ['$mediaType', 'video'] }, 1, 0] } },
+        totalViews: { $sum: { $ifNull: ['$viewCount', 0] } },
+        previewUrls: { $push: { $cond: [{ $eq: ['$mediaType', 'image'] }, '$url', null] } },
+      }},
+    ]);
+
+    const statsMap = {};
+    for (const s of stats) {
+      const urls = s.previewUrls.filter(Boolean);
+      // Valitaan satunnainen kuva ensimmäisestä viidestä
+      const previewUrl = urls.length ? urls[Math.floor(Math.random() * Math.min(urls.length, 5))] : null;
+      statsMap[s._id.toString()] = {
+        imageCount: s.imageCount,
+        videoCount: s.videoCount,
+        totalViews: s.totalViews,
+        previewUrl,
+      };
+    }
+
+    const result = folders.map(f => ({
+      ...f,
+      ...(statsMap[f._id.toString()] || { imageCount: 0, videoCount: 0, totalViews: 0, previewUrl: null }),
+    }));
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ message: 'Kansioiden haku epÃ¤onnistui', error: err.message });
+    res.status(500).json({ message: 'Kansioiden haku epäonnistui', error: err.message });
   }
 });
 
@@ -245,10 +304,12 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     let buffer, mimetype, ext, mediaType, exifData = {};
 
     if (isVideo(req.file)) {
-      buffer    = req.file.buffer;
-      mimetype  = req.file.mimetype || 'video/mp4';
+      const raw = req.file.buffer;
       ext       = req.file.originalname.split('.').pop()?.toLowerCase() || 'mp4';
+      mimetype  = req.file.mimetype || 'video/mp4';
       mediaType = 'video';
+      // Siirrä moov-atomi tiedoston alkuun jotta selain voi aloittaa toiston heti
+      buffer = await applyFaststart(raw).catch(() => raw); // fallback alkuperäiseen jos ffmpeg epäonnistuu
     } else {
       exifData = await extractExif(req.file.buffer);
       const processed = await processImageBuffer(req.file).catch(err => {

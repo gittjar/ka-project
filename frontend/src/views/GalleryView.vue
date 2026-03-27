@@ -5,6 +5,7 @@ import {
   MapPin, Camera, Clock, FolderOpen, Plus, Play,
   ChevronRight, HardDrive, Pencil, Check, GripVertical,
   CheckSquare, Square, ArrowUpDown, ImagePlus, Star, FileText, Download,
+  Film, Eye, LayoutGrid, LayoutList,
 } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -35,6 +36,10 @@ interface FolderItem {
   createdBy: string;
   createdAt: string;
   description?: string;
+  imageCount?: number;
+  videoCount?: number;
+  totalViews?: number;
+  previewUrl?: string | null;
 }
 interface MediaItem {
   _id: string;
@@ -86,6 +91,18 @@ const isUploading = computed(() => uploadTasks.value.some(t => t.status === 'upl
 // Lightbox
 const lightboxItem = ref<MediaItem | null>(null);
 const lightboxIdx = ref(0);
+const mediaLoading = ref(false);
+const mediaLoadMs = ref<number | null>(null);
+let _mediaLoadStart = 0;
+function startMediaLoad() {
+  mediaLoading.value = true;
+  mediaLoadMs.value = null;
+  _mediaLoadStart = performance.now();
+}
+function onMediaLoaded() {
+  mediaLoadMs.value = Math.round(performance.now() - _mediaLoadStart);
+  mediaLoading.value = false;
+}
 
 // Caption editing (in lightbox)
 const editingCaption = ref(false);
@@ -121,6 +138,15 @@ const storySaving = ref(false);
 
 // Current folder (for showing description inside folder view)
 const currentFolder = ref<FolderItem | null>(null);
+
+// Folder view mode (card / list)
+const folderViewMode = ref<'card' | 'list'>(
+  (localStorage.getItem('gallery_folder_view') as 'card' | 'list') || 'card'
+);
+function setFolderViewMode(mode: 'card' | 'list') {
+  folderViewMode.value = mode;
+  localStorage.setItem('gallery_folder_view', mode);
+}
 
 // Delete folder
 const deleteFolderTarget = ref<FolderItem | null>(null);
@@ -295,18 +321,21 @@ function openLightbox(idx: number) {
   lightboxIdx.value = idx;
   lightboxItem.value = mediaItems.value[idx]!;
   editingCaption.value = false;
+  startMediaLoad();
   trackView(lightboxItem.value);
 }
 function lightboxPrev() {
   lightboxIdx.value = (lightboxIdx.value - 1 + mediaItems.value.length) % mediaItems.value.length;
   lightboxItem.value = mediaItems.value[lightboxIdx.value]!;
   editingCaption.value = false;
+  startMediaLoad();
   trackView(lightboxItem.value);
 }
 function lightboxNext() {
   lightboxIdx.value = (lightboxIdx.value + 1) % mediaItems.value.length;
   lightboxItem.value = mediaItems.value[lightboxIdx.value]!;
   editingCaption.value = false;
+  startMediaLoad();
   trackView(lightboxItem.value);
 }
 function closeLightbox() {
@@ -845,52 +874,185 @@ onUnmounted(() => {
 
     <template v-else>
       <!-- ── Kansioruudukko (+ Carousel-virtuaalikansio admin-juuressa) ── -->
-      <div v-if="folders.length || (auth.isAdmin && !currentFolderId && !inCarouselView)"
-        class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+      <div v-if="folders.length || (auth.isAdmin && !currentFolderId && !inCarouselView)" class="mb-6">
 
-        <!-- Carousel virtual folder card -->
-        <div v-if="auth.isAdmin && !currentFolderId && !inCarouselView"
-          class="group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer
-                 bg-gray-950 border border-gray-800/50 hover:border-gray-700 transition-all"
-          @click="openCarouselView">
-          <Star class="w-7 h-7 text-yellow-500/70 shrink-0 fill-yellow-500/20" />
-          <div class="min-w-0">
-            <span class="text-sm font-medium text-white truncate block">Carousel kuvat</span>
-            <span class="text-xs text-gray-600">{{ carouselIds.size }} / 5</span>
+        <!-- Otsikkorivi: kansioiden määrä + näkymävalitsin -->
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-gray-600">{{ folders.length }} kansiota</span>
+          <div class="flex items-center gap-0.5 bg-gray-900 rounded-lg p-0.5 border border-gray-800/60">
+            <button @click="setFolderViewMode('card')"
+              class="p-1.5 rounded-md transition-all border-0"
+              :class="folderViewMode === 'card' ? 'bg-gray-700 text-white' : 'text-gray-600 hover:text-gray-400'">
+              <LayoutGrid class="w-3.5 h-3.5" />
+            </button>
+            <button @click="setFolderViewMode('list')"
+              class="p-1.5 rounded-md transition-all border-0"
+              :class="folderViewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-600 hover:text-gray-400'">
+              <LayoutList class="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
-        <div
-          v-for="folder in folders" :key="folder._id"
-          class="group rounded-2xl bg-gray-950 border transition-all overflow-hidden"
-          :class="dragOverFolder === folder._id
-            ? 'border-dpurple-600 bg-dpurple-950/30 scale-[1.02]'
-            : 'border-gray-800/50 hover:border-gray-700'"
-          @dragover.prevent="auth.isAdmin && onDragOverFolder($event, folder._id)"
-          @dragleave="onDragLeaveFolder"
-          @drop.prevent="auth.isAdmin && onDropFolder($event, folder._id)">
-          <!-- Klikattava osa: avaa kansio -->
-          <div class="flex items-center gap-3 p-4 cursor-pointer" @click="navigateInto(folder)">
-            <FolderOpen class="w-6 h-6 text-dpurple-500/70 shrink-0" />
-            <span class="text-sm font-medium text-white">{{ folder.name }}</span>
+
+        <!-- ── KORTTINÄKYMÄ ── -->
+        <div v-if="folderViewMode === 'card'"
+          class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+
+          <!-- Carousel virtual folder card -->
+          <div v-if="auth.isAdmin && !currentFolderId && !inCarouselView"
+            class="group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer
+                   bg-gray-950 border border-gray-800/50 hover:border-gray-700 transition-all"
+            @click="openCarouselView">
+            <Star class="w-7 h-7 text-yellow-500/70 shrink-0 fill-yellow-500/20" />
+            <div class="min-w-0">
+              <span class="text-sm font-medium text-white truncate block">Carousel kuvat</span>
+              <span class="text-xs text-gray-600">{{ carouselIds.size }} / 5</span>
+            </div>
           </div>
-          <!-- Admin-toiminnot: pienet tekstilinkit alla -->
-          <div v-if="auth.isAdmin" class="flex gap-3 px-4 pb-3 border-t border-gray-800/40 pt-2">
-            <button
-              @click.stop="renameFolderTarget = folder; renameDraft = folder.name; nextTick(() => renameInputRef?.focus())"
-              class="text-xs text-gray-600 hover:text-gray-300 border-0 bg-transparent transition-colors p-0 leading-none">
-              muokkaa
-            </button>
-            <button
-              @click.stop="storyFolderTarget = folder; storyDraft = folder.description ?? ''; storyModalOpen = true"
-              class="flex items-center gap-1 text-xs border-0 bg-transparent transition-colors p-0 leading-none"
-              :class="folder.description ? 'text-dpurple-500 hover:text-dpurple-300' : 'text-gray-600 hover:text-gray-300'">
-              <FileText class="w-3 h-3" />tarina
-            </button>
-            <button
-              @click.stop="deleteFolderTarget = folder"
-              class="text-xs text-gray-600 hover:text-red-400 border-0 bg-transparent transition-colors p-0 leading-none">
-              poista
-            </button>
+
+          <!-- Kansiokortit -->
+          <div
+            v-for="folder in folders" :key="folder._id"
+            class="group relative rounded-2xl overflow-hidden border transition-all"
+            :class="dragOverFolder === folder._id
+              ? 'border-dpurple-600 scale-[1.02]'
+              : 'border-gray-800/50 hover:border-gray-700'"
+            @dragover.prevent="auth.isAdmin && onDragOverFolder($event, folder._id)"
+            @dragleave="onDragLeaveFolder"
+            @drop.prevent="auth.isAdmin && onDropFolder($event, folder._id)">
+
+            <!-- Esikatselu + nimi -->
+            <div class="aspect-video relative cursor-pointer" @click="navigateInto(folder)">
+              <img v-if="folder.previewUrl" :src="folder.previewUrl"
+                class="absolute inset-0 w-full h-full object-cover" />
+              <div v-else class="absolute inset-0 bg-gray-900 flex items-center justify-center">
+                <FolderOpen class="w-10 h-10 text-gray-700" />
+              </div>
+              <!-- Gradient overlay -->
+              <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <!-- Nimi + tilastot -->
+              <div class="absolute bottom-0 left-0 right-0 px-3 py-2.5 flex flex-col gap-1.5">
+                <p class="inline-block max-w-full truncate text-[15px] font-semibold text-gray-200
+                           bg-black/65 backdrop-blur-sm px-3 py-1 rounded-full leading-tight self-start">{{ folder.name }}</p>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span v-if="folder.imageCount" class="flex items-center gap-1 text-[10px] text-gray-300
+                               bg-black/55 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                    <Camera class="w-2.5 h-2.5" />{{ folder.imageCount }}
+                  </span>
+                  <span v-if="folder.videoCount" class="flex items-center gap-1 text-[10px] text-gray-300
+                               bg-black/55 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                    <Film class="w-2.5 h-2.5" />{{ folder.videoCount }}
+                  </span>
+                  <span v-if="folder.totalViews" class="flex items-center gap-1 text-[10px] text-gray-300
+                               bg-black/55 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                    <Eye class="w-2.5 h-2.5" />{{ folder.totalViews }}
+                  </span>
+                  <span v-if="!folder.imageCount && !folder.videoCount"
+                    class="text-[10px] text-gray-500 bg-black/55 backdrop-blur-sm px-2 py-0.5 rounded-full">Tyhjä</span>
+                </div>
+              </div>
+              <!-- Tarina-indikaattori -->
+              <div v-if="folder.description" class="absolute top-2 right-2">
+                <FileText class="w-3.5 h-3.5 text-dpurple-400 drop-shadow" />
+              </div>
+            </div>
+
+            <!-- Admin-toiminnot -->
+            <div v-if="auth.isAdmin" class="flex gap-3 px-3 py-2 bg-gray-950 border-t border-gray-800/40">
+              <button
+                @click.stop="renameFolderTarget = folder; renameDraft = folder.name; nextTick(() => renameInputRef?.focus())"
+                class="text-xs text-gray-600 hover:text-gray-300 border-0 bg-transparent transition-colors p-0 leading-none">
+                muokkaa
+              </button>
+              <button
+                @click.stop="storyFolderTarget = folder; storyDraft = folder.description ?? ''; storyModalOpen = true"
+                class="flex items-center gap-1 text-xs border-0 bg-transparent transition-colors p-0 leading-none"
+                :class="folder.description ? 'text-dpurple-500 hover:text-dpurple-300' : 'text-gray-600 hover:text-gray-300'">
+                <FileText class="w-3 h-3" />tarina
+              </button>
+              <button
+                @click.stop="deleteFolderTarget = folder"
+                class="text-xs text-gray-600 hover:text-red-400 border-0 bg-transparent transition-colors p-0 leading-none">
+                poista
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── LISTANÄKYMÄ ── -->
+        <div v-else class="flex flex-col gap-1.5">
+
+          <!-- Carousel rivi -->
+          <div v-if="auth.isAdmin && !currentFolderId && !inCarouselView"
+            class="flex items-center gap-4 px-4 py-3 rounded-xl bg-gray-950 border border-gray-800/50
+                   hover:border-gray-700 cursor-pointer transition-all"
+            @click="openCarouselView">
+            <Star class="w-5 h-5 text-yellow-500/70 shrink-0 fill-yellow-500/20" />
+            <span class="text-sm font-medium text-white flex-1">Carousel kuvat</span>
+            <span class="text-xs text-gray-600">{{ carouselIds.size }} / 5</span>
+          </div>
+
+          <!-- Kansiorivit -->
+          <div
+            v-for="folder in folders" :key="folder._id"
+            class="flex items-center gap-0 rounded-xl border transition-all overflow-hidden"
+            :class="dragOverFolder === folder._id
+              ? 'border-dpurple-600 bg-dpurple-950/20'
+              : 'border-gray-800/50 hover:border-gray-700 bg-gray-950'"
+            @dragover.prevent="auth.isAdmin && onDragOverFolder($event, folder._id)"
+            @dragleave="onDragLeaveFolder"
+            @drop.prevent="auth.isAdmin && onDropFolder($event, folder._id)">
+
+            <!-- Pikkukuva -->
+            <div class="w-16 h-14 shrink-0 relative overflow-hidden cursor-pointer"
+              @click="navigateInto(folder)">
+              <img v-if="folder.previewUrl" :src="folder.previewUrl"
+                class="w-full h-full object-cover" />
+              <div v-else class="w-full h-full bg-gray-900 flex items-center justify-center">
+                <FolderOpen class="w-6 h-6 text-gray-700" />
+              </div>
+            </div>
+
+            <!-- Tiedot -->
+            <div class="flex-1 min-w-0 px-3 py-2 cursor-pointer" @click="navigateInto(folder)">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-white truncate">{{ folder.name }}</span>
+                <FileText v-if="folder.description" class="w-3 h-3 text-dpurple-500 shrink-0" />
+              </div>
+              <p v-if="folder.description" class="text-[11px] text-gray-600 truncate mt-0.5 leading-tight">
+                {{ folder.description }}
+              </p>
+              <div class="flex items-center gap-3 mt-0.5">
+                <span class="text-[10px] text-gray-600 flex items-center gap-1">
+                  <Camera class="w-2.5 h-2.5" />{{ folder.imageCount ?? 0 }} kuvaa
+                </span>
+                <span v-if="folder.videoCount" class="text-[10px] text-gray-600 flex items-center gap-1">
+                  <Film class="w-2.5 h-2.5" />{{ folder.videoCount }} videota
+                </span>
+                <span v-if="folder.totalViews" class="text-[10px] text-gray-600 flex items-center gap-1">
+                  <Eye class="w-2.5 h-2.5" />{{ folder.totalViews }} avausta
+                </span>
+              </div>
+            </div>
+
+            <!-- Admin-toiminnot -->
+            <div v-if="auth.isAdmin" class="flex gap-3 pr-3 pl-1 shrink-0">
+              <button
+                @click.stop="renameFolderTarget = folder; renameDraft = folder.name; nextTick(() => renameInputRef?.focus())"
+                class="text-xs text-gray-600 hover:text-gray-300 border-0 bg-transparent transition-colors p-0 leading-none">
+                muokkaa
+              </button>
+              <button
+                @click.stop="storyFolderTarget = folder; storyDraft = folder.description ?? ''; storyModalOpen = true"
+                class="flex items-center gap-1 text-xs border-0 bg-transparent transition-colors p-0 leading-none"
+                :class="folder.description ? 'text-dpurple-500 hover:text-dpurple-300' : 'text-gray-600 hover:text-gray-300'">
+                <FileText class="w-3 h-3" />tarina
+              </button>
+              <button
+                @click.stop="deleteFolderTarget = folder"
+                class="text-xs text-gray-600 hover:text-red-400 border-0 bg-transparent transition-colors p-0 leading-none">
+                poista
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1030,12 +1192,26 @@ onUnmounted(() => {
       </button>
 
       <!-- Media area -->
-      <div class="flex items-center justify-center sm:flex-1 sm:p-4 min-w-0 shrink-0 sm:shrink" @click.stop>
+      <div class="relative flex items-center justify-center sm:flex-1 sm:p-4 min-w-0 shrink-0 sm:shrink" @click.stop>
+        <!-- Loading spinner -->
+        <Transition name="fade">
+          <div v-if="mediaLoading"
+            class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <svg class="w-9 h-9 animate-spin text-white/50" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5"/>
+              <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+          </div>
+        </Transition>
         <img v-if="lightboxItem.mediaType === 'image'" :src="lightboxItem.url"
+          @load="onMediaLoaded"
           class="w-full sm:max-h-[92vh] sm:max-w-full sm:rounded-xl shadow-2xl object-contain
-                 max-h-[55vh] rounded-none" />
+                 max-h-[55vh] rounded-none transition-opacity duration-300"
+          :class="mediaLoading ? 'opacity-0' : 'opacity-100'" />
         <video v-else :src="lightboxItem.url" controls autoplay
-          class="w-full sm:max-h-[92vh] sm:max-w-full sm:rounded-xl shadow-2xl max-h-[55vh]" />
+          @canplay.once="onMediaLoaded"
+          class="w-full sm:max-h-[92vh] sm:max-w-full rounded-xl shadow-2xl max-h-[55vh] transition-opacity duration-300"
+          :class="mediaLoading ? 'opacity-0' : 'opacity-100'" />
       </div>
 
       <!-- Mobile nav bar (prev/next + counter) -->
@@ -1085,6 +1261,7 @@ onUnmounted(() => {
             <p v-if="lightboxItem.exif?.dateTaken" class="text-[11px] text-gray-500 truncate mt-0.5">
               📷 {{ new Date(lightboxItem.exif.dateTaken!).toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'short' }) }}
             </p>
+            <p v-if="mediaLoadMs !== null" class="text-[10px] text-gray-700 mt-0.5">⚡ {{ mediaLoadMs }} ms</p>
           </div>
           <!-- action icons (spans, no button style) -->
           <div class="flex items-center gap-4 shrink-0">
@@ -1227,6 +1404,7 @@ onUnmounted(() => {
           <div v-if="lightboxItem.uploadedBy">Ladannut <span class="text-gray-400">{{ lightboxItem.uploadedBy }}</span></div>
           <div>{{ new Date(lightboxItem.createdAt).toLocaleString('fi-FI', { dateStyle:'medium', timeStyle:'short' }) }}</div>
           <div v-if="lightboxItem.fileSize">{{ fmtBytes(lightboxItem.fileSize) }}</div>
+          <div v-if="mediaLoadMs !== null" class="text-gray-700">⚡ {{ mediaLoadMs }} ms</div>
           <div v-if="lightboxItem.viewCount" class="pt-1 border-t border-gray-800/60">
             <div class="flex items-center gap-1.5 text-gray-500">
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
