@@ -4,7 +4,7 @@ import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Camera, Clock, FolderOpen, Plus, Play,
   ChevronRight, HardDrive, Pencil, Check, GripVertical,
-  CheckSquare, Square, ArrowUpDown, ImagePlus, Star, FileText,
+  CheckSquare, Square, ArrowUpDown, ImagePlus, Star, FileText, Download,
 } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -1014,7 +1014,7 @@ onUnmounted(() => {
       @click="closeLightbox">
 
       <!-- Sulje -->
-      <button class="absolute top-3 right-3 sm:top-4 sm:right-[308px] p-2 rounded-xl bg-white/10 hover:bg-white/20
+      <button class="absolute top-3 right-3 sm:top-4 sm:right-[308px] p-2 rounded-xl bg-black/60 hover:bg-black/80
                      text-white border-0 transition-all z-30" @click.stop="closeLightbox">
         <X class="w-5 h-5" />
       </button>
@@ -1082,6 +1082,9 @@ onUnmounted(() => {
               {{ new Date(lightboxItem.createdAt).toLocaleDateString('fi-FI') }}
               <span v-if="lightboxItem.fileSize"> · {{ fmtBytes(lightboxItem.fileSize) }}</span>
             </p>
+            <p v-if="lightboxItem.exif?.dateTaken" class="text-[11px] text-gray-500 truncate mt-0.5">
+              📷 {{ new Date(lightboxItem.exif.dateTaken!).toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'short' }) }}
+            </p>
           </div>
           <!-- action icons (spans, no button style) -->
           <div class="flex items-center gap-4 shrink-0">
@@ -1098,6 +1101,13 @@ onUnmounted(() => {
               :class="carouselIds.has(lightboxItem!._id) ? 'text-yellow-400' : 'text-gray-600 active:text-yellow-400'">
               <Star class="w-4 h-4" :class="carouselIds.has(lightboxItem!._id) ? 'fill-yellow-400' : ''" />
             </span>
+            <!-- download -->
+            <a :href="lightboxItem.url"
+              :download="lightboxItem.url.split('/').pop()"
+              @click.stop
+              class="cursor-pointer text-gray-600 active:text-gray-300">
+              <Download class="w-4 h-4" />
+            </a>
             <!-- delete -->
             <span v-if="canDelete(lightboxItem!) && !inCarouselView"
               @click="deleteTarget = lightboxItem; closeLightbox()"
@@ -1246,6 +1256,13 @@ onUnmounted(() => {
               {{ carouselIds.size }}/5
             </span>
           </button>
+          <a :href="lightboxItem.url"
+            :download="lightboxItem.url.split('/').pop()"
+            class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
+                   text-xs border border-gray-700 bg-gray-900 hover:bg-gray-800
+                   text-gray-400 hover:text-white transition-all no-underline">
+            <Download class="w-3.5 h-3.5" />Lataa
+          </a>
           <button v-if="canDelete(lightboxItem!) && !inCarouselView"
             @click="deleteTarget = lightboxItem; closeLightbox()"
             class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
