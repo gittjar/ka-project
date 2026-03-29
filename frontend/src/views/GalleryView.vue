@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
-  MapPin, Camera, Clock, FolderOpen, Plus, Play,
+  MapPin, Image, Clock, FolderOpen, Plus, Play,
   ChevronRight, HardDrive, Pencil, Check, GripVertical,
   CheckSquare, Square, ArrowUpDown, ImagePlus, Star, FileText, Download,
   Film, Eye, LayoutGrid, LayoutList,
@@ -102,6 +102,21 @@ function startMediaLoad() {
 function onMediaLoaded() {
   mediaLoadMs.value = Math.round(performance.now() - _mediaLoadStart);
   mediaLoading.value = false;
+}
+
+// Swipe (mobile lightbox)
+let _swipeStartX = 0;
+let _swipeStartY = 0;
+function onSwipeStart(e: TouchEvent) {
+  _swipeStartX = e.touches[0]!.clientX;
+  _swipeStartY = e.touches[0]!.clientY;
+}
+function onSwipeEnd(e: TouchEvent) {
+  const dx = e.changedTouches[0]!.clientX - _swipeStartX;
+  const dy = e.changedTouches[0]!.clientY - _swipeStartY;
+  if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+  if (dx < 0) lightboxNext();
+  else lightboxPrev();
 }
 
 // Caption editing (in lightbox)
@@ -936,7 +951,7 @@ onUnmounted(() => {
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span v-if="folder.imageCount" class="flex items-center gap-1 text-[10px] text-gray-300
                                bg-black/55 backdrop-blur-sm px-2 py-0.5 rounded-full">
-                    <Camera class="w-2.5 h-2.5" />{{ folder.imageCount }}
+                    <Image class="w-2.5 h-2.5" />{{ folder.imageCount }}
                   </span>
                   <span v-if="folder.videoCount" class="flex items-center gap-1 text-[10px] text-gray-300
                                bg-black/55 backdrop-blur-sm px-2 py-0.5 rounded-full">
@@ -1023,7 +1038,7 @@ onUnmounted(() => {
               </p>
               <div class="flex items-center gap-3 mt-0.5">
                 <span class="text-[10px] text-gray-600 flex items-center gap-1">
-                  <Camera class="w-2.5 h-2.5" />{{ folder.imageCount ?? 0 }} kuvaa
+                  <Image class="w-2.5 h-2.5" />{{ folder.imageCount ?? 0 }} kuvaa
                 </span>
                 <span v-if="folder.videoCount" class="text-[10px] text-gray-600 flex items-center gap-1">
                   <Film class="w-2.5 h-2.5" />{{ folder.videoCount }} videota
@@ -1192,7 +1207,8 @@ onUnmounted(() => {
       </button>
 
       <!-- Media area -->
-      <div class="relative flex items-center justify-center sm:flex-1 sm:p-4 min-w-0 shrink-0 sm:shrink" @click.stop>
+      <div class="relative flex items-center justify-center sm:flex-1 sm:p-4 min-w-0 shrink-0 sm:shrink"
+        @click.stop @touchstart.passive="onSwipeStart" @touchend.passive="onSwipeEnd">
         <!-- Loading spinner -->
         <Transition name="fade">
           <div v-if="mediaLoading"
@@ -1263,6 +1279,12 @@ onUnmounted(() => {
             </p>
             <p v-if="mediaLoadMs !== null" class="text-[10px] text-gray-700 mt-0.5">⚡ {{ mediaLoadMs }} ms</p>
           </div>
+          <!-- katselukerrat -->
+          <span v-if="lightboxItem.viewCount"
+            class="shrink-0 flex items-center gap-1 text-[10px] text-gray-500
+                   bg-gray-900 border border-gray-800/60 px-2 py-0.5 rounded-full self-start mt-0.5">
+            <Eye class="w-3 h-3" />{{ lightboxItem.viewCount }}
+          </span>
           <!-- action icons (spans, no button style) -->
           <div class="flex items-center gap-4 shrink-0">
             <!-- edit caption -->
@@ -1367,7 +1389,7 @@ onUnmounted(() => {
           class="hidden sm:block px-5 py-4 border-b border-gray-800/50 space-y-3">
           <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Kameratiedot</span>
           <div v-if="lightboxItem.exif.model" class="flex items-start gap-2">
-            <Camera class="w-3.5 h-3.5 text-gray-600 mt-0.5 shrink-0" />
+            <Image class="w-3.5 h-3.5 text-gray-600 mt-0.5 shrink-0" />
             <span class="text-xs text-gray-300 leading-snug">
               {{ lightboxItem.exif.make && !lightboxItem.exif.model?.startsWith(lightboxItem.exif.make)
                 ? lightboxItem.exif.make + ' ' : '' }}{{ lightboxItem.exif.model }}

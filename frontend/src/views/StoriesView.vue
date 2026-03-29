@@ -120,7 +120,7 @@ function fmtDateTime(d: string) {
 }
 
 function isMyStory(s: Story) {
-  return s.author === auth.username || auth.isAdmin;
+  return s.author === auth.username || (!!auth.userId && s.authorId === auth.userId) || auth.isAdmin;
 }
 
 function isMyComment(c: StoryComment) {
@@ -256,7 +256,9 @@ async function saveModal() {
           });
           const idx = stories.value.findIndex(s => s._id === story._id);
           if (idx !== -1) stories.value[idx]!.media = data.media;
-        } catch { /* single upload failure is non-fatal */ }
+        } catch (err: any) {
+            showToast(err.response?.data?.message || 'Median lataus epäonnistui', 'error');
+          }
         mProgress.value[i] = 100;
       }
       mUploading.value = false;

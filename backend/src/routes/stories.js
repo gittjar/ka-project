@@ -69,7 +69,7 @@ async function processImage(file) {
 router.get('/', authMiddleware, async (_req, res) => {
   try {
     const stories = await Story.find()
-      .sort({ createdAt: -1 })
+      .sort({ title: 1 })
       .select('-comments');
     res.json(stories);
   } catch (err) {

@@ -240,30 +240,30 @@ function prevSlide(m: Member) {
           </div>
 
           <!-- Quote -->
-          <p v-if="m.quote" class="text-xs sm:text-sm italic text-dpurple-400/90 leading-relaxed line-clamp-2">
+          <p v-if="m.quote" class="text-xs sm:text-sm italic text-dpurple-400/90 leading-relaxed sm:line-clamp-2">
             "{{ m.quote }}"
           </p>
 
           <!-- Meta-tiedot -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-400">
-            <span v-if="m.born" class="flex items-center gap-1.5 truncate">
+            <span v-if="m.born" class="flex items-center gap-1.5 sm:truncate">
               <Cake class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.born }}
             </span>
-            <span v-if="m.location" class="flex items-center gap-1.5 truncate">
+            <span v-if="m.location" class="flex items-center gap-1.5 sm:truncate">
               <MapPin class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.location }}
             </span>
-            <span v-if="m.favDrink" class="flex items-center gap-1.5 truncate">
+            <span v-if="m.favDrink" class="flex items-center gap-1.5 sm:truncate">
               <GlassWater class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.favDrink }}
             </span>
-            <span v-if="m.highestPromille" class="flex items-center gap-1.5 truncate">
+            <span v-if="m.highestPromille" class="flex items-center gap-1.5 sm:truncate">
               <Flame class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.highestPromille }}
             </span>
             <a v-if="m.website && m.website.startsWith('http')"
               :href="m.website" target="_blank" rel="noopener noreferrer"
-              class="flex items-center gap-1.5 hover:text-dgreen-400 transition-colors truncate">
+              class="flex items-center gap-1.5 hover:text-dgreen-400 transition-colors sm:truncate">
               <Globe class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.website.replace(/^https?:\/\//, '') }}
             </a>
-            <span v-if="m.email" class="flex items-center gap-1.5 truncate">
+            <span v-if="m.email" class="flex items-center gap-1.5 sm:truncate">
               <Mail class="w-3.5 h-3.5 text-gray-500 shrink-0" />{{ m.email }}
             </span>
           </div>

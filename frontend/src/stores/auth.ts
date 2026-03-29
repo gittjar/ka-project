@@ -9,6 +9,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!token.value);
   const isAdmin = computed(() => role.value === 'admin');
+  const userId = computed<string | null>(() => {
+    if (!token.value) return null;
+    try { return (JSON.parse(atob(token.value.split('.')[1]!)) as { userId?: string }).userId ?? null; }
+    catch { return null; }
+  });
 
   function setAuth(data: { token: string; username: string; role: string }) {
     token.value = data.token;
@@ -38,5 +43,5 @@ export const useAuthStore = defineStore('auth', () => {
     setAuth(data);
   }
 
-  return { token, username, role, isLoggedIn, isAdmin, login, register, logout };
+  return { token, username, role, isLoggedIn, isAdmin, userId, login, register, logout };
 });
