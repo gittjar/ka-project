@@ -19,7 +19,7 @@ const router = express.Router();
 const CONTAINER = 'gallery';
 const MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
 
-const ACCEPTED_EXT = /\.(jpe?g|png|gif|webp|bmp|tiff?|heic|heif|avif|svg|mp4|mov|m4v|webm|3gp|mkv|avi)$/i;
+const ACCEPTED_EXT = /\.(jpe?g|png|gif|webp|bmp|tiff?|heic|heif|avif|mp4|mov|m4v|webm|3gp|mkv|avi)$/i;
 const VIDEO_EXT    = /\.(mp4|mov|m4v|webm|3gp|mkv|avi)$/i;
 const HEIC_EXT     = /\.(heic|heif)$/i;
 const SHARP_CONV   = /\.(tiff?|bmp|avif)$/i;
@@ -179,7 +179,7 @@ router.get('/folders', authMiddleware, async (req, res) => {
     }));
     res.json(result);
   } catch (err) {
-    res.status(500).json({ message: 'Kansioiden haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Kansioiden haku epäonnistui' });
   }
 });
 
@@ -192,7 +192,7 @@ router.post('/folders', authMiddleware, async (req, res) => {
     const folder = await Folder.create({ name: name.trim(), parent: parent || null, createdBy: req.username });
     res.status(201).json(folder);
   } catch (err) {
-    res.status(500).json({ message: 'Kansion luonti epÃ¤onnistui', error: err.message });
+    res.status(500).json({ message: 'Kansion luonti epÃ¤onnistui' });
   }
 });
 
@@ -214,7 +214,7 @@ router.patch('/folders/:id', authMiddleware, async (req, res) => {
     if (!folder) return res.status(404).json({ message: 'Kansiota ei löydy' });
     res.json(folder);
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
@@ -241,7 +241,7 @@ router.delete('/folders/:id', authMiddleware, async (req, res) => {
     await Folder.deleteMany({ _id: { $in: allIds } });
     res.json({ message: 'Kansio poistettu' });
   } catch (err) {
-    res.status(500).json({ message: 'Poisto epÃ¤onnistui', error: err.message });
+    res.status(500).json({ message: 'Poisto epÃ¤onnistui' });
   }
 });
 
@@ -254,7 +254,7 @@ router.get('/storage', authMiddleware, async (req, res) => {
     const result = await GalleryImage.aggregate([{ $group: { _id: null, total: { $sum: '$fileSize' } } }]);
     res.json({ used: result[0]?.total || 0, max: MAX_BYTES });
   } catch (err) {
-    res.status(500).json({ message: 'Tilakysely epÃ¤onnistui', error: err.message });
+    res.status(500).json({ message: 'Tilakysely epÃ¤onnistui' });
   }
 });
 
@@ -267,7 +267,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const items = await GalleryImage.find({ folderId }).sort({ sortOrder: 1, createdAt: -1 });
     res.json(items);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epÃ¤onnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epÃ¤onnistui' });
   }
 });
 
@@ -333,7 +333,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     res.json(saved);
   } catch (err) {
     console.error('[upload] ERROR:', err.message);
-    res.status(500).json({ message: 'Lataus epÃ¤onnistui', error: err.message });
+    res.status(500).json({ message: 'Lataus epÃ¤onnistui' });
   }
 });
 
@@ -353,7 +353,7 @@ router.patch('/media/:id', authMiddleware, async (req, res) => {
     await item.save();
     res.json(item);
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
@@ -368,7 +368,7 @@ router.patch('/reorder', authMiddleware, async (req, res) => {
     ));
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Järjestyksen tallennus epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Järjestyksen tallennus epäonnistui' });
   }
 });
 
@@ -381,7 +381,7 @@ router.get('/carousel', async (_req, res) => {
       .select('url blobName mediaType caption exif.dateTaken carouselOrder');
     res.json(items);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -405,7 +405,7 @@ router.put('/carousel', authMiddleware, async (req, res) => {
       .select('url blobName mediaType caption exif.dateTaken carouselOrder');
     res.json(items);
   } catch (err) {
-    res.status(500).json({ message: 'Tallennus epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Tallennus epäonnistui' });
   }
 });
 
@@ -424,7 +424,7 @@ router.post('/media/:id/view', authMiddleware, async (req, res) => {
     if (!item) return res.status(404).json({ message: 'Kuvaa ei löydy' });
     res.json({ viewCount: item.viewCount, openedAt: item.openedAt });
   } catch (err) {
-    res.status(500).json({ message: 'Virhe', error: err.message });
+    res.status(500).json({ message: 'Virhe' });
   }
 });
 
@@ -442,7 +442,7 @@ router.delete('/media/:id', authMiddleware, async (req, res) => {
     await item.deleteOne();
     res.json({ message: 'Tiedosto poistettu' });
   } catch (err) {
-    res.status(500).json({ message: 'Poisto epÃ¤onnistui', error: err.message });
+    res.status(500).json({ message: 'Poisto epÃ¤onnistui' });
   }
 });
 

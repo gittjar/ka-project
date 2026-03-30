@@ -43,6 +43,16 @@ app.use('/api/applications', applicationRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+// Global error handler — ei vuoda sisäisiä tietoja tuotannossa
+app.use((err, _req, res, _next) => {
+  const isDev = process.env.NODE_ENV !== 'production';
+  console.error('[unhandled error]', err);
+  res.status(err.status || 500).json({
+    message: err.message || 'Palvelinvirhe',
+    ...(isDev && { error: err.stack }),
+  });
+});
+
 mongoose
   .connect(process.env.MONGODB_URI || '')
   .then(async () => {

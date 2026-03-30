@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
 import heicConvert from 'heic-convert';
@@ -78,7 +78,7 @@ router.get('/', async (_req, res) => {
     const drinks = await Drink.find().sort({ name: 1 });
     res.json(drinks);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -103,7 +103,7 @@ router.post('/', authMiddleware, upload.single('media'), async (req, res) => {
     await drink.save();
     res.status(201).json(drink);
   } catch (err) {
-    res.status(500).json({ message: 'Lisäys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Lisäys epäonnistui' });
   }
 });
 
@@ -135,7 +135,7 @@ router.put('/:id', authMiddleware, upload.single('media'), async (req, res) => {
     await drink.save();
     res.json(drink);
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
@@ -150,7 +150,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await drink.deleteOne();
     res.json({ message: 'Drinkki poistettu' });
   } catch (err) {
-    res.status(500).json({ message: 'Poisto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Poisto epäonnistui' });
   }
 });
 

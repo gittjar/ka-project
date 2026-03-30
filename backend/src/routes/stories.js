@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
 import heicConvert from 'heic-convert';
@@ -73,7 +73,7 @@ router.get('/', authMiddleware, async (_req, res) => {
       .select('-comments');
     res.json(stories);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -84,7 +84,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     if (!story) return res.status(404).json({ message: 'Tarinaa ei löydy' });
     res.json(story);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -102,7 +102,7 @@ router.post('/', authMiddleware, async (req, res) => {
     });
     res.status(201).json(story);
   } catch (err) {
-    res.status(500).json({ message: 'Lisäys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Lisäys epäonnistui' });
   }
 });
 
@@ -119,7 +119,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     await story.save();
     res.json(story);
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
@@ -141,7 +141,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await story.deleteOne();
     res.json({ message: 'Tarina poistettu' });
   } catch (err) {
-    res.status(500).json({ message: 'Poisto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Poisto epäonnistui' });
   }
 });
 
@@ -174,7 +174,7 @@ router.post('/:id/media', authMiddleware, upload.single('file'), async (req, res
     await story.save();
     res.json({ media: story.media });
   } catch (err) {
-    res.status(500).json({ message: 'Lataus epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Lataus epäonnistui' });
   }
 });
 
@@ -195,7 +195,7 @@ router.delete('/:id/media/:mediaId', authMiddleware, async (req, res) => {
     await story.save();
     res.json({ media: story.media });
   } catch (err) {
-    res.status(500).json({ message: 'Mediapoisto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Mediapoisto epäonnistui' });
   }
 });
 
@@ -213,7 +213,7 @@ router.post('/:id/like', authMiddleware, async (req, res) => {
     await story.save();
     res.json({ likes: story.likes });
   } catch (err) {
-    res.status(500).json({ message: 'Tykkäys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Tykkäys epäonnistui' });
   }
 });
 
@@ -228,7 +228,7 @@ router.post('/:id/comments', authMiddleware, async (req, res) => {
     await story.save();
     res.json({ comments: story.comments });
   } catch (err) {
-    res.status(500).json({ message: 'Kommentointi epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Kommentointi epäonnistui' });
   }
 });
 
@@ -245,7 +245,7 @@ router.delete('/:id/comments/:cid', authMiddleware, async (req, res) => {
     await story.save();
     res.json({ comments: story.comments });
   } catch (err) {
-    res.status(500).json({ message: 'Kommenttipoisto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Kommenttipoisto epäonnistui' });
   }
 });
 

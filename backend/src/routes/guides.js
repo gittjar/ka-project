@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import authMiddleware from '../middleware/auth.js';
 import Setting from '../models/Setting.js';
 
@@ -6,13 +7,21 @@ const router = express.Router();
 const PIN_KEY = 'guides_pin';
 const DEFAULT_PIN = process.env.GUIDES_DEFAULT_PIN ?? '000000';
 
+const pinLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Liian monta yritystä. Yritä uudelleen 15 minuutin kuluttua.' },
+});
+
 async function getPin() {
   const s = await Setting.findOne({ key: PIN_KEY });
   return s ? s.value : DEFAULT_PIN;
 }
 
 // POST /api/guides/verify — public, verify PIN
-router.post('/verify', async (req, res) => {
+router.post('/verify', pinLimiter, async (req, res) => {
   try {
     const { pin } = req.body;
     if (!pin) return res.status(400).json({ message: 'PIN puuttuu' });

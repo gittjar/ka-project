@@ -1,4 +1,5 @@
-import express from 'express';
+﻿import express from 'express';
+import rateLimit from 'express-rate-limit';
 import Application from '../models/Application.js';
 import authMiddleware from '../middleware/auth.js';
 
@@ -6,8 +7,16 @@ const router = express.Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 
+const applicationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 tunti
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Liian monta hakemusta. Yritä uudelleen tunnin kuluttua.' },
+});
+
 // POST /api/applications — julkinen, kuka tahansa voi lähettää hakemuksen
-router.post('/', async (req, res) => {
+router.post('/', applicationLimiter, async (req, res) => {
   try {
     const { name, email, location, favDrink, motivation } = req.body;
     if (!name?.trim() || !email?.trim() || !location?.trim() || !favDrink?.trim() || !motivation?.trim()) {
@@ -29,7 +38,7 @@ router.post('/', async (req, res) => {
     await app.save();
     res.status(201).json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Lähetys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Lähetys epäonnistui' });
   }
 });
 
@@ -40,7 +49,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const apps = await Application.find({}).sort({ createdAt: -1 });
     res.json(apps);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -51,7 +60,7 @@ router.get('/pending-count', authMiddleware, async (req, res) => {
     const count = await Application.countDocuments({ status: 'pending' });
     res.json({ count });
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -71,7 +80,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (!app) return res.status(404).json({ message: 'Hakemusta ei löydy' });
     res.json(app);
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 

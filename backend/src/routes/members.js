@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
 import heicConvert from 'heic-convert';
@@ -72,13 +72,13 @@ function photoDataFromBody(body) {
   return { url, blobName: '', mediaType: PHOTO_VIDEO_EXT.test(url) ? 'video' : 'image' };
 }
 
-// GET /api/members — julkinen, vain aktiiviset
-router.get('/', async (_req, res) => {
+// GET /api/members — auth required, vain aktiiviset
+router.get('/', authMiddleware, async (_req, res) => {
   try {
     const members = await Member.find({ active: true }).collation({ locale: 'fi', strength: 1 }).sort({ name: 1 });
     res.json(members);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -89,7 +89,7 @@ router.get('/admin', authMiddleware, async (req, res) => {
     const members = await Member.find({}).collation({ locale: 'fi', strength: 1 }).sort({ name: 1 });
     res.json(members);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -102,7 +102,7 @@ router.get('/mine', authMiddleware, async (req, res) => {
     if (!member) return res.status(404).json({ message: 'Jäsenprofiilia ei löydy' });
     res.json(member);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -111,24 +111,28 @@ router.put('/mine', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user?.linkedMember) return res.status(404).json({ message: 'Ei linkitettyä jäsenprofiilia' });
-    // Käyttäjä ei saa muuttaa nimeä, aktiivisuutta tai pisteitä — vain admin
-    const { name: _name, active, points, _id, photos: _p, ...rest } = req.body;
-    const m = await Member.findByIdAndUpdate(user.linkedMember, rest, { new: true });
+    // Eksplisiittinen sallittujen kenttien lista — ei denylistiä
+    const ALLOWED = ['quote', 'born', 'highestPromille', 'favDrink', 'location', 'email', 'website', 'avatarUrl', 'aliases'];
+    const updates = {};
+    for (const key of ALLOWED) {
+      if (key in req.body) updates[key] = req.body[key];
+    }
+    const m = await Member.findByIdAndUpdate(user.linkedMember, updates, { new: true });
     if (!m) return res.status(404).json({ message: 'Jäsenprofiilia ei löydy' });
     res.json(m);
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
-// GET /api/members/:id
-router.get('/:id', async (req, res) => {
+// GET /api/members/:id — auth required
+router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const m = await Member.findById(req.params.id);
     if (!m) return res.status(404).json({ message: 'Jäsentä ei löydy' });
     res.json(m);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -139,7 +143,7 @@ router.post('/', authMiddleware, async (req, res) => {
     await member.save();
     res.status(201).json(member);
   } catch (err) {
-    res.status(500).json({ message: 'Lisäys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Lisäys epäonnistui' });
   }
 });
 
@@ -151,7 +155,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (!m) return res.status(404).json({ message: 'Jäsentä ei löydy' });
     res.json(m);
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
@@ -161,7 +165,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await Member.findByIdAndUpdate(req.params.id, { active: false });
     res.json({ message: 'Jäsen poistettu' });
   } catch (err) {
-    res.status(500).json({ message: 'Poisto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Poisto epäonnistui' });
   }
 });
 
@@ -180,7 +184,7 @@ router.post('/mine/photos', authMiddleware, photoUpload.single('file'), async (r
     m.photos.push({ ...photoData, sortOrder: m.photos.length });
     await m.save();
     res.json(m);
-  } catch (err) { res.status(500).json({ message: 'Kuvan lisäys epäonnistui', error: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Kuvan lisäys epäonnistui' }); }
 });
 
 // DELETE /api/members/mine/photos/:photoId
@@ -196,7 +200,7 @@ router.delete('/mine/photos/:photoId', authMiddleware, async (req, res) => {
     photo.deleteOne();
     await m.save();
     res.json(m);
-  } catch (err) { res.status(500).json({ message: 'Poisto epäonnistui', error: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Poisto epäonnistui' }); }
 });
 
 // POST /api/members/:id/photos  – admin only
@@ -211,7 +215,7 @@ router.post('/:id/photos', authMiddleware, photoUpload.single('file'), async (re
     m.photos.push({ ...photoData, sortOrder: m.photos.length });
     await m.save();
     res.json(m);
-  } catch (err) { res.status(500).json({ message: 'Kuvan lisäys epäonnistui', error: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Kuvan lisäys epäonnistui' }); }
 });
 
 // DELETE /api/members/:id/photos/:photoId  – admin only
@@ -226,7 +230,7 @@ router.delete('/:id/photos/:photoId', authMiddleware, async (req, res) => {
     photo.deleteOne();
     await m.save();
     res.json(m);
-  } catch (err) { res.status(500).json({ message: 'Poisto epäonnistui', error: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Poisto epäonnistui' }); }
 });
 
 export default router;

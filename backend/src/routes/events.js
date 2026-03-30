@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
 import heicConvert from 'heic-convert';
@@ -73,7 +73,7 @@ router.get('/', authMiddleware, async (_req, res) => {
     const events = await Event.find().sort({ startDate: 1 });
     res.json(events);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -83,7 +83,7 @@ router.get('/upcoming', async (_req, res) => {
     const count = await Event.countDocuments({ startDate: { $gt: new Date() } });
     res.json({ count });
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -106,7 +106,7 @@ router.post('/', authMiddleware, async (req, res) => {
     });
     res.status(201).json(event);
   } catch (err) {
-    res.status(500).json({ message: 'Luonti epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Luonti epäonnistui' });
   }
 });
 
@@ -128,7 +128,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     await event.save();
     res.json(event);
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
@@ -148,7 +148,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await event.deleteOne();
     res.json({ message: 'Tapahtuma poistettu' });
   } catch (err) {
-    res.status(500).json({ message: 'Poisto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Poisto epäonnistui' });
   }
 });
 
@@ -174,7 +174,7 @@ router.post('/:id/image', authMiddleware, upload.single('file'), async (req, res
     await event.save();
     res.json({ imageUrl: event.imageUrl });
   } catch (err) {
-    res.status(500).json({ message: 'Kuvien lataus epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Kuvien lataus epäonnistui' });
   }
 });
 
@@ -196,7 +196,7 @@ router.delete('/:id/image', authMiddleware, async (req, res) => {
     await event.save();
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Poisto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Poisto epäonnistui' });
   }
 });
 
@@ -223,7 +223,7 @@ router.post('/:id/rsvp', authMiddleware, async (req, res) => {
     await event.save();
     res.json({ rsvps: event.rsvps });
   } catch (err) {
-    res.status(500).json({ message: 'RSVP epäonnistui', error: err.message });
+    res.status(500).json({ message: 'RSVP epäonnistui' });
   }
 });
 

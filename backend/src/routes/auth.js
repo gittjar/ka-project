@@ -1,7 +1,8 @@
-import express from 'express';
+﻿import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 import User from '../models/User.js';
 import InviteCode from '../models/InviteCode.js';
 import authMiddleware from '../middleware/auth.js';
@@ -10,6 +11,14 @@ const router = express.Router();
 
 const LOGIN_MAX_ATTEMPTS = 10;
 const LOGIN_LOCK_MS = 60 * 60 * 1000; // 1h
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 tunti
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Liian monta rekisteröintiyritystä. Yritä uudelleen tunnin kuluttua.' },
+});
 
 // POST /api/auth/invite — admin luo kutsukoodin
 router.post('/invite', authMiddleware, async (req, res) => {
@@ -21,7 +30,7 @@ router.post('/invite', authMiddleware, async (req, res) => {
     await invite.save();
     res.status(201).json({ code, expiresAt });
   } catch (err) {
-    res.status(500).json({ message: 'Kutsukoodi epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Kutsukoodi epäonnistui' });
   }
 });
 
@@ -32,12 +41,12 @@ router.get('/invites', authMiddleware, async (req, res) => {
     const invites = await InviteCode.find({}).sort({ createdAt: -1 });
     res.json(invites);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
 // POST /api/auth/register — rekisteröidy kutsukoodilla
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { username, password, inviteCode } = req.body;
     if (!username || !password || !inviteCode) {
@@ -66,7 +75,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ message: 'Rekisteröinti onnistui. Odota admin-hyväksyntää.' });
   } catch (err) {
-    res.status(500).json({ message: 'Rekisteröinti epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Rekisteröinti epäonnistui' });
   }
 });
 
@@ -123,7 +132,7 @@ router.post('/login', async (req, res) => {
     );
     res.json({ token, username: user.username, role: user.role });
   } catch (err) {
-    res.status(500).json({ message: 'Kirjautuminen epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Kirjautuminen epäonnistui' });
   }
 });
 
@@ -134,7 +143,7 @@ router.get('/pending', authMiddleware, async (req, res) => {
     const users = await User.find({ status: 'pending' }).select('-password').sort({ createdAt: 1 });
     res.json(users);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -145,7 +154,7 @@ router.post('/approve/:id', authMiddleware, async (req, res) => {
     await User.findByIdAndUpdate(req.params.id, { status: 'active' });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Hyväksyntä epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Hyväksyntä epäonnistui' });
   }
 });
 
@@ -156,7 +165,7 @@ router.post('/reject/:id', authMiddleware, async (req, res) => {
     await User.findByIdAndUpdate(req.params.id, { status: 'rejected' });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Hylkäys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Hylkäys epäonnistui' });
   }
 });
 
@@ -170,7 +179,7 @@ router.get('/users', authMiddleware, async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -189,7 +198,7 @@ router.put('/users/:id/role', authMiddleware, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Käyttäjää ei löydy' });
     res.json(user);
   } catch (err) {
-    res.status(500).json({ message: 'Roolin muutos epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Roolin muutos epäonnistui' });
   }
 });
 
@@ -206,7 +215,7 @@ router.put('/users/:id/link', authMiddleware, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Käyttäjää ei löydy' });
     res.json(user);
   } catch (err) {
-    res.status(500).json({ message: 'Linkitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Linkitys epäonnistui' });
   }
 });
 
@@ -229,7 +238,7 @@ router.post('/change-password', authMiddleware, async (req, res) => {
     await user.save();
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Salasananvaihto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Salasananvaihto epäonnistui' });
   }
 });
 
@@ -247,7 +256,7 @@ router.put('/users/:id/password', authMiddleware, async (req, res) => {
     await user.save();
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Salasananvaihto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Salasananvaihto epäonnistui' });
   }
 });
 
@@ -264,7 +273,7 @@ router.put('/users/:id/force-password-change', authMiddleware, async (req, res) 
     if (!user) return res.status(404).json({ message: 'Käyttäjää ei löydy' });
     res.json(user);
   } catch (err) {
-    res.status(500).json({ message: 'Toiminto epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Toiminto epäonnistui' });
   }
 });
 

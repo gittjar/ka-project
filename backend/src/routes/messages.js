@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import Message from '../models/Message.js';
 import authMiddleware from '../middleware/auth.js';
 
@@ -13,7 +13,7 @@ router.post('/', authMiddleware, async (req, res) => {
     await msg.save();
     res.status(201).json(msg);
   } catch (err) {
-    res.status(500).json({ message: 'Lähetys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Lähetys epäonnistui' });
   }
 });
 
@@ -23,7 +23,7 @@ router.get('/mine', authMiddleware, async (req, res) => {
     const messages = await Message.find({ from: req.userId }).sort({ createdAt: -1 });
     res.json(messages);
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -39,7 +39,7 @@ router.get('/', authMiddleware, async (req, res) => {
       read: m.readBy.some(id => id.toString() === userId),
     })));
   } catch (err) {
-    res.status(500).json({ message: 'Haku epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Haku epäonnistui' });
   }
 });
 
@@ -50,7 +50,7 @@ router.put('/:id/read', authMiddleware, async (req, res) => {
     await Message.findByIdAndUpdate(req.params.id, { $addToSet: { readBy: req.userId } });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
@@ -68,7 +68,7 @@ router.post('/:id/reply', authMiddleware, async (req, res) => {
     if (!msg) return res.status(404).json({ message: 'Viestiä ei löydy' });
     res.json(msg);
   } catch (err) {
-    res.status(500).json({ message: 'Vastaus epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Vastaus epäonnistui' });
   }
 });
 
@@ -80,7 +80,7 @@ router.put('/:id/reply-read', authMiddleware, async (req, res) => {
     await Message.findByIdAndUpdate(req.params.id, { repliesRead: true });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Päivitys epäonnistui', error: err.message });
+    res.status(500).json({ message: 'Päivitys epäonnistui' });
   }
 });
 
