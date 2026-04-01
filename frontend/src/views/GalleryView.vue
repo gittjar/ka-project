@@ -218,6 +218,26 @@ function folderPreviewUrl(folder: FolderItem): string {
   return `${MEDIA_BASE}/${encodeURIComponent(folder.name)}/${folder.previewBlobName}${t}`;
 }
 
+// download-attribuutti ei toimi cross-origin URL:ille → fetch + blob URL
+async function downloadItem(item: MediaItem) {
+  try {
+    const url = imgUrl(item);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error();
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = item.blobName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    window.open(imgUrl(item), '_blank');
+  }
+}
+
 const copyLinkDone = ref(false);
 const copyLinkError = ref(false);
 async function copyLink(item: MediaItem) {
@@ -1374,12 +1394,10 @@ onUnmounted(() => {
             </span>
             <!-- carousel full hint (mobile) -->
             <!-- delete -->
-            <a :href="imgUrl(lightboxItem)"
-              :download="lightboxItem.blobName"
-              @click.stop
+            <span @click.stop="downloadItem(lightboxItem!)"
               class="cursor-pointer text-gray-600 active:text-gray-300">
               <Download class="w-4 h-4" />
-            </a>
+            </span>
             <!-- copy link -->
             <span @click="copyLink(lightboxItem!)"
               class="cursor-pointer transition-colors"
@@ -1567,13 +1585,12 @@ onUnmounted(() => {
                    text-orange-400 hover:text-orange-200 transition-all">
             <Star class="w-3.5 h-3.5" />Hallitse karusellikuvia
           </button>
-          <a :href="imgUrl(lightboxItem)"
-            :download="lightboxItem.blobName"
+          <button @click="downloadItem(lightboxItem!)"
             class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
                    text-xs border border-gray-700 bg-gray-900 hover:bg-gray-800
-                   text-gray-400 hover:text-white transition-all no-underline">
+                   text-gray-400 hover:text-white transition-all">
             <Download class="w-3.5 h-3.5" />Lataa
-          </a>
+          </button>
           <button @click="copyLink(lightboxItem!)"
             class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
                    text-xs border transition-all"
