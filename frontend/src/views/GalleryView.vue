@@ -1,5 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { useRoute } from 'vue-router';
 import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Image, Clock, FolderOpen, Plus, Play,
@@ -219,9 +220,12 @@ function folderPreviewUrl(folder: FolderItem): string {
 
 const copyLinkDone = ref(false);
 const copyLinkError = ref(false);
-function copyLink(_item: MediaItem) {
-  // Jaetaan frontend-osoite galleriaan (kuvat vaatii kirjautumisen, backend-URL ei toimi)
-  const url = window.location.href;
+function copyLink(item: MediaItem) {
+  // Rakennetaan syvälinkki: /galleria?folder=<id>&img=<blobName>
+  const params = new URLSearchParams();
+  if (currentFolderId.value) params.set('folder', currentFolderId.value);
+  params.set('img', item.blobName);
+  const url = `${window.location.origin}/galleria?${params.toString()}`;
   navigator.clipboard.writeText(url).then(() => {
     copyLinkDone.value = true;
     setTimeout(() => { copyLinkDone.value = false; }, 2000);
@@ -692,7 +696,32 @@ async function loadStorage() {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown);
-  await loadFolder(null);
+
+  // Syvälinkki: ?folder=<id>&img=<blobName>
+  const route = useRoute();
+  const deepFolder = route.query.folder as string | undefined;
+  const deepImg = route.query.img as string | undefined;
+
+  if (deepFolder && auth.isLoggedIn) {
+    try {
+      const { data: folderData } = await api.get(`/images/folders/${deepFolder}`);
+      currentFolderId.value = folderData._id;
+      currentFolder.value = folderData;
+      breadcrumb.value = [{ id: null, name: 'Kuvat' }, { id: folderData._id, name: folderData.name }];
+      await loadFolder(deepFolder);
+    } catch {
+      await loadFolder(null);
+    }
+  } else {
+    await loadFolder(null);
+  }
+
+  if (deepImg && auth.isLoggedIn) {
+    await nextTick();
+    const idx = mediaItems.value.findIndex(m => m.blobName === deepImg);
+    if (idx !== -1) openLightbox(idx);
+  }
+
   if (auth.isAdmin) {
     await loadStorage();
     await loadCarouselIds();

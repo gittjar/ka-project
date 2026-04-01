@@ -183,6 +183,17 @@ router.get('/folders', authMiddleware, async (req, res) => {
 });
 
 // POST /api/images/folders  â€” vain admin
+// GET /api/images/folders/:id  — yksittäinen kansio ID:llä (syvälinkitystä varten)
+router.get('/folders/:id', authMiddleware, async (req, res) => {
+  try {
+    const folder = await Folder.findById(req.params.id).lean();
+    if (!folder) return res.status(404).json({ message: 'Kansiota ei löydy' });
+    res.json(folder);
+  } catch {
+    res.status(500).json({ message: 'Kansion haku epäonnistui' });
+  }
+});
+
 router.post('/folders', authMiddleware, async (req, res) => {
   try {
     if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
