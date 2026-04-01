@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Image, Clock, FolderOpen, Plus, Play,
@@ -220,19 +220,20 @@ function folderPreviewUrl(folder: FolderItem): string {
 
 const copyLinkDone = ref(false);
 const copyLinkError = ref(false);
-function copyLink(item: MediaItem) {
-  // Rakennetaan syvälinkki: /galleria?folder=<id>&img=<blobName>
-  const params = new URLSearchParams();
-  if (currentFolderId.value) params.set('folder', currentFolderId.value);
-  params.set('img', item.blobName);
-  const url = `${window.location.origin}/galleria?${params.toString()}`;
-  navigator.clipboard.writeText(url).then(() => {
+async function copyLink(item: MediaItem) {
+  try {
+    const { data } = await api.post('/images/share', {
+      blobName: item.blobName,
+      folderId: currentFolderId.value || null,
+    });
+    const url = `${window.location.origin}/jaa/${data.token}`;
+    await navigator.clipboard.writeText(url);
     copyLinkDone.value = true;
     setTimeout(() => { copyLinkDone.value = false; }, 2000);
-  }).catch(() => {
+  } catch {
     copyLinkError.value = true;
     setTimeout(() => { copyLinkError.value = false; }, 2000);
-  });
+  }
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -697,20 +698,12 @@ async function loadStorage() {
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown);
 
-  // Syvälinkki: ?folder=<id>&img=<blobName>
+  // Syvälinkki: /jaa/:token navigoi tähän ?folder=&img= jälkeen (SharedView)
   const route = useRoute();
-  const router = useRouter();
   const deepFolder = route.query.folder as string | undefined;
   const deepImg = route.query.img as string | undefined;
 
-  // Jos ei kirjautunut, ohjataan kirjautumiseen koko URL tallennettuna
-  if ((deepFolder || deepImg) && !auth.isLoggedIn) {
-    const redirect = `/galleria?${new URLSearchParams(route.query as Record<string, string>).toString()}`;
-    router.replace({ path: '/login', query: { redirect } });
-    return;
-  }
-
-  if (deepFolder && auth.isLoggedIn) {
+  if (deepFolder) {
     try {
       const { data: folderData } = await api.get(`/images/folders/${deepFolder}`);
       currentFolderId.value = folderData._id;
@@ -724,7 +717,7 @@ onMounted(async () => {
     await loadFolder(null);
   }
 
-  if (deepImg && auth.isLoggedIn) {
+  if (deepImg) {
     await nextTick();
     const idx = mediaItems.value.findIndex(m => m.blobName === deepImg);
     if (idx !== -1) openLightbox(idx);

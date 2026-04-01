@@ -11,9 +11,11 @@ import { join } from 'path';
 import ffmpegStatic from 'ffmpeg-static';
 import Ffmpeg from 'fluent-ffmpeg';
 Ffmpeg.setFfmpegPath(ffmpegStatic);
+import { randomUUID } from 'crypto';
 import authMiddleware from '../middleware/auth.js';
 import GalleryImage from '../models/GalleryImage.js';
 import Folder from '../models/Folder.js';
+import ShareToken from '../models/ShareToken.js';
 
 const router = express.Router();
 const CONTAINER = 'gallery';
@@ -455,5 +457,39 @@ router.delete('/media/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Poisto epÃ¤onnistui' });
   }
 });
+// ── Jakolinkit ────────────────────────────────────────────────────────────────
 
+// POST /api/images/share  — luo jaettava linkki yhdelle kuvalle (auth vaaditaan)
+router.post('/share', authMiddleware, async (req, res) => {
+  try {
+    const { blobName, folderId } = req.body;
+    if (!blobName) return res.status(400).json({ message: 'blobName vaaditaan' });
+    const image = await GalleryImage.findOne({ blobName }).select('_id');
+    if (!image) return res.status(404).json({ message: 'Kuvaa ei löydy' });
+    // Palauta olemassaoleva token jos kuvalla on jo sellainen
+    let share = await ShareToken.findOne({ blobName });
+    if (!share) {
+      share = await ShareToken.create({
+        token: randomUUID(),
+        blobName,
+        folderId: folderId || null,
+        createdBy: req.username,
+      });
+    }
+    res.json({ token: share.token });
+  } catch {
+    res.status(500).json({ message: 'Jakolinkin luonti epäonnistui' });
+  }
+});
+
+// GET /api/images/share/:token  — hae jaetun kuvan tiedot (julkinen, token on salaisuus)
+router.get('/share/:token', async (req, res) => {
+  try {
+    const share = await ShareToken.findOne({ token: req.params.token });
+    if (!share) return res.status(404).json({ message: 'Jakolinkkiä ei löydy' });
+    res.json({ blobName: share.blobName, folderId: share.folderId ?? null });
+  } catch {
+    res.status(500).json({ message: 'Virhe' });
+  }
+});
 export default router;

@@ -14,6 +14,7 @@ const router = createRouter({
     { path: '/tapahtumat', component: () => import('../views/EventsView.vue'), meta: { title: 'Tapahtumat' } },
     { path: '/guides', component: () => import('../views/GuidesView.vue'), meta: { title: 'Ohjeet' } },
     { path: '/hakemus', component: () => import('../views/ApplicationView.vue'), meta: { title: 'Hakemus' } },
+    { path: '/jaa/:token', component: () => import('../views/SharedView.vue'), meta: { title: 'Jaettu kuva' } },
     { path: '/login', component: () => import('../views/LoginView.vue'), meta: { title: 'Kirjaudu sisään', guestOnly: true } },
     { path: '/rekisteroidy', component: () => import('../views/RegisterView.vue'), meta: { title: 'Rekisteröidy', guestOnly: true } },
     { path: '/profiili', component: () => import('../views/ProfileView.vue'), meta: { title: 'Profiili', requiresAuth: true } },

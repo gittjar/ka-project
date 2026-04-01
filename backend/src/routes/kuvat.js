@@ -2,6 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { BlobServiceClient } from '@azure/storage-blob';
 import GalleryImage from '../models/GalleryImage.js';
+import ShareToken from '../models/ShareToken.js';
 
 const router = express.Router();
 const CONTAINER = 'gallery';
@@ -28,6 +29,57 @@ function isAuthenticated(req) {
     return false;
   }
 }
+
+// Apufunktio: stream blob vastaukseen (range-tuki)
+async function streamBlob(res, blobName, rangeHeader) {
+  const image = await GalleryImage.findOne({ blobName }).select('mediaType');
+  if (!image) return res.status(404).end();
+
+  const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  if (!connStr) return res.status(500).end();
+
+  const blobClient = BlobServiceClient.fromConnectionString(connStr)
+    .getContainerClient(CONTAINER)
+    .getBlockBlobClient(blobName);
+
+  const props = await blobClient.getProperties();
+  const contentType = props.contentType || (image.mediaType === 'video' ? 'video/mp4' : 'image/jpeg');
+  const total = props.contentLength ?? 0;
+
+  if (rangeHeader && total > 0) {
+    const [startStr, endStr] = rangeHeader.replace(/bytes=/, '').split('-');
+    const start = parseInt(startStr, 10);
+    const end = endStr ? parseInt(endStr, 10) : total - 1;
+    const chunkSize = end - start + 1;
+    res.status(206);
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${total}`);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Length', String(chunkSize));
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    const dl = await blobClient.download(start, chunkSize);
+    dl.readableStreamBody.pipe(res);
+  } else {
+    res.setHeader('Content-Type', contentType);
+    if (total > 0) res.setHeader('Content-Length', String(total));
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    const dl = await blobClient.download(0);
+    dl.readableStreamBody.pipe(res);
+  }
+}
+
+// GET /kuvat/s/:token  — julkinen jako: kuvaa voi katsoa kaikki joilla on linkki
+router.get('/s/:token', async (req, res) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  try {
+    const share = await ShareToken.findOne({ token: req.params.token });
+    if (!share) return res.status(404).end();
+    await streamBlob(res, share.blobName, req.headers.range);
+  } catch {
+    if (!res.headersSent) res.status(500).end();
+  }
+});
 
 // GET /kuvat/**  — proxy-stream gallerian blobeja sivuston omalla domainilla.
 // Viimeinen polkusegmentti = blobName (esim. 1711234567890-abc.jpg).
