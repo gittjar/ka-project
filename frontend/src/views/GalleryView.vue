@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Image, Clock, FolderOpen, Plus, Play,
@@ -700,8 +700,15 @@ onMounted(async () => {
 
   // Syvälinkki: /jaa/:token navigoi tähän ?folder=&img= jälkeen (SharedView)
   const route = useRoute();
+  const router = useRouter();
   const deepFolder = route.query.folder as string | undefined;
   const deepImg = route.query.img as string | undefined;
+
+  // Ei kirjautunut + syvälinkki → login (Vue Router enkoodaa redirect-arvon oikein)
+  if ((deepFolder || deepImg) && !auth.isLoggedIn) {
+    router.replace({ path: '/login', query: { redirect: route.fullPath } });
+    return;
+  }
 
   if (deepFolder) {
     try {
