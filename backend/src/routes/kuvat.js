@@ -46,9 +46,12 @@ router.get('/{*path}', async (req, res) => {
   // Salli cross-origin upotus myös ilman crossorigin-attribuuttia (COEP-yhteensopivuus)
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
-  // Selaimen suora navigointi virheelliseen polkuun → ohjaa galleriaan
+  // Selaimen suora navigointi virheelliseen polkuun → ohjaa frontendin galleriasivulle
   if (isBrowserNav(req)) {
-    return res.redirect(302, '/galleria');
+    const frontendOrigin = process.env.FRONTEND_URL
+      ? process.env.FRONTEND_URL.split(',')[0].trim()
+      : 'http://localhost:5173';
+    return res.redirect(302, `${frontendOrigin}/galleria`);
   }
 
   try {

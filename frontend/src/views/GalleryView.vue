@@ -219,14 +219,9 @@ function folderPreviewUrl(folder: FolderItem): string {
 
 const copyLinkDone = ref(false);
 const copyLinkError = ref(false);
-function copyLink(item: MediaItem) {
-  // Jaettavassa linkissä ei ole tokenia — vastaanottaja tarvitsee omat tunnukset
-  const folder = currentFolder.value?.name;
-  const path = folder
-    ? `${MEDIA_BASE}/${encodeURIComponent(folder)}/${item.blobName}`
-    : `${MEDIA_BASE}/${item.blobName}`;
-  // Jos MEDIA_BASE on absoluuttinen URL, käytetään sellaisenaan, muuten lisätään origin
-  const url = path.startsWith('http') ? path : window.location.origin + path;
+function copyLink(_item: MediaItem) {
+  // Jaetaan frontend-osoite galleriaan (kuvat vaatii kirjautumisen, backend-URL ei toimi)
+  const url = window.location.href;
   navigator.clipboard.writeText(url).then(() => {
     copyLinkDone.value = true;
     setTimeout(() => { copyLinkDone.value = false; }, 2000);
