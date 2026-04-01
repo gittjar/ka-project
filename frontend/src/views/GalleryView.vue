@@ -201,22 +201,32 @@ function canDelete(item: MediaItem): boolean {
 function canEdit(item: MediaItem): boolean {
   return auth.isLoggedIn && (auth.isAdmin || item.uploadedBy === auth.username);
 }
-// Muodostaa proxy-URLin joka piilottaa Azure-domainin: /kuvat/{kansio}/{blobName}
+// Muodostaa proxy-URLin joka piilottaa Azure-domainin: /kuvat/{kansio}/{blobName}?t=<jwt>
+// Tuotannossa VITE_MEDIA_URL=https://ka-project-backend.onrender.com
+const MEDIA_BASE = (import.meta.env.VITE_MEDIA_URL ?? '') + '/kuvat';
 function imgUrl(item: { blobName: string }): string {
   const folder = currentFolder.value?.name;
+  const t = auth.token ? `?t=${auth.token}` : '';
   return folder
-    ? `/kuvat/${encodeURIComponent(folder)}/${item.blobName}`
-    : `/kuvat/${item.blobName}`;
+    ? `${MEDIA_BASE}/${encodeURIComponent(folder)}/${item.blobName}${t}`
+    : `${MEDIA_BASE}/${item.blobName}${t}`;
 }
 function folderPreviewUrl(folder: FolderItem): string {
   if (!folder.previewBlobName) return '';
-  return `/kuvat/${encodeURIComponent(folder.name)}/${folder.previewBlobName}`;
+  const t = auth.token ? `?t=${auth.token}` : '';
+  return `${MEDIA_BASE}/${encodeURIComponent(folder.name)}/${folder.previewBlobName}${t}`;
 }
 
 const copyLinkDone = ref(false);
 const copyLinkError = ref(false);
 function copyLink(item: MediaItem) {
-  const url = window.location.origin + imgUrl(item);
+  // Jaettavassa linkissä ei ole tokenia — vastaanottaja tarvitsee omat tunnukset
+  const folder = currentFolder.value?.name;
+  const path = folder
+    ? `${MEDIA_BASE}/${encodeURIComponent(folder)}/${item.blobName}`
+    : `${MEDIA_BASE}/${item.blobName}`;
+  // Jos MEDIA_BASE on absoluuttinen URL, käytetään sellaisenaan, muuten lisätään origin
+  const url = path.startsWith('http') ? path : window.location.origin + path;
   navigator.clipboard.writeText(url).then(() => {
     copyLinkDone.value = true;
     setTimeout(() => { copyLinkDone.value = false; }, 2000);
@@ -1143,12 +1153,12 @@ onUnmounted(() => {
 
           <!-- Kuva -->
           <img v-if="slot.item.mediaType === 'image'" :src="imgUrl(slot.item)" :alt="slot.item.caption || slot.item.blobName"
-            referrerpolicy="no-referrer"
+            crossorigin="anonymous"
             class="w-full block object-cover aspect-square transition-transform duration-300 group-hover:scale-[1.02]" />
 
           <!-- Video thumbnail -->
           <template v-else>
-            <video :src="imgUrl(slot.item)" preload="metadata" muted loop playsinline
+            <video :src="imgUrl(slot.item)" preload="metadata" muted loop playsinline crossorigin="anonymous"
               class="w-full block object-cover aspect-square"
               @mouseenter="($event.target as HTMLVideoElement).play()"
               @mouseleave="(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }" />
@@ -1249,11 +1259,12 @@ onUnmounted(() => {
           </div>
         </Transition>
         <img v-if="lightboxItem.mediaType === 'image'" :src="imgUrl(lightboxItem)"
+          crossorigin="anonymous"
           @load="onMediaLoaded"
           class="w-full sm:max-h-[92vh] sm:max-w-full sm:rounded-xl shadow-2xl object-contain
                  max-h-[55vh] rounded-none transition-opacity duration-300"
           :class="mediaLoading ? 'opacity-0' : 'opacity-100'" />
-        <video v-else :src="imgUrl(lightboxItem)" controls autoplay
+        <video v-else :src="imgUrl(lightboxItem)" controls autoplay crossorigin="anonymous"
           @canplay.once="onMediaLoaded"
           class="w-full sm:max-h-[92vh] sm:max-w-full rounded-xl shadow-2xl max-h-[55vh] transition-opacity duration-300"
           :class="mediaLoading ? 'opacity-0' : 'opacity-100'" />
@@ -1324,7 +1335,7 @@ onUnmounted(() => {
             </span>
             <!-- carousel star (admin) -->
             <span v-if="auth.isAdmin"
-              @click="!carouselSaving && (!(!carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5)) && toggleCarousel(lightboxItem!)"
+              @click="!carouselSaving && toggleCarousel(lightboxItem!)"
               class="cursor-pointer transition-colors"
               :class="carouselIds.has(lightboxItem!._id) ? 'text-yellow-400' : 'text-gray-600 active:text-yellow-400'">
               <Star class="w-4 h-4" :class="carouselIds.has(lightboxItem!._id) ? 'fill-yellow-400' : ''" />
@@ -1489,18 +1500,25 @@ onUnmounted(() => {
         <div class="hidden sm:flex mt-auto px-5 pb-5 pt-3 border-t border-gray-800/50 flex-col gap-2">
           <button v-if="auth.isAdmin"
             @click="toggleCarousel(lightboxItem!)"
-            :disabled="carouselSaving || (!carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5)"
+            :disabled="carouselSaving"
             class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs
                    border transition-all disabled:opacity-40"
             :class="carouselIds.has(lightboxItem!._id)
               ? 'bg-yellow-950/60 hover:bg-yellow-900/60 border-yellow-800/60 text-yellow-400'
-              : 'bg-gray-900 hover:bg-gray-800 border-gray-700 text-gray-400 hover:text-white'">
+              : (!carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5)
+                ? 'bg-orange-950/40 border-orange-800/50 text-orange-300 hover:bg-orange-900/50'
+                : 'bg-gray-900 hover:bg-gray-800 border-gray-700 text-gray-400 hover:text-white'">
             <span class="flex items-center gap-2">
               <Star class="w-3.5 h-3.5" :class="carouselIds.has(lightboxItem!._id) ? 'fill-yellow-400' : ''" />
-              {{ carouselIds.has(lightboxItem!._id) ? 'Poista carouselista' : 'Lisää carouseliin' }}
+              <span v-if="!carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5">
+                Karuselli täynnä — poista ensin kuva
+              </span>
+              <span v-else>
+                {{ carouselIds.has(lightboxItem!._id) ? 'Poista carouselista' : 'Lisää carouseliin' }}
+              </span>
             </span>
             <span class="font-mono tabular-nums"
-              :class="carouselIds.size >= 5 && !carouselIds.has(lightboxItem!._id) ? 'text-red-500' : 'text-gray-600'">
+              :class="carouselIds.size >= 5 && !carouselIds.has(lightboxItem!._id) ? 'text-orange-400' : 'text-gray-600'">
               {{ carouselIds.size }}/5
             </span>
           </button>
@@ -1510,6 +1528,13 @@ onUnmounted(() => {
               Karuselli täynnä (max 5) — poista ensin jokin kuva.
             </p>
           </Transition>
+          <button v-if="auth.isAdmin && !carouselIds.has(lightboxItem!._id) && carouselIds.size >= 5"
+            @click="closeLightbox(); openCarouselView()"
+            class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs
+                   border border-orange-900/50 bg-orange-950/30 hover:bg-orange-900/40
+                   text-orange-400 hover:text-orange-200 transition-all">
+            <Star class="w-3.5 h-3.5" />Hallitse karusellikuvia
+          </button>
           <a :href="imgUrl(lightboxItem)"
             :download="lightboxItem.blobName"
             class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
@@ -1567,7 +1592,7 @@ onUnmounted(() => {
           </div>
           <div v-if="deleteTarget?.mediaType === 'image'"
             class="mb-4 rounded-xl overflow-hidden border border-gray-800 max-h-32">
-            <img :src="imgUrl(deleteTarget)" class="w-full object-cover max-h-32" />
+            <img :src="imgUrl(deleteTarget)" crossorigin="anonymous" class="w-full object-cover max-h-32" />
           </div>
           <p v-if="deleteTarget?.caption" class="text-xs text-gray-500 mb-4 italic">
             "{{ deleteTarget.caption }}"

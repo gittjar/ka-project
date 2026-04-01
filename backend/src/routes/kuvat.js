@@ -1,19 +1,66 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { BlobServiceClient } from '@azure/storage-blob';
 import GalleryImage from '../models/GalleryImage.js';
 
 const router = express.Router();
 const CONTAINER = 'gallery';
 
+// Palauttaa true jos pyyntö tulee selaimesta (navigointi), false jos kuvapyyntö (<img src>, <video>)
+function isBrowserNav(req) {
+  const accept = req.headers.accept || '';
+  return accept.includes('text/html');
+}
+
+// Tarkistaa JWT tokenin joko Authorization-headeristä tai query-parametrista ?t=
+function isAuthenticated(req) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return false;
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : req.query.t;
+  if (!token) return false;
+  try {
+    jwt.verify(token, secret);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // GET /kuvat/**  — proxy-stream gallerian blobeja sivuston omalla domainilla.
 // Viimeinen polkusegmentti = blobName (esim. 1711234567890-abc.jpg).
 // Muut segmentit (esim. kansionimi) ovat vain kosmeettisia ja jätetään huomiotta.
 // Range-pyyntöjä tuetaan, jotta video-scrubbing toimii selaimessa.
 router.get('/{*path}', async (req, res) => {
+  // Salli cross-origin kuvapyynnöt (frontend voi olla eri domainilla)
+  const origin = req.headers.origin;
+  const allowed = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map(s => s.trim())
+    : ['http://localhost:5173'];
+  if (origin && allowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+
+  // Selaimen suora navigointi virheelliseen polkuun → ohjaa galleriaan
+  if (isBrowserNav(req)) {
+    return res.redirect(302, '/galleria');
+  }
+
   try {
     const segments = req.path.split('/').filter(Boolean);
     const blobName = decodeURIComponent(segments[segments.length - 1] || '');
     if (!blobName) return res.status(404).end();
+
+    // Kuvapyynnöt (<img src>) eivät lähetä Authorization-headeria automaattisesti,
+    // joten autentikointi hoidetaan tässä query-parametrilla ?t= tai headerillä.
+    // Ilman tokenia palautetaan 401 — <img src> näyttää broken image -ikonin
+    // eikä vuoda tietoa siitä mitä kuvat ovat.
+    if (!isAuthenticated(req)) {
+      return res.status(401).end();
+    }
 
     const image = await GalleryImage.findOne({ blobName }).select('mediaType');
     if (!image) return res.status(404).end();
