@@ -5,7 +5,7 @@ import {
   MapPin, Image, Clock, FolderOpen, Plus, Play,
   ChevronRight, HardDrive, Pencil, Check, GripVertical,
   CheckSquare, Square, ArrowUpDown, ImagePlus, Star, FileText, Download,
-  Film, Eye, LayoutGrid, LayoutList,
+  Film, Eye, LayoutGrid, LayoutList, Link,
 } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -210,6 +210,15 @@ function imgUrl(item: { blobName: string }): string {
 function folderPreviewUrl(folder: FolderItem): string {
   if (!folder.previewBlobName) return '';
   return `/kuvat/${encodeURIComponent(folder.name)}/${folder.previewBlobName}`;
+}
+
+const copyLinkDone = ref(false);
+function copyLink(item: MediaItem) {
+  const url = window.location.origin + imgUrl(item);
+  navigator.clipboard.writeText(url).then(() => {
+    copyLinkDone.value = true;
+    setTimeout(() => { copyLinkDone.value = false; }, 2000);
+  });
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -1318,6 +1327,13 @@ onUnmounted(() => {
               class="cursor-pointer text-gray-600 active:text-gray-300">
               <Download class="w-4 h-4" />
             </a>
+            <!-- copy link -->
+            <span @click="copyLink(lightboxItem!)"
+              class="cursor-pointer transition-colors"
+              :class="copyLinkDone ? 'text-dgreen-400' : 'text-gray-600 active:text-gray-300'">
+              <Check v-if="copyLinkDone" class="w-4 h-4" />
+              <Link v-else class="w-4 h-4" />
+            </span>
             <!-- delete -->
             <span v-if="canDelete(lightboxItem!) && !inCarouselView"
               @click="deleteTarget = lightboxItem; closeLightbox()"
@@ -1474,6 +1490,16 @@ onUnmounted(() => {
                    text-gray-400 hover:text-white transition-all no-underline">
             <Download class="w-3.5 h-3.5" />Lataa
           </a>
+          <button @click="copyLink(lightboxItem!)"
+            class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
+                   text-xs border transition-all"
+            :class="copyLinkDone
+              ? 'border-dgreen-700/60 bg-dgreen-950/40 text-dgreen-300'
+              : 'border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white'">
+            <Check v-if="copyLinkDone" class="w-3.5 h-3.5" />
+            <Link v-else class="w-3.5 h-3.5" />
+            {{ copyLinkDone ? 'Linkki kopioitu!' : 'Kopioi linkki' }}
+          </button>
           <button v-if="canDelete(lightboxItem!) && !inCarouselView"
             @click="deleteTarget = lightboxItem; closeLightbox()"
             class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
