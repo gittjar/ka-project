@@ -977,7 +977,7 @@ onUnmounted(() => {
             <!-- Esikatselu + nimi -->
             <div class="aspect-video relative cursor-pointer" @click="navigateInto(folder)">
               <img v-if="folder.previewBlobName" :src="folderPreviewUrl(folder)"
-                class="absolute inset-0 w-full h-full object-cover" />
+                crossorigin="anonymous" class="absolute inset-0 w-full h-full object-cover" />
               <div v-else class="absolute inset-0 bg-gray-900 flex items-center justify-center">
                 <FolderOpen class="w-10 h-10 text-gray-700" />
               </div>
@@ -1060,7 +1060,7 @@ onUnmounted(() => {
             <div class="w-16 h-14 shrink-0 relative overflow-hidden cursor-pointer"
               @click="navigateInto(folder)">
               <img v-if="folder.previewBlobName" :src="folderPreviewUrl(folder)"
-                class="w-full h-full object-cover" />
+                crossorigin="anonymous" class="w-full h-full object-cover" />
               <div v-else class="w-full h-full bg-gray-900 flex items-center justify-center">
                 <FolderOpen class="w-6 h-6 text-gray-700" />
               </div>

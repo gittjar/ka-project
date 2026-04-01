@@ -43,6 +43,8 @@ router.get('/{*path}', async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
+  // Salli cross-origin upotus myös ilman crossorigin-attribuuttia (COEP-yhteensopivuus)
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
   // Selaimen suora navigointi virheelliseen polkuun → ohjaa galleriaan
   if (isBrowserNav(req)) {
