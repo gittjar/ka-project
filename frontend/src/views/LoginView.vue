@@ -14,8 +14,20 @@ const error = ref('');
 const loading = ref(false);
 const showHelp = ref(false);
 const showPassword = ref(false);
+const showModal = ref(false);
+const modalErrors = ref<string[]>([]);
 
 async function submit() {
+  // Validoi ennen lähetystä
+  const errs: string[] = [];
+  if (!username.value.trim()) errs.push('Käyttäjänimi on pakollinen');
+  if (!password.value) errs.push('Salasana on pakollinen');
+  if (errs.length) {
+    modalErrors.value = errs;
+    showModal.value = true;
+    return;
+  }
+
   error.value = '';
   loading.value = true;
   try {
@@ -167,4 +179,45 @@ async function submit() {
 
     </div>
   </div>
+    <!-- Validation modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="showModal"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style="background:rgba(0,0,0,0.7)"
+          @click.self="showModal = false"
+        >
+          <div class="rounded-2xl border border-dpurple-700/60 bg-gray-950 shadow-2xl max-w-sm w-full p-6">
+            <h3 class="text-base font-bold text-red-400 mb-3">Täytä puuttuvat kentät</h3>
+            <ul class="space-y-1.5 mb-5">
+              <li
+                v-for="(msg, i) in modalErrors"
+                :key="i"
+                class="flex items-start gap-2 text-sm text-gray-300"
+              >
+                <span class="text-red-400 mt-0.5">●</span>
+                {{ msg }}
+              </li>
+            </ul>
+            <button
+              @click="showModal = false"
+              class="w-full py-2 rounded-xl bg-dpurple-800 hover:bg-dpurple-700 text-white text-sm font-medium transition-colors border-0"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 </template>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>
