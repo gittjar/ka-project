@@ -11,6 +11,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:3001',
+      '/kuvat': 'http://localhost:3001',
     },
   },
 });

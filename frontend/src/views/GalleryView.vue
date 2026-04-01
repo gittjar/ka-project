@@ -39,7 +39,7 @@ interface FolderItem {
   imageCount?: number;
   videoCount?: number;
   totalViews?: number;
-  previewUrl?: string | null;
+  previewBlobName?: string | null;
 }
 interface MediaItem {
   _id: string;
@@ -199,6 +199,17 @@ function canDelete(item: MediaItem): boolean {
 }
 function canEdit(item: MediaItem): boolean {
   return auth.isLoggedIn && (auth.isAdmin || item.uploadedBy === auth.username);
+}
+// Muodostaa proxy-URLin joka piilottaa Azure-domainin: /kuvat/{kansio}/{blobName}
+function imgUrl(item: { blobName: string }): string {
+  const folder = currentFolder.value?.name;
+  return folder
+    ? `/kuvat/${encodeURIComponent(folder)}/${item.blobName}`
+    : `/kuvat/${item.blobName}`;
+}
+function folderPreviewUrl(folder: FolderItem): string {
+  if (!folder.previewBlobName) return '';
+  return `/kuvat/${encodeURIComponent(folder.name)}/${folder.previewBlobName}`;
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -937,7 +948,7 @@ onUnmounted(() => {
 
             <!-- Esikatselu + nimi -->
             <div class="aspect-video relative cursor-pointer" @click="navigateInto(folder)">
-              <img v-if="folder.previewUrl" :src="folder.previewUrl"
+              <img v-if="folder.previewBlobName" :src="folderPreviewUrl(folder)"
                 class="absolute inset-0 w-full h-full object-cover" />
               <div v-else class="absolute inset-0 bg-gray-900 flex items-center justify-center">
                 <FolderOpen class="w-10 h-10 text-gray-700" />
@@ -1020,7 +1031,7 @@ onUnmounted(() => {
             <!-- Pikkukuva -->
             <div class="w-16 h-14 shrink-0 relative overflow-hidden cursor-pointer"
               @click="navigateInto(folder)">
-              <img v-if="folder.previewUrl" :src="folder.previewUrl"
+              <img v-if="folder.previewBlobName" :src="folderPreviewUrl(folder)"
                 class="w-full h-full object-cover" />
               <div v-else class="w-full h-full bg-gray-900 flex items-center justify-center">
                 <FolderOpen class="w-6 h-6 text-gray-700" />
@@ -1113,13 +1124,13 @@ onUnmounted(() => {
             @click="auth.isAdmin && !inCarouselView && selectedIds.size > 0 ? toggleSelect(slot.item._id) : openLightbox(slot.origIdx)">
 
           <!-- Kuva -->
-          <img v-if="slot.item.mediaType === 'image'" :src="slot.item.url" :alt="slot.item.caption || slot.item.blobName"
+          <img v-if="slot.item.mediaType === 'image'" :src="imgUrl(slot.item)" :alt="slot.item.caption || slot.item.blobName"
             referrerpolicy="no-referrer"
             class="w-full block object-cover aspect-square transition-transform duration-300 group-hover:scale-[1.02]" />
 
           <!-- Video thumbnail -->
           <template v-else>
-            <video :src="slot.item.url" preload="metadata" muted loop playsinline
+            <video :src="imgUrl(slot.item)" preload="metadata" muted loop playsinline
               class="w-full block object-cover aspect-square"
               @mouseenter="($event.target as HTMLVideoElement).play()"
               @mouseleave="(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }" />
@@ -1219,12 +1230,12 @@ onUnmounted(() => {
             </svg>
           </div>
         </Transition>
-        <img v-if="lightboxItem.mediaType === 'image'" :src="lightboxItem.url"
+        <img v-if="lightboxItem.mediaType === 'image'" :src="imgUrl(lightboxItem)"
           @load="onMediaLoaded"
           class="w-full sm:max-h-[92vh] sm:max-w-full sm:rounded-xl shadow-2xl object-contain
                  max-h-[55vh] rounded-none transition-opacity duration-300"
           :class="mediaLoading ? 'opacity-0' : 'opacity-100'" />
-        <video v-else :src="lightboxItem.url" controls autoplay
+        <video v-else :src="imgUrl(lightboxItem)" controls autoplay
           @canplay.once="onMediaLoaded"
           class="w-full sm:max-h-[92vh] sm:max-w-full rounded-xl shadow-2xl max-h-[55vh] transition-opacity duration-300"
           :class="mediaLoading ? 'opacity-0' : 'opacity-100'" />
@@ -1301,8 +1312,8 @@ onUnmounted(() => {
               <Star class="w-4 h-4" :class="carouselIds.has(lightboxItem!._id) ? 'fill-yellow-400' : ''" />
             </span>
             <!-- download -->
-            <a :href="lightboxItem.url"
-              :download="lightboxItem.url.split('/').pop()"
+            <a :href="imgUrl(lightboxItem)"
+              :download="lightboxItem.blobName"
               @click.stop
               class="cursor-pointer text-gray-600 active:text-gray-300">
               <Download class="w-4 h-4" />
@@ -1456,8 +1467,8 @@ onUnmounted(() => {
               {{ carouselIds.size }}/5
             </span>
           </button>
-          <a :href="lightboxItem.url"
-            :download="lightboxItem.url.split('/').pop()"
+          <a :href="imgUrl(lightboxItem)"
+            :download="lightboxItem.blobName"
             class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
                    text-xs border border-gray-700 bg-gray-900 hover:bg-gray-800
                    text-gray-400 hover:text-white transition-all no-underline">
@@ -1500,7 +1511,7 @@ onUnmounted(() => {
           </div>
           <div v-if="deleteTarget?.mediaType === 'image'"
             class="mb-4 rounded-xl overflow-hidden border border-gray-800 max-h-32">
-            <img :src="deleteTarget.url" class="w-full object-cover max-h-32" />
+            <img :src="imgUrl(deleteTarget)" class="w-full object-cover max-h-32" />
           </div>
           <p v-if="deleteTarget?.caption" class="text-xs text-gray-500 mb-4 italic">
             "{{ deleteTarget.caption }}"

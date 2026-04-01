@@ -156,20 +156,19 @@ router.get('/folders', authMiddleware, async (req, res) => {
         imageCount: { $sum: { $cond: [{ $eq: ['$mediaType', 'image'] }, 1, 0] } },
         videoCount: { $sum: { $cond: [{ $eq: ['$mediaType', 'video'] }, 1, 0] } },
         totalViews: { $sum: { $ifNull: ['$viewCount', 0] } },
-        previewUrls: { $push: { $cond: [{ $eq: ['$mediaType', 'image'] }, '$url', null] } },
+        previewBlobNames: { $push: { $cond: [{ $eq: ['$mediaType', 'image'] }, '$blobName', null] } },
       }},
     ]);
 
     const statsMap = {};
     for (const s of stats) {
-      const urls = s.previewUrls.filter(Boolean);
-      // Valitaan satunnainen kuva ensimmäisestä viidestä
-      const previewUrl = urls.length ? urls[Math.floor(Math.random() * Math.min(urls.length, 5))] : null;
+      const blobNames = s.previewBlobNames.filter(Boolean);
+      const previewBlobName = blobNames.length ? blobNames[Math.floor(Math.random() * Math.min(blobNames.length, 5))] : null;
       statsMap[s._id.toString()] = {
         imageCount: s.imageCount,
         videoCount: s.videoCount,
         totalViews: s.totalViews,
-        previewUrl,
+        previewBlobName,
       };
     }
 
