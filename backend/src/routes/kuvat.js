@@ -1,11 +1,21 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { BlobServiceClient } from '@azure/storage-blob';
 import GalleryImage from '../models/GalleryImage.js';
 import ShareToken from '../models/ShareToken.js';
 
 const router = express.Router();
 const CONTAINER = 'gallery';
+
+// Rate limit julkisille jako-reiteille: 60 pyyntöä / 15 min per IP
+const shareRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Liian monta pyyntöä, odota hetki.' },
+});
 
 // Palauttaa true jos pyyntö tulee selaimesta (navigointi), false jos kuvapyyntö (<img src>, <video>)
 function isBrowserNav(req) {
@@ -70,7 +80,7 @@ async function streamBlob(res, blobName, rangeHeader) {
 }
 
 // GET /kuvat/s/:token  — julkinen jako: kuvaa voi katsoa kaikki joilla on linkki
-router.get('/s/:token', async (req, res) => {
+router.get('/s/:token', shareRateLimit, async (req, res) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   try {
     const share = await ShareToken.findOne({ token: req.params.token });
