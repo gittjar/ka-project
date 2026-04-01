@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
   MapPin, Image, Clock, FolderOpen, Plus, Play,
@@ -699,8 +699,16 @@ onMounted(async () => {
 
   // Syvälinkki: ?folder=<id>&img=<blobName>
   const route = useRoute();
+  const router = useRouter();
   const deepFolder = route.query.folder as string | undefined;
   const deepImg = route.query.img as string | undefined;
+
+  // Jos ei kirjautunut, ohjataan kirjautumiseen koko URL tallennettuna
+  if ((deepFolder || deepImg) && !auth.isLoggedIn) {
+    const redirect = `/galleria?${new URLSearchParams(route.query as Record<string, string>).toString()}`;
+    router.replace({ path: '/login', query: { redirect } });
+    return;
+  }
 
   if (deepFolder && auth.isLoggedIn) {
     try {
