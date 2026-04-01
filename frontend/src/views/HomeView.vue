@@ -13,7 +13,7 @@ interface CarouselItem {
 
 const nav = [
   { to: '/jasenet',  label: 'Jäsenet',    icon: Users,         desc: 'Tutki seuran jäseniä' },
-  { to: '/kuvat',    label: 'Kuvia',       icon: Camera,        desc: 'Galleria vuosien varrelta' },
+  { to: '/galleria',    label: 'Kuvia',       icon: Camera,        desc: 'Galleria vuosien varrelta' },
   { to: '/tarinat',  label: 'Tarinoita',   icon: BookOpen,      desc: 'Jäsenten kertomuksia' },
   { to: '/historia', label: 'Historiikki', icon: ScrollText,    desc: 'Seuran historia vuodesta 2003' },
   { to: '/juomat',   label: 'Juomat',      icon: GlassWater,    desc: 'Reseptit ja drinkkilista' },

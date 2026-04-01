@@ -7,7 +7,7 @@ const router = createRouter({
   routes: [
     { path: '/', component: HomeView, meta: { title: 'Etusivu' } },
     { path: '/jasenet', component: () => import('../views/MembersView.vue'), meta: { title: 'Jäsenet' } },
-    { path: '/kuvat', component: () => import('../views/GalleryView.vue'), meta: { title: 'Kuvia' } },
+    { path: '/galleria', component: () => import('../views/GalleryView.vue'), meta: { title: 'Kuvia' } },
     { path: '/tarinat', component: () => import('../views/StoriesView.vue'), meta: { title: 'Tarinoita' } },
     { path: '/historia', component: () => import('../views/HistoryView.vue'), meta: { title: 'Historiikki' } },
     { path: '/juomat', component: () => import('../views/DrinksView.vue'), meta: { title: 'Juomat' } },

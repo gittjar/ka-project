@@ -182,6 +182,7 @@ const CAROUSEL_VIRTUAL_ID = '__carousel__';
 const inCarouselView = ref(false);
 const carouselIds = ref<Set<string>>(new Set());   // _id:t valituista
 const carouselSaving = ref(false);
+const carouselFullMsg = ref(false);
 
 // Upload error (non-task)
 const uploadError = ref('');
@@ -213,11 +214,15 @@ function folderPreviewUrl(folder: FolderItem): string {
 }
 
 const copyLinkDone = ref(false);
+const copyLinkError = ref(false);
 function copyLink(item: MediaItem) {
   const url = window.location.origin + imgUrl(item);
   navigator.clipboard.writeText(url).then(() => {
     copyLinkDone.value = true;
     setTimeout(() => { copyLinkDone.value = false; }, 2000);
+  }).catch(() => {
+    copyLinkError.value = true;
+    setTimeout(() => { copyLinkError.value = false; }, 2000);
   });
 }
 
@@ -644,7 +649,11 @@ async function toggleCarousel(item: MediaItem) {
   if (idx >= 0) {
     newIds.splice(idx, 1);
   } else {
-    if (newIds.length >= 5) return;
+    if (newIds.length >= 5) {
+      carouselFullMsg.value = true;
+      setTimeout(() => { carouselFullMsg.value = false; }, 3000);
+      return;
+    }
     newIds.push(item._id);
   }
   carouselSaving.value = true;
@@ -1320,7 +1329,8 @@ onUnmounted(() => {
               :class="carouselIds.has(lightboxItem!._id) ? 'text-yellow-400' : 'text-gray-600 active:text-yellow-400'">
               <Star class="w-4 h-4" :class="carouselIds.has(lightboxItem!._id) ? 'fill-yellow-400' : ''" />
             </span>
-            <!-- download -->
+            <!-- carousel full hint (mobile) -->
+            <!-- delete -->
             <a :href="imgUrl(lightboxItem)"
               :download="lightboxItem.blobName"
               @click.stop
@@ -1330,8 +1340,9 @@ onUnmounted(() => {
             <!-- copy link -->
             <span @click="copyLink(lightboxItem!)"
               class="cursor-pointer transition-colors"
-              :class="copyLinkDone ? 'text-dgreen-400' : 'text-gray-600 active:text-gray-300'">
+              :class="copyLinkDone ? 'text-dgreen-400' : copyLinkError ? 'text-red-400' : 'text-gray-600 active:text-gray-300'">
               <Check v-if="copyLinkDone" class="w-4 h-4" />
+              <X v-else-if="copyLinkError" class="w-4 h-4" />
               <Link v-else class="w-4 h-4" />
             </span>
             <!-- delete -->
@@ -1342,6 +1353,16 @@ onUnmounted(() => {
             </span>
           </div>
         </div>
+
+        <!-- mobile: carousel full hint -->
+        <Transition name="fade">
+          <div v-if="carouselFullMsg && auth.isAdmin && !carouselIds.has(lightboxItem!._id)"
+            class="sm:hidden px-4 py-2 border-b border-yellow-900/30 bg-yellow-950/30">
+            <p class="text-[11px] text-yellow-300/80 text-center">
+              Karuselli täynnä (max 5) — poista ensin jokin kuva karusellista.
+            </p>
+          </div>
+        </Transition>
 
         <!-- mobile caption edit (shown below strip when active) -->
         <div v-if="editingCaption" class="sm:hidden px-4 py-3 border-b border-gray-800/40 space-y-2">
@@ -1483,6 +1504,12 @@ onUnmounted(() => {
               {{ carouselIds.size }}/5
             </span>
           </button>
+          <Transition name="fade">
+            <p v-if="carouselFullMsg && !carouselIds.has(lightboxItem!._id)"
+              class="text-[11px] text-yellow-300/80 text-center px-1 -mt-1">
+              Karuselli täynnä (max 5) — poista ensin jokin kuva.
+            </p>
+          </Transition>
           <a :href="imgUrl(lightboxItem)"
             :download="lightboxItem.blobName"
             class="flex items-center justify-center gap-2 px-3 py-2 rounded-xl
@@ -1495,10 +1522,13 @@ onUnmounted(() => {
                    text-xs border transition-all"
             :class="copyLinkDone
               ? 'border-dgreen-700/60 bg-dgreen-950/40 text-dgreen-300'
-              : 'border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white'">
+              : copyLinkError
+                ? 'border-red-800/60 bg-red-950/40 text-red-400'
+                : 'border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white'">
             <Check v-if="copyLinkDone" class="w-3.5 h-3.5" />
+            <X v-else-if="copyLinkError" class="w-3.5 h-3.5" />
             <Link v-else class="w-3.5 h-3.5" />
-            {{ copyLinkDone ? 'Linkki kopioitu!' : 'Kopioi linkki' }}
+            {{ copyLinkDone ? 'Linkki kopioitu!' : copyLinkError ? 'Kopiointi epäonnistui' : 'Kopioi linkki' }}
           </button>
           <button v-if="canDelete(lightboxItem!) && !inCarouselView"
             @click="deleteTarget = lightboxItem; closeLightbox()"

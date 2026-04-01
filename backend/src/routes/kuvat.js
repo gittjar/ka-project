@@ -13,7 +13,7 @@ router.get('/{*path}', async (req, res) => {
   try {
     const segments = req.path.split('/').filter(Boolean);
     const blobName = decodeURIComponent(segments[segments.length - 1] || '');
-    if (!blobName) return res.status(400).end();
+    if (!blobName) return res.status(404).end();
 
     const image = await GalleryImage.findOne({ blobName }).select('mediaType');
     if (!image) return res.status(404).end();

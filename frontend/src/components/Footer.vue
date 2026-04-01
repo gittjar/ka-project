@@ -3,7 +3,7 @@ import { RouterLink } from 'vue-router';
 
 const links = [
   { to: '/jasenet',  label: 'Jäsenet' },
-  { to: '/kuvat',    label: 'Kuvia' },
+  { to: '/galleria',    label: 'Kuvia' },
   { to: '/tarinat',  label: 'Tarinoita' },
   { to: '/historia', label: 'Historiikki' },
   { to: '/juomat',   label: 'Juomat' },

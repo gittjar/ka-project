@@ -20,7 +20,7 @@ function logout() {
 const links = [
   { to: '/', label: 'Etusivu' },
   { to: '/jasenet', label: 'Jäsenet' },
-  { to: '/kuvat', label: 'Kuvia' },
+  { to: '/galleria', label: 'Kuvia' },
   { to: '/tarinat', label: 'Tarinoita' },
   { to: '/historia', label: 'Historiikki' },
   { to: '/juomat', label: 'Juomat' },

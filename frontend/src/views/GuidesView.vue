@@ -146,7 +146,7 @@ const sections: Section[] = [
         'Admin voi poistaa yksittäisiä mediakuvia/videoita tarinoilta.',
         'Käyttäjät voivat muokata ja poistaa vain omia tarinoitaan.',
       ]},
-      { heading: 'Kuvagalleria (/kuvat)', steps: [
+      { heading: 'Kuvagalleria (/galleria)', steps: [
         'Admin voi luoda kansioita, siirtää kuvia ja poistaa mitä tahansa.',
         'Gallerian karusellikuvat (etusivu) hallitaan erillisellä carousel-kansiolla.',
         'Kuvien maksimiresoluutio skaalataan automaattisesti 1400px leveydelle.',
