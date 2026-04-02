@@ -492,4 +492,41 @@ router.get('/share/:token', async (req, res) => {
     res.status(500).json({ message: 'Virhe' });
   }
 });
+
+// GET /api/images/shares  — admin: listaa kaikki jakolinkit tilastoineen
+router.get('/shares', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const shares = await ShareToken.find().sort({ createdAt: -1 }).lean();
+    // Rikasta kuvan kansionimi + mediaType
+    const blobNames = shares.map(s => s.blobName);
+    const images = await GalleryImage.find({ blobName: { $in: blobNames } })
+      .select('blobName mediaType folderId').lean();
+    const imgMap = Object.fromEntries(images.map(i => [i.blobName, i]));
+    const folderIds = [...new Set(shares.map(s => s.folderId).filter(Boolean))];
+    const folders = folderIds.length
+      ? await (await import('../models/Folder.js')).default.find({ _id: { $in: folderIds } }).select('name').lean()
+      : [];
+    const folderMap = Object.fromEntries(folders.map(f => [f._id.toString(), f.name]));
+    res.json(shares.map(s => ({
+      ...s,
+      mediaType: imgMap[s.blobName]?.mediaType ?? 'image',
+      folderName: s.folderId ? (folderMap[s.folderId.toString()] ?? null) : null,
+    })));
+  } catch {
+    res.status(500).json({ message: 'Virhe' });
+  }
+});
+
+// DELETE /api/images/shares/:id  — admin: poista jakolinkki
+router.delete('/shares/:id', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    await ShareToken.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Jakolinkki poistettu' });
+  } catch {
+    res.status(500).json({ message: 'Virhe' });
+  }
+});
+
 export default router;

@@ -85,6 +85,11 @@ router.get('/s/:token', shareRateLimit, async (req, res) => {
   try {
     const share = await ShareToken.findOne({ token: req.params.token });
     if (!share) return res.status(404).end();
+    // Seurataan latauksia (fire-and-forget)
+    ShareToken.updateOne(
+      { _id: share._id },
+      { $inc: { downloadCount: 1 }, $set: { lastDownloadAt: new Date() } }
+    ).catch(() => {});
     await streamBlob(res, share.blobName, req.headers.range);
   } catch {
     if (!res.headersSent) res.status(500).end();

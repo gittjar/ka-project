@@ -6,7 +6,7 @@ import {
   ShieldCheck, LogOut, Users, Search, Plus,
   Pencil, Trash2, X, Upload, Check, AlertCircle, ImageOff, TriangleAlert,
   ChevronDown, ChevronUp, MapPin, GlassWater, Flame, Cake, Star, Globe, Mail,
-  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff, KeyRound, Eye, EyeOff, FileText,
+  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff, KeyRound, Eye, EyeOff, FileText, Share2, ExternalLink, Film,
 } from 'lucide-vue-next';
 import api from '../api';
 
@@ -39,7 +39,7 @@ const auth = useAuthStore();
 const router = useRouter();
 
 // ── TABS ──
-const tab = ref<'jasenet' | 'kayttajat' | 'viestit' | 'kutsukoodit' | 'hakemukset'>('jasenet');
+const tab = ref<'jasenet' | 'kayttajat' | 'viestit' | 'kutsukoodit' | 'hakemukset' | 'jakolinkit'>('jasenet');
 
 // ── JÄSENET ──
 const members = ref<Member[]>([]);
@@ -580,12 +580,69 @@ function logout() {
 }
 
 // Load on tab switch
+// ── JAKOLINKIT ──
+interface ShareItem {
+  _id: string; token: string; blobName: string; folderId: string | null;
+  folderName: string | null; mediaType: 'image' | 'video';
+  createdBy: string; createdAt: string;
+  downloadCount: number; lastDownloadAt: string | null;
+}
+const shares = ref<ShareItem[]>([]);
+const sharesLoading = ref(false);
+const deletingShare = ref<string | null>(null);
+const confirmDeleteShare = ref<string | null>(null);
+const copiedShareToken = ref<string | null>(null);
+const MEDIA_BASE = (import.meta.env.VITE_MEDIA_URL ?? '') + '/kuvat';
+
+function shareImgUrl(s: ShareItem) {
+  const t = auth.token ? `?t=${auth.token}` : '';
+  return s.folderName
+    ? `${MEDIA_BASE}/${encodeURIComponent(s.folderName)}/${s.blobName}${t}`
+    : `${MEDIA_BASE}/${s.blobName}${t}`;
+}
+
+async function loadShares() {
+  sharesLoading.value = true;
+  try {
+    const { data } = await api.get('/images/shares');
+    shares.value = data;
+  } catch { /* ohitetaan */ }
+  finally { sharesLoading.value = false; }
+}
+
+async function deleteShare(id: string) {
+  if (confirmDeleteShare.value !== id) {
+    confirmDeleteShare.value = id;
+    setTimeout(() => { if (confirmDeleteShare.value === id) confirmDeleteShare.value = null; }, 3000);
+    return;
+  }
+  confirmDeleteShare.value = null;
+  deletingShare.value = id;
+  try {
+    await api.delete(`/images/shares/${id}`);
+    shares.value = shares.value.filter(s => s._id !== id);
+  } catch { /* ohitetaan */ }
+  finally { deletingShare.value = null; }
+}
+
+function sharePageUrl(token: string) {
+  return `${window.location.origin}/jaa/${token}`;
+}
+
+async function copyShareUrl(token: string) {
+  await navigator.clipboard.writeText(sharePageUrl(token)).catch(() => {});
+  copiedShareToken.value = token;
+  setTimeout(() => { if (copiedShareToken.value === token) copiedShareToken.value = null; }, 2000);
+}
+
+// ── TABS ──
 async function switchTab(t: typeof tab.value) {
   tab.value = t;
   if (t === 'kayttajat' && !users.value.length) loadUsers();
   if (t === 'viestit' && !messages.value.length) loadMessages();
   if (t === 'kutsukoodit' && !invites.value.length) loadInvites();
   if (t === 'hakemukset' && !applications.value.length) loadApplications();
+  if (t === 'jakolinkit') loadShares();
 }
 
 onMounted(() => { loadMembers(); api.get('/applications/pending-count').then(r => { pendingAppsCount.value = r.data.count; }).catch(() => {}); });
@@ -613,7 +670,7 @@ onMounted(() => { loadMembers(); api.get('/applications/pending-count').then(r =
 
     <!-- Tabs -->
     <div class="grid grid-cols-2 sm:flex gap-1 mb-6 bg-gray-950 border border-gray-800 rounded-2xl p-1">
-      <button v-for="(label, key) in { jasenet: 'Jäsenet', kayttajat: 'Käyttäjät', viestit: 'Viestit', hakemukset: 'Hakemukset', kutsukoodit: 'Kutsukoodit' }"
+      <button v-for="(label, key) in { jasenet: 'Jäsenet', kayttajat: 'Käyttäjät', viestit: 'Viestit', hakemukset: 'Hakemukset', kutsukoodit: 'Kutsukoodit', jakolinkit: 'Jakolinkit' }"
         :key="key" @click="switchTab(key as any)"
         class="sm:flex-1 px-3 py-1.5 rounded-xl text-sm font-medium transition-all border-0 relative"
         :class="tab === key
@@ -1081,6 +1138,91 @@ onMounted(() => { loadMembers(); api.get('/applications/pending-count').then(r =
         </div>
         <p v-if="guidesPinError" class="text-red-400 text-xs mt-2">{{ guidesPinError }}</p>
         <p class="text-xs text-gray-700 mt-2">Uusi PIN tulee voimaan välittömästi.</p>
+      </div>
+    </template>
+
+    <!-- ── JAKOLINKIT ── -->
+    <template v-if="tab === 'jakolinkit'">
+      <div class="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <p class="text-xs text-gray-500">
+          Kaikki aktiiviset jakolinkit — linkin avaaminen laskee katselukerran.
+        </p>
+        <button @click="loadShares" :disabled="sharesLoading"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border border-gray-800
+                 bg-gray-950 hover:bg-gray-900 text-gray-400 disabled:opacity-50 transition-all">
+          Päivitä
+        </button>
+      </div>
+
+      <div v-if="sharesLoading" class="text-gray-600 text-sm py-8 text-center">Ladataan...</div>
+      <div v-else-if="!shares.length" class="text-gray-700 text-sm py-8 text-center">Ei jakolinkkejä</div>
+
+      <div v-else class="flex flex-col gap-2">
+        <div v-for="s in shares" :key="s._id"
+          class="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden flex flex-col sm:flex-row">
+
+          <!-- Esikatselukuva: mobiilissa ylhäällä, desktop vasemmalla -->
+          <div class="sm:w-28 sm:shrink-0 h-28 sm:h-auto bg-gray-900 flex items-center justify-center overflow-hidden">
+            <img v-if="s.mediaType === 'image'" :src="shareImgUrl(s)" crossorigin="anonymous"
+              class="w-full h-full object-cover" />
+            <div v-else class="flex flex-col items-center gap-1 text-gray-600">
+              <Film class="w-7 h-7" />
+              <span class="text-xs">Video</span>
+            </div>
+          </div>
+
+          <!-- Tiedot + toiminnot -->
+          <div class="flex-1 min-w-0 px-4 py-3 flex flex-col gap-2">
+            <!-- Yläosa: nimi + badget -->
+            <div class="flex items-start gap-2 flex-wrap">
+              <span class="text-xs font-mono text-gray-300 truncate max-w-[180px] sm:max-w-[280px]">{{ s.blobName }}</span>
+              <span v-if="s.folderName"
+                class="text-xs text-dpurple-400 bg-dpurple-900/30 border border-dpurple-800/30 rounded-full px-2 py-0.5 shrink-0">
+                {{ s.folderName }}
+              </span>
+            </div>
+
+            <!-- Meta -->
+            <div class="flex items-center gap-3 flex-wrap">
+              <span class="text-xs text-gray-600">{{ s.createdBy }}</span>
+              <span class="text-xs text-gray-700">{{ new Date(s.createdAt).toLocaleDateString('fi-FI') }}</span>
+              <span class="flex items-center gap-1 text-xs"
+                :class="s.downloadCount > 0 ? 'text-dgreen-400' : 'text-gray-700'">
+                <Eye class="w-3 h-3" />{{ s.downloadCount }}
+              </span>
+              <span v-if="s.lastDownloadAt" class="text-xs text-gray-600">
+                Viimeksi {{ new Date(s.lastDownloadAt).toLocaleDateString('fi-FI') }}
+              </span>
+            </div>
+
+            <!-- Toiminnot -->
+            <div class="flex items-center gap-1.5 mt-auto pt-1">
+              <!-- Teksti-nappulat desktop, ikoni-nappulat mobile -->
+              <a :href="sharePageUrl(s.token)" target="_blank" rel="noopener"
+                class="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl border border-gray-700
+                       bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white transition-all no-underline text-xs">
+                <ExternalLink class="w-3.5 h-3.5 shrink-0" /><span class="hidden sm:inline">Avaa</span>
+              </a>
+              <button @click="copyShareUrl(s.token)"
+                class="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl border transition-all text-xs"
+                :class="copiedShareToken === s.token
+                  ? 'border-dgreen-700/60 bg-dgreen-950/40 text-dgreen-300'
+                  : 'border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white'">
+                <Check v-if="copiedShareToken === s.token" class="w-3.5 h-3.5 shrink-0" />
+                <Copy v-else class="w-3.5 h-3.5 shrink-0" />
+                <span class="hidden sm:inline">{{ copiedShareToken === s.token ? 'Kopioitu!' : 'Kopioi' }}</span>
+              </button>
+              <button @click="deleteShare(s._id)" :disabled="deletingShare === s._id"
+                class="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl border transition-all text-xs"
+                :class="confirmDeleteShare === s._id
+                  ? 'border-red-600 bg-red-900/40 text-red-200'
+                  : 'border-red-900/50 bg-red-950/30 hover:bg-red-900/40 text-red-400 hover:text-red-200 disabled:opacity-50'">
+                <Trash2 class="w-3.5 h-3.5 shrink-0" />
+                <span class="hidden sm:inline">{{ deletingShare === s._id ? '...' : confirmDeleteShare === s._id ? 'Vahvista' : 'Poista' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
