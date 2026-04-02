@@ -6,7 +6,7 @@ import {
   ShieldCheck, LogOut, Users, Search, Plus,
   Pencil, Trash2, X, Upload, Check, AlertCircle, ImageOff, TriangleAlert,
   ChevronDown, ChevronUp, MapPin, GlassWater, Flame, Cake, Star, Globe, Mail,
-  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff, KeyRound, Eye, EyeOff, FileText, Share2, ExternalLink, Film,
+  MessageSquare, Link, Copy, UserCheck, UserX, Send, Shield, ShieldOff, KeyRound, Eye, EyeOff, FileText, ExternalLink, Film,
 } from 'lucide-vue-next';
 import api from '../api';
 
