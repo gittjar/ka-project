@@ -18,6 +18,10 @@ const memberSchema = new mongoose.Schema({
     blobName:  { type: String, default: '' },
     sortOrder: { type: Number, default: 0 },
   }],
+  deceased: {
+    year:  { type: Number, default: null },
+    note:  { type: String, default: '' },
+  },
   active: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
 });

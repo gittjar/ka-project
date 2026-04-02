@@ -11,11 +11,13 @@ import {
 import api from '../api';
 
 interface MemberPhoto { _id: string; url: string; mediaType: 'image' | 'video'; blobName?: string; }
+interface Deceased { year: number | null; note: string; }
 interface Member {
   _id: string; name: string; aliases: string[]; quote: string; born: string;
   highestPromille: string; favDrink: string; location: string;
   email: string; website: string; avatarUrl: string; points: number; active: boolean;
   photos: MemberPhoto[];
+  deceased?: Deceased | null;
 }
 type FormData = Omit<Member, 'aliases'> & { aliasInput: string };
 
@@ -70,6 +72,7 @@ const emptyForm = (): FormData => ({
   _id: '', name: '', aliasInput: '', quote: '', born: '',
   highestPromille: '', favDrink: '', location: '',
   email: '', website: '', avatarUrl: '', points: 0, active: true, photos: [] as MemberPhoto[],
+  deceased: null,
 });
 const form = ref<FormData>(emptyForm());
 
@@ -1343,6 +1346,35 @@ onMounted(() => { loadMembers(); api.get('/applications/pending-count').then(r =
                 class="w-full px-3 py-2 rounded-xl bg-black/60 border border-gray-800 text-sm text-gray-200
                        placeholder-gray-700 focus:outline-none focus:border-dgreen-700 transition-colors" />
               <p class="text-[11px] text-gray-700 mt-1">Pelkkä tiedostonimi (esim. <span class="text-gray-500">jarno01.jpg</span>) hakee digital.pictures.fi · täysi URL käytetään sellaisenaan</p>
+            </div>
+
+            <!-- In memoriam -->
+            <div class="sm:col-span-2 pt-3 border-t border-gray-800/50">
+              <label class="block text-xs text-gray-600 mb-2">✦ In memoriam</label>
+              <div class="flex gap-2 items-start">
+                <div class="flex-1">
+                  <label class="block text-[11px] text-gray-700 mb-1">Vuosi (tyhjä = elässä)</label>
+                  <input
+                    :value="form.deceased?.year ?? ''"
+                    @input="form.deceased = { year: ($event.target as HTMLInputElement).value ? Number(($event.target as HTMLInputElement).value) : null, note: form.deceased?.note ?? '' }"
+                    type="number" min="1900" max="2100" placeholder="esim. 2019"
+                    class="w-full px-3 py-2 rounded-xl bg-black/60 border border-amber-900/40 text-sm text-amber-200
+                           placeholder-gray-700 focus:outline-none focus:border-amber-700 transition-colors" />
+                </div>
+                <div class="flex-[2]">
+                  <label class="block text-[11px] text-gray-700 mb-1">Muistosanat (valinnainen)</label>
+                  <input
+                    :value="form.deceased?.note ?? ''"
+                    @input="form.deceased = { year: form.deceased?.year ?? null, note: ($event.target as HTMLInputElement).value }"
+                    type="text" placeholder="esim. Rauhassa levtäkköön"
+                    class="w-full px-3 py-2 rounded-xl bg-black/60 border border-amber-900/40 text-sm text-amber-200
+                           placeholder-gray-700 focus:outline-none focus:border-amber-700 transition-colors" />
+                </div>
+              </div>
+              <p v-if="form.deceased?.year"
+                class="text-[11px] text-amber-600/80 mt-1">
+                Jäsen näytetään muistomerkkinä: ✦ In memoriam {{ form.deceased.year }}
+              </p>
             </div>
 
             <!-- Photos / Videos (only for existing members) -->

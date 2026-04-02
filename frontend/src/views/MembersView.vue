@@ -7,6 +7,7 @@ import {
 import api from '../api';
 
 interface MemberPhoto { _id: string; url: string; mediaType: 'image' | 'video'; }
+interface Deceased { year: number | null; note: string; }
 interface Member {
   _id: string;
   name: string;
@@ -21,11 +22,13 @@ interface Member {
   avatarUrl: string;
   points: number;
   photos: MemberPhoto[];
+  deceased?: Deceased | null;
 }
 
 const members = ref<Member[]>([]);
 const search = ref('');
 const sortKey = ref<'name' | 'location' | 'points'>('name');
+const deceasedFilter = ref<'all' | 'alive' | 'memorial'>('all');
 const loading = ref(true);
 
 onMounted(async () => {
@@ -41,18 +44,22 @@ onUnmounted(() => { for (const id of Object.keys(slideTimers)) clearTimeout(slid
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase();
-  let result = members.value.filter(m =>
-    !q ||
-    m.name.toLowerCase().includes(q) ||
-    (m.location || '').toLowerCase().includes(q) ||
-    m.aliases.some(a => a.toLowerCase().includes(q)) ||
-    (m.quote || '').toLowerCase().includes(q)
-  );
+  let result = members.value.filter(m => {
+    if (deceasedFilter.value === 'alive' && m.deceased?.year) return false;
+    if (deceasedFilter.value === 'memorial' && !m.deceased?.year) return false;
+    return !q ||
+      m.name.toLowerCase().includes(q) ||
+      (m.location || '').toLowerCase().includes(q) ||
+      m.aliases.some(a => a.toLowerCase().includes(q)) ||
+      (m.quote || '').toLowerCase().includes(q);
+  });
   if (sortKey.value === 'name')     result = [...result].sort((a, b) => a.name.localeCompare(b.name, 'fi'));
   if (sortKey.value === 'location') result = [...result].sort((a, b) => (a.location || '').localeCompare(b.location || '', 'fi'));
   if (sortKey.value === 'points')   result = [...result].sort((a, b) => (b.points || 0) - (a.points || 0));
   return result;
 });
+
+const memorialCount = computed(() => members.value.filter(m => m.deceased?.year).length);
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -109,6 +116,14 @@ function prevSlide(m: Member) {
   startSlideTimer(m._id);
 }
 
+const brokenSlides = reactive<Record<string, boolean>>({});
+function onSlideImgError(m: Member) {
+  const key = m._id + '-' + (slideIdx[m._id] ?? 0);
+  brokenSlides[key] = true;
+  const slides = getSlides(m);
+  if (slides.length > 1) nextSlide(m);
+}
+
 </script>
 
 <template>
@@ -121,7 +136,7 @@ function prevSlide(m: Member) {
     </div>
 
     <!-- Hakupalkki + lajittelu -->
-    <div class="flex flex-col sm:flex-row gap-3 mb-6">
+    <div class="flex flex-col sm:flex-row gap-3 mb-3">
       <div class="relative flex-1">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
         <input
@@ -144,6 +159,23 @@ function prevSlide(m: Member) {
       </div>
     </div>
 
+    <!-- Deceased filter -->
+    <div v-if="memorialCount > 0" class="flex gap-2 mb-6">
+      <button
+        v-for="opt in ([['all', 'Kaikki'], ['alive', 'Elossa'], ['memorial', '✦ Muistomerkki']] as const)"
+        :key="opt[0]"
+        @click="deceasedFilter = opt[0]"
+        class="px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors"
+        :class="deceasedFilter === opt[0]
+          ? (opt[0] === 'memorial'
+              ? 'bg-amber-900/40 border-amber-700/50 text-amber-300'
+              : 'bg-dpurple-900/40 border-dpurple-700/50 text-dpurple-300')
+          : 'bg-transparent border-gray-800 text-gray-500 hover:border-gray-600 hover:text-gray-400'">
+        {{ opt[1] }}
+        <span v-if="opt[0] === 'memorial'" class="ml-1 opacity-70">({{ memorialCount }})</span>
+      </button>
+    </div>
+
     <!-- Ladataan -->
     <div v-if="loading" class="text-gray-400 py-20 text-center text-sm">Ladataan jäseniä...</div>
 
@@ -157,8 +189,10 @@ function prevSlide(m: Member) {
       <div
         v-for="m in filtered" :key="m._id"
         class="flex flex-col sm:flex-row sm:h-48 overflow-hidden rounded-2xl bg-gray-950
-               border border-gray-800 hover:border-dgreen-900/60 hover:bg-dgreen-950/20
-               transition-all duration-150"
+               border transition-all duration-150"
+        :class="m.deceased?.year
+          ? 'border-amber-900/40 hover:border-amber-800/60'
+          : 'border-gray-800 hover:border-dgreen-900/60 hover:bg-dgreen-950/20'"
       >
         <!-- Avatar / Slideshow -->
         <div class="relative sm:flex-shrink-0 sm:w-44
@@ -171,11 +205,23 @@ function prevSlide(m: Member) {
           <div class="absolute inset-0 overflow-hidden rounded-tl-2xl rounded-bl-2xl rounded-tr-2xl rounded-br-none sm:rounded-tr-none sm:rounded-bl-2xl">
             <!-- Current slide -->
             <template v-if="getSlides(m).length">
-              <img v-if="getSlides(m)[curSlideIdx(m._id)]?.mediaType !== 'video'"
-                   :key="'img-' + m._id + '-' + curSlideIdx(m._id)"
-                   :src="getSlides(m)[curSlideIdx(m._id)]!.url"
-                   :alt="m.name" draggable="false"
-                   class="w-full h-full object-cover object-top" />
+              <template v-if="getSlides(m)[curSlideIdx(m._id)]?.mediaType !== 'video'">
+                <!-- Broken image fallback -->
+                <span v-if="brokenSlides[m._id + '-' + curSlideIdx(m._id)]"
+                  class="absolute inset-0 flex flex-col items-center justify-center gap-2
+                         text-dpurple-400/40 bg-dpurple-950/30">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 3l18 18M9.75 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span class="text-[11px] text-dpurple-400/50 font-medium">{{ initials(m.name) }}</span>
+                </span>
+                <img v-else
+                     :key="'img-' + m._id + '-' + curSlideIdx(m._id)"
+                     :src="getSlides(m)[curSlideIdx(m._id)]!.url"
+                     :alt="m.name" draggable="false"
+                     class="w-full h-full object-cover object-top"
+                     @error="onSlideImgError(m)" />
+              </template>
               <video v-else
                      :key="'vid-' + m._id + '-' + curSlideIdx(m._id)"
                      :src="getSlides(m)[curSlideIdx(m._id)]!.url"
@@ -207,11 +253,20 @@ function prevSlide(m: Member) {
           </template>
 
           <!-- Pisteet-badge kuvan päälle mobiilissa -->
-          <div v-if="m.points"
+          <div v-if="m.points && !m.deceased?.year"
             class="absolute top-3 right-3 sm:hidden flex items-center gap-1 text-xs font-semibold
                    text-dgreen-400 bg-gray-950/80 border border-dgreen-900/50
                    px-2 py-0.5 rounded-full backdrop-blur-sm z-20">
             <Star class="w-3 h-3" />{{ m.points }}p
+          </div>
+          <!-- In memoriam overlay on avatar -->
+          <div v-if="m.deceased?.year"
+            class="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-center
+                   py-1.5 gap-1.5"
+            style="background:linear-gradient(to top,rgba(0,0,0,0.85) 60%,transparent)">
+            <span class="text-amber-300 text-xs font-semibold tracking-wide">
+              ✦ {{ m.deceased.year }}
+            </span>
           </div>
         </div>
 
@@ -221,7 +276,18 @@ function prevSlide(m: Member) {
           <!-- Ylärivi: nimi + pisteet (desktop) -->
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <h2 class="text-base sm:text-xl font-bold text-white leading-snug">{{ m.name }}</h2>
+              <h2 class="text-base sm:text-xl font-bold leading-snug"
+                :class="m.deceased?.year ? 'text-amber-100' : 'text-white'">{{ m.name }}</h2>
+              <!-- In memoriam badge -->
+              <div v-if="m.deceased?.year" class="flex flex-col gap-1 mt-1">
+                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full self-start
+                             bg-amber-900/40 border border-amber-700/40 text-amber-300 font-medium">
+                  ✦ In memoriam {{ m.deceased.year }}
+                </span>
+                <p v-if="m.deceased.note" class="text-xs text-amber-200/60 italic px-0.5">
+                  {{ m.deceased.note }}
+                </p>
+              </div>
               <!-- Aliakset -->
               <div v-if="m.aliases.length" class="flex flex-wrap gap-1.5 mt-1.5">
                 <span v-for="a in m.aliases" :key="a"
