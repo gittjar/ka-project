@@ -361,12 +361,34 @@ async function confirmDelete() {
           class="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden
                  hover:border-gray-700 transition-colors">
 
+          <!-- ── Hero image — mobile only, full width at top ── -->
+          <div v-if="s.media.length" class="sm:hidden relative">
+            <div class="relative w-full h-48 bg-black/60 overflow-hidden">
+              <video v-if="s.media[0]?.mediaType === 'video'"
+                :src="s.media[0]?.url ?? ''" muted preload="metadata"
+                class="w-full h-full object-cover" />
+              <div v-else-if="brokenMedia.has(s.media[0]?._id ?? '')"
+                class="w-full h-full flex items-center justify-center">
+                <ImageOff class="w-8 h-8 text-gray-700" />
+              </div>
+              <img v-else :src="s.media[0]?.url ?? ''" :alt="s.title"
+                class="w-full h-full object-cover"
+                @error="onImgError(s.media[0]?._id ?? '')" />
+              <!-- Count badge -->
+              <div v-if="s.media.length > 1"
+                class="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-md
+                       bg-black/60 text-[11px] font-medium text-gray-300 pointer-events-none">
+                <Film class="w-3 h-3" />{{ s.media.length }}
+              </div>
+            </div>
+          </div>
+
           <!-- ── Card header + thumbnail row ── -->
           <div class="flex gap-4 p-5">
 
-            <!-- Media thumbnail — first item -->
+            <!-- Media thumbnail — desktop only -->
             <div v-if="s.media.length"
-              class="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-black/40 border border-gray-800">
+              class="hidden sm:block shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-black/40 border border-gray-800">
               <video v-if="s.media[0]?.mediaType === 'video'"
                 :src="s.media[0]?.url ?? ''" muted preload="metadata"
                 class="w-full h-full object-cover" />
@@ -379,8 +401,8 @@ async function confirmDelete() {
                 @error="onImgError(s.media[0]?._id ?? '')" />
             </div>
             <div v-else
-              class="shrink-0 w-20 h-20 rounded-xl bg-dpurple-900/30 border border-dpurple-800/20
-                     flex items-center justify-center">
+              class="hidden sm:flex shrink-0 w-20 h-20 rounded-xl bg-dpurple-900/30 border border-dpurple-800/20
+                     items-center justify-center">
               <BookOpen class="w-7 h-7 text-dpurple-400/50" />
             </div>
 
@@ -425,9 +447,9 @@ async function confirmDelete() {
               {{ s.comments?.length || 0 }}
             </button>
 
-            <!-- Media count badge -->
+            <!-- Media count badge — desktop only (mobile shows count on hero) -->
             <span v-if="s.media.length"
-              class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs
+              class="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg text-xs
                      text-dpurple-400/80 bg-dpurple-900/20">
               <Film class="w-3 h-3" />{{ s.media.length }}
             </span>
