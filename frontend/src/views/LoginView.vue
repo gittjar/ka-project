@@ -14,24 +14,20 @@ const error = ref('');
 const loading = ref(false);
 const showHelp = ref(false);
 const showPassword = ref(false);
-const showModal = ref(false);
-const modalErrors = ref<string[]>([]);
+const fieldErrors = ref<{ username?: string; password?: string }>({});
 
 async function submit() {
-  // Validoi ennen lähetystä
-  const errs: string[] = [];
-  if (!username.value.trim()) errs.push('Käyttäjänimi on pakollinen');
-  if (!password.value) errs.push('Salasana on pakollinen');
-  if (errs.length) {
-    modalErrors.value = errs;
-    showModal.value = true;
-    return;
-  }
+  const errs: { username?: string; password?: string } = {};
+  if (!username.value.trim()) errs.username = 'Käyttäjänimi on pakollinen';
+  if (!password.value) errs.password = 'Salasana on pakollinen';
+  fieldErrors.value = errs;
+  if (Object.keys(errs).length) return;
 
   error.value = '';
   loading.value = true;
   try {
     await auth.login(username.value, password.value);
+    fieldErrors.value = {};
     const redirect = (route.query.redirect as string) || (auth.isAdmin ? '/admin' : '/profiili');
     router.push(redirect);
   } catch (err: any) {
@@ -73,14 +69,19 @@ async function submit() {
               v-model="username"
               type="text"
               placeholder="käyttäjänimi"
-              required
               autocomplete="username"
-              class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/60 border border-gray-800
-                     text-white placeholder-gray-700 text-sm
-                     focus:outline-none focus:border-dpurple-700 focus:ring-1 focus:ring-dpurple-800/50
-                     transition-colors"
+              @input="fieldErrors.username = undefined"
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/60 text-white placeholder-gray-700 text-sm
+                     focus:outline-none focus:ring-1 transition-colors border"
+              :class="fieldErrors.username
+                ? 'border-red-700 focus:border-red-600 focus:ring-red-900/40'
+                : 'border-gray-800 focus:border-dpurple-700 focus:ring-dpurple-800/50'"
             />
           </div>
+          <p v-if="fieldErrors.username" class="text-xs text-red-400 flex items-center gap-1 mt-0.5">
+            <span class="w-1 h-1 rounded-full bg-red-400 inline-block"></span>
+            {{ fieldErrors.username }}
+          </p>
         </div>
 
         <div class="space-y-1">
@@ -91,12 +92,13 @@ async function submit() {
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               placeholder="••••••••"
-              required
               autocomplete="current-password"
-              class="w-full pl-10 pr-10 py-2.5 rounded-xl bg-black/60 border border-gray-800
-                     text-white placeholder-gray-700 text-sm
-                     focus:outline-none focus:border-dpurple-700 focus:ring-1 focus:ring-dpurple-800/50
-                     transition-colors"
+              @input="fieldErrors.password = undefined"
+              class="w-full pl-10 pr-10 py-2.5 rounded-xl bg-black/60 text-white placeholder-gray-700 text-sm
+                     focus:outline-none focus:ring-1 transition-colors border"
+              :class="fieldErrors.password
+                ? 'border-red-700 focus:border-red-600 focus:ring-red-900/40'
+                : 'border-gray-800 focus:border-dpurple-700 focus:ring-dpurple-800/50'"
             />
             <button type="button" @click="showPassword = !showPassword"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400
@@ -105,6 +107,10 @@ async function submit() {
               <EyeOff v-else class="w-4 h-4" />
             </button>
           </div>
+          <p v-if="fieldErrors.password" class="text-xs text-red-400 flex items-center gap-1 mt-0.5">
+            <span class="w-1 h-1 rounded-full bg-red-400 inline-block"></span>
+            {{ fieldErrors.password }}
+          </p>
         </div>
 
         <div v-if="error"
@@ -179,43 +185,7 @@ async function submit() {
 
     </div>
   </div>
-    <!-- Validation modal -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div
-          v-if="showModal"
-          class="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style="background:rgba(0,0,0,0.7)"
-          @click.self="showModal = false"
-        >
-          <div class="rounded-2xl border border-dpurple-700/60 bg-gray-950 shadow-2xl max-w-sm w-full p-6">
-            <h3 class="text-base font-bold text-red-400 mb-3">Täytä puuttuvat kentät</h3>
-            <ul class="space-y-1.5 mb-5">
-              <li
-                v-for="(msg, i) in modalErrors"
-                :key="i"
-                class="flex items-start gap-2 text-sm text-gray-300"
-              >
-                <span class="text-red-400 mt-0.5">●</span>
-                {{ msg }}
-              </li>
-            </ul>
-            <button
-              @click="showModal = false"
-              class="w-full py-2 rounded-xl bg-dpurple-800 hover:bg-dpurple-700 text-white text-sm font-medium transition-colors border-0"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
 </template>
-
-<style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-</style>
 
 <style scoped>
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
