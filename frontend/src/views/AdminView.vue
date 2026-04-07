@@ -452,6 +452,29 @@ const applicationsLoading = ref(false);
 const pendingAppsCount = ref(0);
 const expandedAppId = ref<string | null>(null);
 const appHandlingSaving = ref<string | null>(null);
+const confirmDeleteAppId = ref<string | null>(null);
+let confirmDeleteAppTimeout: ReturnType<typeof setTimeout> | null = null;
+
+async function deleteApplication(id: string) {
+  if (confirmDeleteAppId.value !== id) {
+    confirmDeleteAppId.value = id;
+    if (confirmDeleteAppTimeout) clearTimeout(confirmDeleteAppTimeout);
+    confirmDeleteAppTimeout = setTimeout(() => { confirmDeleteAppId.value = null; }, 4000);
+    return;
+  }
+  confirmDeleteAppId.value = null;
+  appHandlingSaving.value = id;
+  try {
+    await api.delete(`/applications/${id}`);
+    applications.value = applications.value.filter(a => a._id !== id);
+    pendingAppsCount.value = applications.value.filter(a => a.status === 'pending').length;
+    showToast('Hakemus poistettu');
+  } catch (err: any) {
+    showToast(err.response?.data?.message || 'Poisto epäonnistui', 'error');
+  } finally {
+    appHandlingSaving.value = null;
+  }
+}
 
 async function loadApplications() {
   applicationsLoading.value = true;
@@ -644,7 +667,7 @@ async function switchTab(t: typeof tab.value) {
   if (t === 'kayttajat' && !users.value.length) loadUsers();
   if (t === 'viestit' && !messages.value.length) loadMessages();
   if (t === 'kutsukoodit' && !invites.value.length) loadInvites();
-  if (t === 'hakemukset' && !applications.value.length) loadApplications();
+  if (t === 'hakemukset') loadApplications();
   if (t === 'jakolinkit') loadShares();
 }
 
@@ -1066,6 +1089,15 @@ onMounted(() => { loadMembers(); api.get('/applications/pending-count').then(r =
                        bg-red-900/40 hover:bg-red-800/40 text-red-400 disabled:opacity-50 transition-all">
                 <UserX class="w-3.5 h-3.5" />{{ appHandlingSaving === a._id ? '...' : 'Hylkää' }}
               </button>
+              <div class="flex-1" />
+              <button @click.stop="deleteApplication(a._id)" :disabled="appHandlingSaving === a._id"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all disabled:opacity-50"
+                :class="confirmDeleteAppId === a._id
+                  ? 'bg-red-900/60 border-red-700/60 text-red-300'
+                  : 'bg-transparent border-gray-800 text-gray-600 hover:border-red-900/60 hover:text-red-400'">
+                <Trash2 class="w-3.5 h-3.5" />
+                {{ confirmDeleteAppId === a._id ? 'Vahvista poisto' : 'Poista' }}
+              </button>
             </div>
             <div v-else class="flex gap-2 pt-1">
               <button @click="handleApplication(a._id, a.status === 'approved' ? 'rejected' : 'approved')"
@@ -1073,6 +1105,15 @@ onMounted(() => { loadMembers(); api.get('/applications/pending-count').then(r =
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border-0
                        bg-gray-800/60 hover:bg-gray-700/60 text-gray-500 disabled:opacity-50 transition-all">
                 <TriangleAlert class="w-3.5 h-3.5" />{{ appHandlingSaving === a._id ? '...' : 'Muuta päätöstä' }}
+              </button>
+              <div class="flex-1" />
+              <button @click.stop="deleteApplication(a._id)" :disabled="appHandlingSaving === a._id"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all disabled:opacity-50"
+                :class="confirmDeleteAppId === a._id
+                  ? 'bg-red-900/60 border-red-700/60 text-red-300'
+                  : 'bg-transparent border-gray-800 text-gray-600 hover:border-red-900/60 hover:text-red-400'">
+                <Trash2 class="w-3.5 h-3.5" />
+                {{ confirmDeleteAppId === a._id ? 'Vahvista poisto' : 'Poista' }}
               </button>
             </div>
           </div>

@@ -84,4 +84,16 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/applications/:id — admin poistaa hakemuksen kokonaan
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
+    const app = await Application.findByIdAndDelete(req.params.id);
+    if (!app) return res.status(404).json({ message: 'Hakemusta ei löydy' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Poisto epäonnistui' });
+  }
+});
+
 export default router;
