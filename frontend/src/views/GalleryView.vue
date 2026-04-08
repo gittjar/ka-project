@@ -794,6 +794,33 @@ onUnmounted(() => {
 
     <template v-else>
 
+    <!-- ── Sticky breadcrumb ribbon (shown only when inside a folder) ── -->
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      enter-from-class="opacity-0 -translate-y-2"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition-all duration-150 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 -translate-y-2">
+      <div v-if="breadcrumb.length > 1"
+        class="sticky top-14 z-30 pt-2 pb-1 pointer-events-none">
+        <nav class="inline-flex items-center gap-0.5 px-3 py-1 rounded-full
+                    bg-gray-900/90 backdrop-blur-sm border border-gray-800/60
+                    pointer-events-auto">
+          <button
+            v-for="(crumb, i) in breadcrumb" :key="i"
+            @click="i < breadcrumb.length - 1 && navigateTo(i)"
+            class="flex items-center gap-0.5 text-xs border-0 bg-transparent p-0 shrink-0 transition-colors"
+            :class="i === breadcrumb.length - 1
+              ? 'text-white font-semibold cursor-default'
+              : 'text-gray-500 hover:text-gray-300 cursor-pointer'">
+            <ChevronRight v-if="i > 0" class="w-3 h-3 text-gray-700 shrink-0" />
+            {{ crumb.name }}
+          </button>
+        </nav>
+      </div>
+    </Transition>
+
     <!-- ── Upload progress panel ── -->
     <Transition name="slide-up">
       <div v-if="uploadTasks.length"
@@ -846,20 +873,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- ── Otsikko, leivänmuru ja toiminnot ── -->
+    <!-- ── Otsikko ja toiminnot ── -->
     <div class="flex items-center justify-between gap-3 flex-wrap mb-1">
-      <nav class="flex items-center gap-1 flex-wrap">
-        <button
-          v-for="(crumb, i) in breadcrumb" :key="i"
-          @click="i < breadcrumb.length - 1 && navigateTo(i)"
-          class="flex items-center gap-1 text-sm border-0 bg-transparent p-0"
-          :class="i === breadcrumb.length - 1
-            ? 'text-white font-semibold cursor-default'
-            : 'text-gray-500 hover:text-gray-300 cursor-pointer'">
-          <ChevronRight v-if="i > 0" class="w-3.5 h-3.5 text-gray-700" />
-          {{ crumb.name }}
-        </button>
-      </nav>
       <div class="flex items-center gap-2 flex-wrap">
         <input ref="fileInputRef" type="file"
           accept="image/*,video/*,.heic,.heif,.avif,.tiff,.tif,.bmp,.mov,.m4v,.mkv,.avi,.3gp"
