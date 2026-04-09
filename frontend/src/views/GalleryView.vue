@@ -585,8 +585,16 @@ async function onDropItem(e: DragEvent, _targetIdx: number) {
   items.splice(adjustedIns, 0, moved!);
   mediaItems.value = items;
   onDragEnd();
-  await api.patch('/images/reorder', items.map((m, i) => ({ id: m._id, sortOrder: i })));
-  items.forEach((m, i) => { m.sortOrder = i; });
+  if (inCarouselView.value) {
+    // Carousel: tallenna carouselOrder-kenttään
+    const ids = items.map(m => m._id);
+    const { data } = await api.put('/images/carousel', ids);
+    carouselIds.value = new Set((data as MediaItem[]).map((m: MediaItem) => m._id));
+    mediaItems.value = data;
+  } else {
+    await api.patch('/images/reorder', items.map((m, i) => ({ id: m._id, sortOrder: i })));
+    items.forEach((m, i) => { m.sortOrder = i; });
+  }
 }
 
 async function onDropFolder(e: DragEvent, targetFolderId: string) {
