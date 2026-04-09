@@ -174,9 +174,14 @@ const renameDraft = ref('');
 const renaming = ref(false);
 const renameInputRef = ref<HTMLInputElement | null>(null);
 
-// Sort (admin)
+// Sort (admin — persists to server)
 const sortMenuOpen = ref(false);
 type SortMode = 'date-desc' | 'date-asc' | 'alpha';
+
+// Sort (user — local only)
+const userSortMenuOpen = ref(false);
+type UserSortMode = 'default' | 'date-desc' | 'date-asc' | 'views-desc' | 'views-asc';
+const userSortMode = ref<UserSortMode>('default');
 
 // Carousel (admin)
 const CAROUSEL_VIRTUAL_ID = '__carousel__';
@@ -262,6 +267,7 @@ async function loadFolder(folderId: string | null) {
   loading.value = true;
   loadError.value = '';
   selectedIds.value = new Set();
+  userSortMode.value = 'default';
   try {
     const [fRes, mRes] = await Promise.all([
       api.get(`/images/folders?parent=${folderId ?? 'null'}`),
@@ -500,11 +506,41 @@ async function doMultiDelete() {
   }
 }
 
+// ── User sort (local, non-persisting) ──────────────────────────────────────
+
+const displayedMedia = computed<MediaItem[]>(() => {
+  const items = [...mediaItems.value];
+  if (userSortMode.value === 'date-desc') {
+    return items.sort((a, b) => {
+      const da = a.exif?.dateTaken ? new Date(a.exif.dateTaken).getTime() : new Date(a.createdAt).getTime();
+      const db = b.exif?.dateTaken ? new Date(b.exif.dateTaken).getTime() : new Date(b.createdAt).getTime();
+      return db - da;
+    });
+  }
+  if (userSortMode.value === 'date-asc') {
+    return items.sort((a, b) => {
+      const da = a.exif?.dateTaken ? new Date(a.exif.dateTaken).getTime() : new Date(a.createdAt).getTime();
+      const db = b.exif?.dateTaken ? new Date(b.exif.dateTaken).getTime() : new Date(b.createdAt).getTime();
+      return da - db;
+    });
+  }
+  if (userSortMode.value === 'views-desc') {
+    return items.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
+  }
+  if (userSortMode.value === 'views-asc') {
+    return items.sort((a, b) => (a.viewCount ?? 0) - (b.viewCount ?? 0));
+  }
+  return items;
+});
+
 // ── Drag-sort (admin) ─────────────────────────────────────────────────────────
 
 type GridSlot = { type: 'item'; item: MediaItem; origIdx: number } | { type: 'drop' };
 const gridSlots = computed<GridSlot[]>(() => {
-  const slots: GridSlot[] = mediaItems.value.map((item, origIdx) => ({ type: 'item', item, origIdx }));
+  const slots: GridSlot[] = displayedMedia.value.map((item) => {
+    const origIdx = mediaItems.value.indexOf(item);
+    return { type: 'item', item, origIdx };
+  });
   const src = dragSrcIdx.value;
   const ins = dropInsertIdx.value;
   if (src === null || ins === null || ins === src || ins === src + 1) return slots;
@@ -885,6 +921,56 @@ onUnmounted(() => {
                  bg-transparent transition-all">
           <Plus class="w-4 h-4" />Uusi kansio
         </button>
+        <!-- Sort dropdown (user — local, all logged-in users) -->
+        <div v-if="auth.isLoggedIn && currentFolderId && mediaItems.length > 0" class="relative">
+          <button @click.stop="userSortMenuOpen = !userSortMenuOpen"
+            class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
+                   border transition-all bg-transparent"
+            :class="userSortMode !== 'default'
+              ? 'border-dgreen-700 text-dgreen-300 hover:border-dgreen-600'
+              : 'border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'">
+            <ArrowUpDown class="w-4 h-4" />
+            <span>{{ userSortMode === 'date-desc' ? 'Uusin' : userSortMode === 'date-asc' ? 'Vanhin' : userSortMode === 'views-desc' ? 'Katsotuin' : userSortMode === 'views-asc' ? 'Vähiten' : 'Järjestys' }}</span>
+          </button>
+          <div v-if="userSortMenuOpen" class="fixed inset-0 z-20" @click="userSortMenuOpen = false" />
+          <div v-if="userSortMenuOpen"
+            class="absolute right-0 top-full mt-1.5 z-30 bg-gray-900 border border-gray-700/60
+                   rounded-xl shadow-2xl overflow-hidden w-52 py-1">
+            <button @click="userSortMode = 'default'; userSortMenuOpen = false"
+              class="w-full text-left px-4 py-2.5 text-sm border-0 bg-transparent flex items-center gap-2.5 transition-colors"
+              :class="userSortMode === 'default' ? 'text-dgreen-300' : 'text-gray-300 hover:bg-gray-800 hover:text-white'">
+              <ArrowUpDown class="w-3.5 h-3.5 text-gray-500" />
+              Oletusjärjestys
+            </button>
+            <div class="my-1 border-t border-gray-800" />
+            <button @click="userSortMode = 'date-desc'; userSortMenuOpen = false"
+              class="w-full text-left px-4 py-2.5 text-sm border-0 bg-transparent flex items-center gap-2.5 transition-colors"
+              :class="userSortMode === 'date-desc' ? 'text-dgreen-300' : 'text-gray-300 hover:bg-gray-800 hover:text-white'">
+              <Clock class="w-3.5 h-3.5 text-gray-500" />
+              Uusin ensin
+            </button>
+            <button @click="userSortMode = 'date-asc'; userSortMenuOpen = false"
+              class="w-full text-left px-4 py-2.5 text-sm border-0 bg-transparent flex items-center gap-2.5 transition-colors"
+              :class="userSortMode === 'date-asc' ? 'text-dgreen-300' : 'text-gray-300 hover:bg-gray-800 hover:text-white'">
+              <Clock class="w-3.5 h-3.5 text-gray-500" />
+              Vanhin ensin
+            </button>
+            <div class="my-1 border-t border-gray-800" />
+            <button @click="userSortMode = 'views-desc'; userSortMenuOpen = false"
+              class="w-full text-left px-4 py-2.5 text-sm border-0 bg-transparent flex items-center gap-2.5 transition-colors"
+              :class="userSortMode === 'views-desc' ? 'text-dgreen-300' : 'text-gray-300 hover:bg-gray-800 hover:text-white'">
+              <Eye class="w-3.5 h-3.5 text-gray-500" />
+              Eniten katsottu
+            </button>
+            <button @click="userSortMode = 'views-asc'; userSortMenuOpen = false"
+              class="w-full text-left px-4 py-2.5 text-sm border-0 bg-transparent flex items-center gap-2.5 transition-colors"
+              :class="userSortMode === 'views-asc' ? 'text-dgreen-300' : 'text-gray-300 hover:bg-gray-800 hover:text-white'">
+              <Eye class="w-3.5 h-3.5 text-gray-500" />
+              Vähiten katsottu
+            </button>
+          </div>
+        </div>
+
         <!-- Sort dropdown (admin, when there are media items) -->
         <div v-if="auth.isAdmin && mediaItems.length > 0" class="relative">
           <button @click.stop="sortMenuOpen = !sortMenuOpen"
