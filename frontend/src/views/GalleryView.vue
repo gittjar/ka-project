@@ -175,7 +175,6 @@ const renaming = ref(false);
 const renameInputRef = ref<HTMLInputElement | null>(null);
 
 // Sort (admin — persists to server)
-const sortMenuOpen = ref(false);
 type SortMode = 'date-desc' | 'date-asc' | 'alpha';
 
 // Sort (user — local only)
@@ -602,7 +601,6 @@ async function onDropFolder(e: DragEvent, targetFolderId: string) {
 // ── Sort & persist (admin) ──────────────────────────────────────────────────
 
 async function applySort(mode: SortMode) {
-  sortMenuOpen.value = false;
   const items = [...mediaItems.value];
   if (mode === 'date-desc') {
     items.sort((a, b) => {
@@ -921,7 +919,7 @@ onUnmounted(() => {
                  bg-transparent transition-all">
           <Plus class="w-4 h-4" />Uusi kansio
         </button>
-        <!-- Sort dropdown (user — local, all logged-in users) -->
+        <!-- Sort dropdown — user: local only; admin: local + persist to server -->
         <div v-if="auth.isLoggedIn && currentFolderId && mediaItems.length > 0" class="relative">
           <button @click.stop="userSortMenuOpen = !userSortMenuOpen"
             class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
@@ -935,7 +933,7 @@ onUnmounted(() => {
           <div v-if="userSortMenuOpen" class="fixed inset-0 z-20" @click="userSortMenuOpen = false" />
           <div v-if="userSortMenuOpen"
             class="absolute right-0 top-full mt-1.5 z-30 bg-gray-900 border border-gray-700/60
-                   rounded-xl shadow-2xl overflow-hidden w-52 py-1">
+                   rounded-xl shadow-2xl overflow-hidden w-56 py-1">
             <button @click="userSortMode = 'default'; userSortMenuOpen = false"
               class="w-full text-left px-4 py-2.5 text-sm border-0 bg-transparent flex items-center gap-2.5 transition-colors"
               :class="userSortMode === 'default' ? 'text-dgreen-300' : 'text-gray-300 hover:bg-gray-800 hover:text-white'">
@@ -968,45 +966,32 @@ onUnmounted(() => {
               <Eye class="w-3.5 h-3.5 text-gray-500" />
               Vähiten katsottu
             </button>
-          </div>
-        </div>
-
-        <!-- Sort dropdown (admin, when there are media items) -->
-        <div v-if="auth.isAdmin && mediaItems.length > 0" class="relative">
-          <button @click.stop="sortMenuOpen = !sortMenuOpen"
-            class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
-                   border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600
-                   bg-transparent transition-all"
-            :class="sortMenuOpen ? 'border-dpurple-700 text-dpurple-300' : ''">
-            <ArrowUpDown class="w-4 h-4" />Järjestä
-          </button>
-          <!-- Backdrop -->
-          <div v-if="sortMenuOpen" class="fixed inset-0 z-20" @click="sortMenuOpen = false" />
-          <!-- Menu -->
-          <div v-if="sortMenuOpen"
-            class="absolute right-0 top-full mt-1.5 z-30 bg-gray-900 border border-gray-700/60
-                   rounded-xl shadow-2xl overflow-hidden w-56 py-1">
-            <button @click="applySort('date-desc')"
-              class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
-                     hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
-              <Clock class="w-3.5 h-3.5 text-gray-500" />
-              Uusin ensin
-              <span class="text-xs text-gray-600 ml-auto">oton päivä</span>
-            </button>
-            <button @click="applySort('date-asc')"
-              class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
-                     hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
-              <Clock class="w-3.5 h-3.5 text-gray-500" />
-              Vanhin ensin
-              <span class="text-xs text-gray-600 ml-auto">oton päivä</span>
-            </button>
-            <div class="my-1 border-t border-gray-800" />
-            <button @click="applySort('alpha')"
-              class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
-                     hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
-              <span class="text-xs font-mono text-gray-500 w-3.5 text-center">A</span>
-              Aakkosjärjestys
-            </button>
+            <!-- Admin-osio: tallenna järjestys palvelimelle -->
+            <template v-if="auth.isAdmin">
+              <div class="my-1 border-t border-gray-800" />
+              <p class="px-4 pt-1.5 pb-0.5 text-[10px] text-gray-600 uppercase tracking-wide font-semibold">Tallenna järjestys</p>
+              <button @click="applySort('date-desc'); userSortMenuOpen = false"
+                class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
+                       hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
+                <Clock class="w-3.5 h-3.5 text-gray-500" />
+                Uusin ensin
+                <span class="text-xs text-gray-600 ml-auto">tallentuu</span>
+              </button>
+              <button @click="applySort('date-asc'); userSortMenuOpen = false"
+                class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
+                       hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
+                <Clock class="w-3.5 h-3.5 text-gray-500" />
+                Vanhin ensin
+                <span class="text-xs text-gray-600 ml-auto">tallentuu</span>
+              </button>
+              <button @click="applySort('alpha'); userSortMenuOpen = false"
+                class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800
+                       hover:text-white border-0 bg-transparent flex items-center gap-2.5 transition-colors">
+                <span class="text-xs font-mono text-gray-500 w-3.5 text-center">A</span>
+                Aakkosjärjestys
+                <span class="text-xs text-gray-600 ml-auto">tallentuu</span>
+              </button>
+            </template>
           </div>
         </div>
         <!-- Multi-delete trigger (admin, selection mode, not in carousel view) -->
@@ -1061,6 +1046,17 @@ onUnmounted(() => {
       <p class="text-xs" :class="dragOver ? 'text-dpurple-400' : 'text-gray-500'">
         Raahaa kuvia tai videoita tähän · JPG, PNG, WebP, HEIC, MP4, MOV · max 500 MB
       </p>
+    </div>
+
+    <!-- ── Disclaimer (kansion sisällä, kirjautunut) ── -->
+    <div v-if="currentFolderId && auth.isLoggedIn && !loading"
+      class="mb-5 flex items-start gap-2 text-[11px] text-gray-600 leading-relaxed px-1">
+      <AlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-700" />
+      <span>
+        Lataamasi kuvat ja videot tallennetaan tähän kansioon ja ovat nähtävissä kaikille
+        kirjautuneille jäsenille. Lataa vain tähän tapahtumaan liittyvää materiaalia.
+        Ylläpidolla on oikeus poistaa sinne kuulumaton tai sopimaton sisältö.
+      </span>
     </div>
 
     <!-- ── Kuvaukset kansiolle ── -->
