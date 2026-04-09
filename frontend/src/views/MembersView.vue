@@ -234,7 +234,7 @@ function onSlideImgError(m: Member) {
           >
             <!-- Avatar / Slideshow -->
             <div class="relative sm:flex-shrink-0 sm:w-44
-                        h-44
+                        min-h-44
                         bg-dpurple-900/40 sm:border-r sm:border-b-0 border-b border-dpurple-800/20
                         flex items-center justify-center select-none"
                  @contextmenu.prevent>

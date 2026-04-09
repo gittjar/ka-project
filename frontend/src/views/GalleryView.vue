@@ -94,15 +94,44 @@ const lightboxItem = ref<MediaItem | null>(null);
 const lightboxIdx = ref(0);
 const mediaLoading = ref(false);
 const mediaLoadMs = ref<number | null>(null);
+const loadingElapsed = ref(0);
 let _mediaLoadStart = 0;
+let _loadingTimer: ReturnType<typeof setInterval> | null = null;
+
+const THIRSTY_MSGS_3 = [
+  'You are THIRSTY! You better go drink something.',
+  'Odotellessa voi ottaa pienen siemauksen…',
+  'Kaatele jo valmiiksi, kuva tulee pian!',
+];
+const THIRSTY_MSGS_6 = [
+  'Onko se kuva tullut jo? Ei. Ota toinen.',
+  'Ehkä netti kaipaa spriitä myös.',
+  'Patientia est virtus. Ja virtu on juoma.',
+  '\uD83C\uDF7A Siitä lähtee ku lähtee…',
+];
+const thirstyMsg3 = ref('');
+const thirstyMsg6 = ref('');
+
 function startMediaLoad() {
   mediaLoading.value = true;
   mediaLoadMs.value = null;
+  loadingElapsed.value = 0;
+  thirstyMsg3.value = '';
+  thirstyMsg6.value = '';
   _mediaLoadStart = performance.now();
+  if (_loadingTimer) clearInterval(_loadingTimer);
+  _loadingTimer = setInterval(() => {
+    loadingElapsed.value = Math.floor((performance.now() - _mediaLoadStart) / 1000);
+    if (loadingElapsed.value === 3 && !thirstyMsg3.value)
+      thirstyMsg3.value = THIRSTY_MSGS_3[Math.floor(Math.random() * THIRSTY_MSGS_3.length)]!;
+    if (loadingElapsed.value === 6 && !thirstyMsg6.value)
+      thirstyMsg6.value = THIRSTY_MSGS_6[Math.floor(Math.random() * THIRSTY_MSGS_6.length)]!;
+  }, 500);
 }
 function onMediaLoaded() {
   mediaLoadMs.value = Math.round(performance.now() - _mediaLoadStart);
   mediaLoading.value = false;
+  if (_loadingTimer) { clearInterval(_loadingTimer); _loadingTimer = null; }
 }
 
 // Swipe (mobile lightbox)
@@ -1414,14 +1443,50 @@ onUnmounted(() => {
       <!-- Media area -->
       <div class="relative flex items-center justify-center sm:flex-1 sm:p-4 min-w-0 shrink-0 sm:shrink"
         @click.stop @touchstart.passive="onSwipeStart" @touchend.passive="onSwipeEnd">
-        <!-- Loading spinner -->
+        <!-- Loading spinner: drinking glass -->
         <Transition name="fade">
           <div v-if="mediaLoading"
-            class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-            <svg class="w-9 h-9 animate-spin text-white/50" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5"/>
-              <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            class="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none gap-4">
+            <!-- Glass SVG -->
+            <svg width="44" height="60" viewBox="0 0 44 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Glass outline: trapezoid, narrower at bottom -->
+              <defs>
+                <clipPath id="glass-clip">
+                  <polygon points="6,4 38,4 34,56 10,56" />
+                </clipPath>
+                <!-- Animated fill: oscillating wave-like top edge -->
+              </defs>
+              <!-- Liquid fill, clipped to glass shape, fills from bottom -->
+              <g clip-path="url(#glass-clip)">
+                <rect x="0" y="0" width="44" height="60" fill="#14532d" opacity="0.25" />
+                <!-- Animated fill rect that grows from bottom -->
+                <rect x="0" class="glass-liquid" width="44" fill="#16a34a" opacity="0.75">
+                  <animate attributeName="y" values="56;4;56" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" />
+                  <animate attributeName="height" values="0;52;0" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" />
+                </rect>
+                <!-- Bubble 1 -->
+                <circle cx="16" cy="40" r="1.8" fill="#4ade80" opacity="0.5">
+                  <animate attributeName="cy" values="54;10" dur="2.1s" repeatCount="indefinite" begin="0.3s" />
+                  <animate attributeName="opacity" values="0.5;0" dur="2.1s" repeatCount="indefinite" begin="0.3s" />
+                </circle>
+                <!-- Bubble 2 -->
+                <circle cx="26" cy="45" r="1.2" fill="#4ade80" opacity="0.4">
+                  <animate attributeName="cy" values="54;15" dur="1.7s" repeatCount="indefinite" begin="0.9s" />
+                  <animate attributeName="opacity" values="0.4;0" dur="1.7s" repeatCount="indefinite" begin="0.9s" />
+                </circle>
+              </g>
+              <!-- Glass outline on top -->
+              <polygon points="6,4 38,4 34,56 10,56" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" stroke-linejoin="round" />
+              <!-- Rim highlight -->
+              <line x1="6" y1="4" x2="38" y2="4" stroke="rgba(255,255,255,0.35)" stroke-width="1.5" stroke-linecap="round" />
             </svg>
+            <!-- Messages -->
+            <Transition name="fade">
+              <p v-if="thirstyMsg3" class="text-center text-xs text-white/60 max-w-[200px] leading-relaxed">{{ thirstyMsg3 }}</p>
+            </Transition>
+            <Transition name="fade">
+              <p v-if="thirstyMsg6" class="text-center text-[11px] text-dgreen-400/70 max-w-[200px] leading-relaxed italic">{{ thirstyMsg6 }}</p>
+            </Transition>
           </div>
         </Transition>
         <img v-if="lightboxItem.mediaType === 'image'" :src="imgUrl(lightboxItem)"
