@@ -1268,6 +1268,15 @@ onUnmounted(() => {
             <p class="text-[11px] text-white/80 truncate leading-tight">{{ slot.item.caption }}</p>
           </div>
 
+          <!-- View count badge — bottom-left, pill, above caption ribbon -->
+          <div class="absolute flex items-center gap-0.5 px-1.5 py-0.5 rounded-full
+                      bg-black/70 text-white/70 text-[10px] pointer-events-none leading-none z-10
+                      backdrop-blur-sm"
+            :class="slot.item.caption ? 'bottom-7 left-1.5' : 'bottom-1.5 left-1.5'">
+            <Eye class="w-3 h-3 shrink-0" />
+            <span>{{ slot.item.viewCount ?? 0 }}</span>
+          </div>
+
           <!-- Actions (edit / delete) — always visible on mobile, hover-only on desktop -->
           <div class="absolute top-2 right-2 flex flex-col gap-1 transition-all
                       sm:opacity-0 sm:group-hover:opacity-100">
