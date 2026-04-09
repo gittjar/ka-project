@@ -57,6 +57,10 @@ const year = new Date().getFullYear();
         <div class="flex flex-col sm:flex-row items-center justify-between gap-2
                     pt-6 border-t border-white/5 text-xs text-gray-700">
           <span>© Kanniaalio+ 2003–{{ year }}</span>
+          <RouterLink to="/rekisteriseloste"
+            class="text-gray-700 hover:text-gray-500 transition-colors underline underline-offset-2">
+            Rekisteriseloste
+          </RouterLink>
           <div class="flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full bg-dgreen-600/70 animate-pulse" />
             <span>Vue 3 · Node.js · MongoDB</span>

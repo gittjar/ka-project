@@ -19,6 +19,7 @@ const router = createRouter({
     { path: '/rekisteroidy', component: () => import('../views/RegisterView.vue'), meta: { title: 'Rekisteröidy', guestOnly: true } },
     { path: '/profiili', component: () => import('../views/ProfileView.vue'), meta: { title: 'Profiili', requiresAuth: true } },
     { path: '/admin', component: () => import('../views/AdminView.vue'), meta: { title: 'Admin', requiresAdmin: true } },
+    { path: '/rekisteriseloste', component: () => import('../views/PrivacyView.vue'), meta: { title: 'Rekisteriseloste' } },
   ],
   scrollBehavior: () => ({ top: 0 }),
 });
