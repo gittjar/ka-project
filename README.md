@@ -10,7 +10,7 @@
 ## Rakenne
 
 ```
-kanniaalio-vue/
+project-root/
   frontend/   ← Vue 3 SPA
   backend/    ← Express REST API
 ```
