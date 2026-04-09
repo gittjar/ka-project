@@ -1,6 +1,3 @@
-# Kanniaalio+ Vue
-
-Kanniaalio+ on vuodesta 2003 toimineen yhteisön päivitetty verkkosivusto. Alkuperäinen tripod-sivu on modernisoitu Vue 3 + Node.js -stackilla.
 
 ## Stack
 
