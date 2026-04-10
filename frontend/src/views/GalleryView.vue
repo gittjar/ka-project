@@ -100,14 +100,14 @@ let _loadingTimer: ReturnType<typeof setInterval> | null = null;
 
 const THIRSTY_MSGS_3 = [
   'You are THIRSTY! You better go drink something.',
-  'Odotellessa voi ottaa pienen siemauksen…',
-  'Kaatele jo valmiiksi, kuva tulee pian!',
+  'Kantojallu on vielä kaukana…',
+  'Ladataan, wait a second ... \uD83C\uDF7A',
 ];
 const THIRSTY_MSGS_6 = [
-  'Onko se kuva tullut jo? Ei. Ota toinen.',
-  'Ehkä netti kaipaa spriitä myös.',
-  'Patientia est virtus. Ja virtu on juoma.',
-  '\uD83C\uDF7A Siitä lähtee ku lähtee…',
+  'Mitä Neipoja teillä on hanassa?',
+  'You are DEHYDRATED!',
+  'Kuvien lataus on kuin viskin tislauksen odottamista – kärsivällisyys palkitaan.',
+  '\uD83C\uDF7A Viinaa viinaa tsat tsat saa…',
 ];
 const thirstyMsg3 = ref('');
 const thirstyMsg6 = ref('');
