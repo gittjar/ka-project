@@ -73,9 +73,12 @@ function photoDataFromBody(body) {
 }
 
 // GET /api/members — auth required, vain aktiiviset
-router.get('/', authMiddleware, async (_req, res) => {
+router.get('/', async (_req, res) => {
   try {
-    const members = await Member.find({ active: true }).collation({ locale: 'fi', strength: 1 }).sort({ name: 1 });
+    const members = await Member.find({ active: true })
+      .select('-email')
+      .collation({ locale: 'fi', strength: 1 })
+      .sort({ name: 1 });
     res.json(members);
   } catch (err) {
     res.status(500).json({ message: 'Haku epäonnistui' });
