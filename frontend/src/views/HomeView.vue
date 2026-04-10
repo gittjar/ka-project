@@ -31,7 +31,6 @@ const timerProgress = ref(100);
 let timerTick: ReturnType<typeof setInterval> | null = null;
 const AUTO_MS = 6000;
 const TICK_MS = 50;
-const CIRC = 2 * Math.PI * 9; // r=9 → ≈56.55
 
 function startTimerTick() {
   if (timerTick) clearInterval(timerTick);
@@ -261,17 +260,37 @@ onUnmounted(stopAuto);
             : 'w-2 h-2 bg-black ring-1 ring-dgreen-900/80 hover:ring-dgreen-700'" />
       </div>
 
-      <!-- Countdown ring -->
+      <!-- Drinking glass countdown (fills from empty→full then slide changes) -->
       <div v-if="activeItem?.mediaType !== 'video'"
-        class="absolute bottom-3 right-4 z-20 opacity-60 pointer-events-none">
-        <svg width="28" height="28" viewBox="0 0 28 28" style="transform: rotate(-90deg)">
-          <circle cx="14" cy="14" r="9" fill="none"
-            stroke="rgba(255,255,255,0.15)" stroke-width="2" />
-          <circle cx="14" cy="14" r="9" fill="none"
-            stroke="white" stroke-width="2" stroke-linecap="round"
-            :stroke-dasharray="CIRC"
-            :stroke-dashoffset="CIRC * (1 - timerProgress / 100)"
-            style="transition: stroke-dashoffset 0.05s linear" />
+        class="absolute bottom-3 right-4 z-20 opacity-75 pointer-events-none">
+        <svg width="30" height="42" viewBox="0 0 36 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <clipPath id="home-glass-clip">
+              <polygon points="4,4 32,4 29,47 7,47" />
+            </clipPath>
+          </defs>
+          <g clip-path="url(#home-glass-clip)">
+            <!-- Dark glass bg -->
+            <rect x="0" y="0" width="36" height="50" fill="#14532d" opacity="0.3" />
+            <!-- Reactive fill: timerProgress 100→0 means full→empty -->
+            <rect x="0" width="36" fill="#16a34a" opacity="0.82"
+              :y="47 - (timerProgress / 100) * 43"
+              :height="(timerProgress / 100) * 43" />
+            <!-- Bubble 1 -->
+            <circle cx="14" cy="30" r="1.4" fill="#4ade80" opacity="0.5">
+              <animate attributeName="cy" values="45;10" dur="2s" repeatCount="indefinite" begin="0.2s" />
+              <animate attributeName="opacity" values="0.5;0" dur="2s" repeatCount="indefinite" begin="0.2s" />
+            </circle>
+            <!-- Bubble 2 -->
+            <circle cx="22" cy="38" r="1" fill="#4ade80" opacity="0.4">
+              <animate attributeName="cy" values="45;14" dur="1.6s" repeatCount="indefinite" begin="0.9s" />
+              <animate attributeName="opacity" values="0.4;0" dur="1.6s" repeatCount="indefinite" begin="0.9s" />
+            </circle>
+          </g>
+          <!-- Glass outline -->
+          <polygon points="4,4 32,4 29,47 7,47" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="1.5" stroke-linejoin="round" />
+          <!-- Rim highlight -->
+          <line x1="4" y1="4" x2="32" y2="4" stroke="rgba(255,255,255,0.38)" stroke-width="1.5" stroke-linecap="round" />
         </svg>
       </div>
 
