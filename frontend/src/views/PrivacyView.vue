@@ -23,7 +23,7 @@ const year = new Date().getFullYear();
           <h2 class="text-white font-bold mb-1">Rekisterinpitäjä</h2>
           <p class="text-gray-400 text-sm leading-relaxed">
             Kanniaalio+ on BatMUD-peliin liittyvä yksityinen jäsenyhteisö.
-            Rekisterinpitäjä on killan ylläpito. Yhteystietoihin pääset
+            Rekisterinpitäjä on sivuston ylläpito. Yhteystietoihin pääset
             <a href="/hakemus" class="text-dgreen-400 hover:text-dgreen-300 underline underline-offset-2">yhteydenottolomakkeen</a>
             kautta — emme julkaise henkilökohtaisia osoitteita tai puhelinnumeroita verkossa.
           </p>
@@ -38,7 +38,7 @@ const year = new Date().getFullYear();
           <h2 class="text-white font-bold mb-1">Mitä tietoja kerätään</h2>
           <ul class="text-gray-400 text-sm leading-relaxed space-y-1 list-none">
             <li class="flex items-start gap-2"><span class="text-dgreen-600 mt-1">▸</span>Rekisteröitymislomakkeella annetut tiedot: käyttäjänimi ja salattu salasana</li>
-            <li class="flex items-start gap-2"><span class="text-dgreen-600 mt-1">▸</span>Jäsenprofiiliin vapaaehtoisesti lisätyt tiedot: syntymävuosi, paikkakunta, lempijuoma, kotisivu, sähköpostiosoite</li>
+            <li class="flex items-start gap-2"><span class="text-dgreen-600 mt-1">▸</span>Jäsenprofiiliin vapaaehtoisesti lisätyt tiedot: syntymävuosi (Batmudissa), pelipaikkakunta, lempijuoma, kotisivu, sähköpostiosoite (defaulttina mallia pelaajanimi@batmud.bat.org)</li>
             <li class="flex items-start gap-2"><span class="text-dgreen-600 mt-1">▸</span>Hakemuksella lähetetyt tiedot: nimi, sähköposti, paikkakunta, motivaatioteksti</li>
             <li class="flex items-start gap-2"><span class="text-dgreen-600 mt-1">▸</span>Sisällöt jotka käyttäjä itse lataa: tarinat, kuvat, videot</li>
           </ul>
@@ -55,7 +55,7 @@ const year = new Date().getFullYear();
             Sivusto <span class="text-white font-medium">ei käytä evästeitä</span> (cookies).
             Kirjautuminen perustuu JWT-tokeniin, joka tallennetaan selaimen
             <span class="font-mono text-xs text-gray-300">localStorage</span>-muistiin eikä välity kolmansille osapuolille.
-            Mitään seurantatietoja ei kerätä.
+            Mitään seurantatietoja ei kerätä, adminit näkevät kirjautumiset vain hallintapaneelissa.
           </p>
         </div>
       </div>
@@ -93,7 +93,7 @@ const year = new Date().getFullYear();
             Käyttäjien salasanat tallennetaan ainoastaan bcrypt-hajautettuna — pelkää salasanaa ei missään
             vaiheessa tallenneta eikä ylläpidolla ole pääsyä siihen.
             Kaikki liikenne kulkee HTTPS-salatun yhteyden yli.
-            Gallerion kuvat vaativat aina kirjautumisen — ne eivät ole julkisia linkkejä.
+            Gallerian kuvat vaativat aina kirjautumisen — linkit kuviin ovat julkisia Azure Blob tiedostoja, mutta niiden nimeäminen on satunnaista eikä paljasta kokonaisen kansion sisältöä, vaikka joku saisi yhden kuvalinkin haltuunsa.
             Ylläpidolla on erilliset admin-oikeudet, joilla pääsee käsiksi vain palvelun hallintaan.
             Palvelun taustajärjestelmät (Render, Azure, MongoDB Atlas) on suojattu
             kaksivaiheisella tunnistautumisella (2FA) ylläpidon tasolla — tämä ei koske
@@ -109,7 +109,7 @@ const year = new Date().getFullYear();
         <div>
           <h2 class="text-white font-bold mb-1">Palvelun saatavuus ja tietokatkokset</h2>
           <p class="text-gray-400 text-sm leading-relaxed">
-            Kanniaalio+ on harrastuspohjainen yhteisöpalvelu ilman virallista SLA-sitoumusta.
+            Kanniaalio+ on harrastuspohjainen yhteisöpalvelu ilman virallista SLA-sitoumusta. Palvelu on ilmainen jäsenille.
             Palvelu pyörii kolmansien osapuolten infrastruktuurilla (Render, MongoDB Atlas, Azure), ja
             lyhyet käyttökatkot ovat mahdollisia huolto- tai päivitysikkunoiden aikana.
             Tietoja ei pääsääntöisesti poisteta katkosten aikana — datan säilyvyys
@@ -126,7 +126,7 @@ const year = new Date().getFullYear();
           <h2 class="text-white font-bold mb-1">Tietojen käyttötarkoitus</h2>
           <p class="text-gray-400 text-sm leading-relaxed">
             Kerättyjä tietoja käytetään <em>ainoastaan</em> Kanniaalio+-palvelun tarjoamiseen jäsenille.
-            Tietoja ei myydä, luovuteta eikä käytetä markkinointiin.
+            Tietoja ei myydä, luovuteta eikä käytetä markkinointiin tai mainontaan.
             Profiilitietoja näytetään muille kirjautuneille jäsenille jäsenluettelossa —
             vain tiedot jotka olet itse lisännyt näkyvät muille.
           </p>
@@ -140,9 +140,8 @@ const year = new Date().getFullYear();
         <div>
           <h2 class="text-white font-bold mb-1">Oikeutesi</h2>
           <p class="text-gray-400 text-sm leading-relaxed">
-            Sinulla on oikeus pyytää omien tietojesi tarkistamista, korjausta tai poistamista.
             Voit muokata profiilitietojasi itse omalla profiilisivullasi.
-            Tilin poistoa tai muita tietopyyntöjä varten ota yhteyttä ylläpitoon
+            Tilin poistoa tai muita pyyntöjä varten ota yhteyttä ylläpitoon
             <a href="/hakemus" class="text-dgreen-400 hover:text-dgreen-300 underline underline-offset-2">yhteydenottolomakkeen</a>
             kautta.
           </p>
@@ -153,7 +152,9 @@ const year = new Date().getFullYear();
 
     <!-- Alaosa -->
     <div class="mt-12 pt-6 border-t border-gray-800/60 text-xs text-gray-700 text-center">
-      Kanniaalio+ · BatMUD-kilta vuodesta 2003 · Tämä seloste on laadittu hyvän tavan mukaisesti harrastusyhteisölle, ei korvaa virallista lakimiehen kautta laadittua tietosuojaselostetta.
+      Kanniaalio+ · BatMUD-kilta vuodesta 2003 · Tämä seloste on laadittu hyvän tavan mukaisesti harrastusyhteisölle.
+      Kuvien ja tarinoiden tekijänoikeudet säilyvät tekijöillä, ja niitä ei käytetä muuhun kuin palvelun tarjoamiseen. <br>
+      Lähdekoodi:<a href="https://github.com/gittjar/ka-project" class="text-dgreen-400 hover:text-dgreen-300 underline underline-offset-2">https://github.com/gittjar/ka-project</a>
     </div>
 
   </div>

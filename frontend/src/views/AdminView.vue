@@ -1145,17 +1145,25 @@ onMounted(() => { loadMembers(); api.get('/applications/pending-count').then(r =
       <div v-else class="flex flex-col gap-1.5">
         <div v-for="inv in invites" :key="inv._id"
           class="bg-gray-950 border rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
-          :class="inv.usedBy ? 'border-gray-800/40 opacity-60' : 'border-gray-800'">
-          <code class="text-sm text-dgreen-300 font-mono flex-1">{{ inv.code }}</code>
-          <button v-if="!inv.usedBy" @click="copyCode(inv.code)"
+          :class="inv.usedBy
+            ? 'border-gray-800/40 opacity-60'
+            : new Date(inv.expiresAt) < new Date()
+              ? 'border-red-900/40 opacity-50'
+              : 'border-gray-800'">
+          <code class="text-sm font-mono flex-1"
+            :class="inv.usedBy ? 'text-gray-600' : new Date(inv.expiresAt) < new Date() ? 'text-red-900' : 'text-dgreen-300'">
+            {{ inv.code }}
+          </code>
+          <button v-if="!inv.usedBy && new Date(inv.expiresAt) >= new Date()" @click="copyCode(inv.code)"
             class="flex items-center gap-1 text-xs text-gray-600 hover:text-dgreen-400
                    transition-colors border-0 bg-transparent">
             <Check v-if="copiedCode === inv.code" class="w-3.5 h-3.5 text-dgreen-400" />
             <Copy v-else class="w-3.5 h-3.5" />
           </button>
           <span v-if="inv.usedBy" class="text-xs text-gray-600">käytetty</span>
-          <span class="text-xs text-gray-700">
-            Vanhenee {{ fmtDate(inv.expiresAt) }}
+          <span v-else-if="new Date(inv.expiresAt) < new Date()" class="text-xs text-red-800">vanhentunut</span>
+          <span class="text-xs" :class="new Date(inv.expiresAt) < new Date() ? 'text-red-900/70' : 'text-gray-700'">
+            {{ new Date(inv.expiresAt) < new Date() ? 'Vanheni' : 'Vanhenee' }} {{ fmtDate(inv.expiresAt) }}
           </span>
         </div>
       </div>
