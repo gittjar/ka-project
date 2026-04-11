@@ -136,14 +136,30 @@ function onTouchEnd(e: TouchEvent) {
   }
 }
 
+// ── Storage badge ─────────────────────────────────────────────────────
+
+const blobBytes = ref<number | null>(null);
+const imageCount = ref<number | null>(null);
+const videoCount = ref<number | null>(null);
+function fmtBytes(b: number): string {
+  if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
+  if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
+  return (b / 1e3).toFixed(0) + ' KB';
+}
+
 onMounted(async () => {
   await loadCarousel();
   startAuto();
-  // Jos ensimmäinen slide on video, käynnistä se
   const first = carouselItems.value[0];
   if (first?.mediaType === 'video') {
     nextTick(() => playVideoAt(0));
   }
+  // Fetch public storage size + media counts
+  api.get('/images/storage/public').then(r => {
+    blobBytes.value = r.data.used;
+    imageCount.value = r.data.imageCount ?? null;
+    videoCount.value = r.data.videoCount ?? null;
+  }).catch(() => {});
 });
 onUnmounted(stopAuto);
 </script>
@@ -192,6 +208,47 @@ onUnmounted(stopAuto);
                   bg-dgreen-900/25 blur-3xl rounded-full"></div>
     </div>
 
+    <!-- Mediabadget — hero top-left -->
+    <div class="absolute top-3 left-3 z-20 flex flex-col items-start gap-1 pointer-events-none">
+      <!-- Tiedostokoko -->
+      <div v-if="blobBytes !== null"
+        class="flex items-center gap-1.5 px-2.5 py-[3px] rounded-full
+               bg-white/5 backdrop-blur-sm border border-white/8 text-white/35
+               text-[10px] tracking-wide">
+        <svg class="w-2.5 h-2.5 shrink-0 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/>
+          <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+          <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+        </svg>
+        Känniääliödata {{ fmtBytes(blobBytes) }}
+      </div>
+      <!-- Jaettu badge: kuvat + videot -->
+      <div v-if="imageCount !== null && videoCount !== null"
+        class="flex items-stretch rounded-full overflow-hidden
+               bg-white/5 backdrop-blur-sm border border-white/8
+               text-[10px] tracking-wide">
+        <!-- kuvat-puoli -->
+        <div class="flex items-center gap-1 px-2.5 py-[3px] text-white/40">
+          <svg class="w-2.5 h-2.5 shrink-0 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          {{ imageCount }}
+        </div>
+        <!-- divider -->
+        <div class="w-px bg-white/10 self-stretch"></div>
+        <!-- videot-puoli -->
+        <div class="flex items-center gap-1 px-2.5 py-[3px] text-white/40">
+          <svg class="w-2.5 h-2.5 shrink-0 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="23 7 16 12 23 17 23 7"/>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
+          {{ videoCount }}
+        </div>
+      </div>
+    </div>
+
     <!-- Sisältö -->
     <div class="relative z-10 px-4 sm:px-8 lg:px-12 pt-20 pb-16 text-center flex-1 flex flex-col items-center justify-center">
       <div class="inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full
@@ -207,12 +264,12 @@ onUnmounted(stopAuto);
 
       <!-- Lyhyt teksti mobiilissa, pidempi isommilla näytöillä -->
       <p class="sm:hidden text-gray-400 text-sm mb-5 max-w-[280px] leading-relaxed drop-shadow">
-        BatMUD-pelaajien yhteisö vuodesta 2003.
+        BatMUD-pelaajien yhteisö vuodesta 2003. 
       </p>
       <div class="hidden sm:block rounded-2xl border border-dpurple-800/40 bg-black/30 backdrop-blur-sm
                   px-6 py-4 max-w-xl mx-auto shadow-lg mb-2">
         <p class="text-gray-300 text-lg sm:text-xl leading-relaxed drop-shadow">
-          BatMUD-pelaajien yhteisö, joka on toiminut jo vuodesta 2003. Päivän polttavat keskustelut käydään BatMUD:in puolella, mutta täällä voit tutustua jäseniin, selailla kuvia ja tarinoita sekä hakea mukaan!
+          BatMUD-pelaajien yhteisö (pelin paras), joka on toiminut jo vuodesta 2003. Päivän polttavat keskustelut käydään BatMUD:in puolella, mutta täällä voit tutustua jäseniin, selailla kuvia ja tarinoita sekä hakea mukaan!
         </p>
       </div>
 

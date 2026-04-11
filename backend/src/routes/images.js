@@ -259,14 +259,28 @@ router.delete('/folders/:id', authMiddleware, async (req, res) => {
 
 // â”€â”€ TALLENNUSTILA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// GET /api/images/storage  â€” vain admin
+// GET /api/images/storage  — vain admin
 router.get('/storage', authMiddleware, async (req, res) => {
   try {
     if (req.role !== 'admin') return res.status(403).json({ message: 'Admin-oikeus vaaditaan' });
     const result = await GalleryImage.aggregate([{ $group: { _id: null, total: { $sum: '$fileSize' } } }]);
     res.json({ used: result[0]?.total || 0, max: MAX_BYTES });
   } catch (err) {
-    res.status(500).json({ message: 'Tilakysely epÃ¤onnistui' });
+    res.status(500).json({ message: 'Tilakysely epäonnistui' });
+  }
+});
+
+// GET /api/images/storage/public  — julkinen, palauttaa kokonaiskoko + mediamäärät
+router.get('/storage/public', async (_req, res) => {
+  try {
+    const [sizeResult, imageCount, videoCount] = await Promise.all([
+      GalleryImage.aggregate([{ $group: { _id: null, total: { $sum: '$fileSize' } } }]),
+      GalleryImage.countDocuments({ mediaType: 'image' }),
+      GalleryImage.countDocuments({ mediaType: 'video' }),
+    ]);
+    res.json({ used: sizeResult[0]?.total || 0, imageCount, videoCount });
+  } catch (err) {
+    res.status(500).json({ message: 'Tilakysely epäonnistui' });
   }
 });
 
