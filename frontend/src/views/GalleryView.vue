@@ -89,6 +89,12 @@ const showUploadDone = ref(false);
 const uploadDoneTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const isUploading = computed(() => uploadTasks.value.some(t => t.status === 'uploading' || t.status === 'pending'));
 
+// Image fade-in tracking
+const loadedImages = ref(new Set<string>());
+function onImageLoaded(id: string) {
+  loadedImages.value = new Set([...loadedImages.value, id]);
+}
+
 // Lightbox
 const lightboxItem = ref<MediaItem | null>(null);
 const lightboxIdx = ref(0);
@@ -293,6 +299,7 @@ async function copyLink(item: MediaItem) {
 
 async function loadFolder(folderId: string | null) {
   loading.value = true;
+  loadedImages.value = new Set();
   loadError.value = '';
   selectedIds.value = new Set();
   userSortMode.value = 'default';
@@ -329,6 +336,7 @@ async function navigateTo(idx: number) {
 
 async function openCarouselView() {
   loading.value = true;
+  loadedImages.value = new Set();
   loadError.value = '';
   selectedIds.value = new Set();
   try {
@@ -1297,8 +1305,16 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- ── Skeleton grid (latautuu) ── -->
+      <div v-if="loading && currentFolderId"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div v-for="n in 12" :key="n"
+          class="aspect-square rounded-2xl bg-gray-900/70 border border-gray-800/20"
+          style="background: linear-gradient(110deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.4s infinite linear;" />
+      </div>
+
       <!-- ── Tyhjä tila ── -->
-      <div v-if="!folders.length && !mediaItems.length"
+      <div v-if="!loading && !folders.length && !mediaItems.length"
         class="text-center py-20 text-gray-700">
         <ImageOff class="w-10 h-10 mx-auto mb-3 opacity-30" />
         <p class="text-sm">Ei sisältöä vielä.</p>
@@ -1338,9 +1354,15 @@ onUnmounted(() => {
             @click="auth.isAdmin && !inCarouselView && selectedIds.size > 0 ? toggleSelect(slot.item._id) : openLightbox(slot.origIdx)">
 
           <!-- Kuva -->
+          <!-- Shimmer placeholder kunnes kuva on ladattu -->
+          <div v-if="slot.item.mediaType === 'image' && !loadedImages.has(slot.item._id)"
+            class="absolute inset-0 z-[1] rounded-2xl"
+            style="background: linear-gradient(110deg, #0f0f0f 25%, #1c1c1c 50%, #0f0f0f 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.4s infinite linear;" />
           <img v-if="slot.item.mediaType === 'image'" :src="imgUrl(slot.item)" :alt="slot.item.caption || slot.item.blobName"
             crossorigin="anonymous"
-            class="w-full block object-cover aspect-square transition-transform duration-300 group-hover:scale-[1.02]" />
+            class="w-full block object-cover aspect-square transition-all duration-500 group-hover:scale-[1.02]"
+            :class="loadedImages.has(slot.item._id) ? 'opacity-100' : 'opacity-0'"
+            @load="onImageLoaded(slot.item._id)" />
 
           <!-- Video thumbnail -->
           <template v-else>
@@ -2049,6 +2071,11 @@ onUnmounted(() => {
 .slide-up-enter-from, .slide-up-leave-to {
   opacity: 0;
   transform: translateY(1.5rem);
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 </style>
 

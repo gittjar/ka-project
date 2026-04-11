@@ -141,6 +141,7 @@ function onTouchEnd(e: TouchEvent) {
 const blobBytes = ref<number | null>(null);
 const imageCount = ref<number | null>(null);
 const videoCount = ref<number | null>(null);
+const memberCount = ref<number | null>(null);
 function fmtBytes(b: number): string {
   if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
   if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
@@ -160,6 +161,8 @@ onMounted(async () => {
     imageCount.value = r.data.imageCount ?? null;
     videoCount.value = r.data.videoCount ?? null;
   }).catch(() => {});
+  // Fetch member count
+  api.get('/members').then(r => { memberCount.value = Array.isArray(r.data) ? r.data.length : null; }).catch(() => {});
 });
 onUnmounted(stopAuto);
 </script>
@@ -247,6 +250,16 @@ onUnmounted(stopAuto);
           {{ videoCount }}
         </div>
       </div>
+    </div>
+
+    <!-- Ghost member count — hero top-right -->
+    <div v-if="memberCount !== null"
+      class="absolute top-0 right-0 z-10 flex flex-col items-end pr-5 pt-4 pointer-events-none select-none">
+      <span class="text-[7rem] sm:text-[10rem] font-black leading-none text-white/[0.07] tracking-tighter"
+            style="-webkit-text-stroke: 1px rgba(20, 83, 45, 0.5);"><!-- dgreen-900 ~50% -->
+        {{ memberCount }}
+      </span>
+      <span class="text-xs tracking-[0.25em] uppercase text-white/25 -mt-3 mr-0.5">jäsentä</span>
     </div>
 
     <!-- Sisältö -->

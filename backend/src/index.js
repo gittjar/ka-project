@@ -80,3 +80,19 @@ mongoose
     console.error('✗ MongoDB-yhteys epäonnistui:', err.message);
     process.exit(1);
   });
+
+// Tilapäiset TLS/verkkovirheet (esim. Azure Blob RetriableReadableStream)
+// eivät saa kaataa koko prosessia — lokitetaan varoituksena
+process.on('uncaughtException', (err) => {
+  if (err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || err.code === 'EPIPE') {
+    console.warn('⚠ Tilapäinen verkkokatko (ohitetaan):', err.message);
+    return;
+  }
+  console.error('✗ Käsittelemätön poikkeus:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  console.warn('⚠ Käsittelemätön promise-hylkäys:', msg);
+});
