@@ -112,6 +112,7 @@ const lightboxIdx = ref(0);
 const mediaLoading = ref(false);
 const mediaLoadMs = ref<number | null>(null);
 const loadingElapsed = ref(0);
+const videoBufferPct = ref<number | null>(null);
 let _mediaLoadStart = 0;
 let _loadingTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -133,6 +134,7 @@ function startMediaLoad() {
   mediaLoading.value = true;
   mediaLoadMs.value = null;
   loadingElapsed.value = 0;
+  videoBufferPct.value = null;
   thirstyMsg3.value = '';
   thirstyMsg6.value = '';
   _mediaLoadStart = performance.now();
@@ -148,7 +150,15 @@ function startMediaLoad() {
 function onMediaLoaded() {
   mediaLoadMs.value = Math.round(performance.now() - _mediaLoadStart);
   mediaLoading.value = false;
+  videoBufferPct.value = null;
   if (_loadingTimer) { clearInterval(_loadingTimer); _loadingTimer = null; }
+}
+
+function onVideoProgress(e: Event) {
+  const v = e.target as HTMLVideoElement;
+  if (v.buffered.length > 0 && v.duration > 0) {
+    videoBufferPct.value = Math.round((v.buffered.end(v.buffered.length - 1) / v.duration) * 100);
+  }
 }
 
 // Swipe (mobile lightbox)
@@ -1569,6 +1579,21 @@ onUnmounted(() => {
             <Transition name="fade">
               <p v-if="thirstyMsg6" class="text-center text-[11px] text-dgreen-400/70 max-w-[200px] leading-relaxed italic">{{ thirstyMsg6 }}</p>
             </Transition>
+            <!-- Video latauspalkki: ilmestyy 10s jälkeen -->
+            <Transition name="fade">
+              <div v-if="loadingElapsed >= 10 && lightboxItem.mediaType === 'video'"
+                class="flex flex-col items-center gap-1.5 w-48">
+                <div class="w-full h-1 rounded-full bg-white/10 overflow-hidden">
+                  <div class="h-full rounded-full bg-dgreen-500 transition-all duration-500"
+                    :style="{ width: videoBufferPct !== null ? videoBufferPct + '%' : '0%',
+                              animation: videoBufferPct === null ? 'skeleton-shimmer 1.4s infinite linear' : 'none',
+                              background: videoBufferPct === null ? 'linear-gradient(90deg,#14532d,#16a34a,#14532d)' : '' }" />
+                </div>
+                <span class="text-[10px] text-white/30 tabular-nums">
+                  {{ videoBufferPct !== null ? videoBufferPct + ' %' : 'Puskuroidaan…' }}
+                </span>
+              </div>
+            </Transition>
           </div>
         </Transition>
         <img v-if="lightboxItem.mediaType === 'image'" :src="imgUrl(lightboxItem)"
@@ -1579,6 +1604,7 @@ onUnmounted(() => {
           :class="mediaLoading ? 'opacity-0' : 'opacity-100'" />
         <video v-else :src="imgUrl(lightboxItem)" controls autoplay crossorigin="anonymous"
           @canplay.once="onMediaLoaded"
+          @progress="onVideoProgress"
           class="w-full sm:max-h-[92vh] sm:max-w-full rounded-xl shadow-2xl max-h-[55vh] transition-opacity duration-300"
           :class="mediaLoading ? 'opacity-0' : 'opacity-100'" />
       </div>
