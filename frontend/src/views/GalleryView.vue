@@ -94,6 +94,17 @@ const loadedImages = ref(new Set<string>());
 function onImageLoaded(id: string) {
   loadedImages.value = new Set([...loadedImages.value, id]);
 }
+// 0–1: kuinka suuri osuus kuvista on ladattu selaimeen
+const folderLoadProgress = computed(() => {
+  const images = mediaItems.value.filter(m => m.mediaType === 'image');
+  if (!images.length) return 1;
+  return Math.min(1, loadedImages.value.size / images.length);
+});
+// Lasi näkyy kunnes kaikki ladattu tai API vielä lataa
+const showFolderGlass = computed(() =>
+  (loading.value && currentFolderId.value) ||
+  (!loading.value && folderLoadProgress.value < 1 && mediaItems.value.length > 0)
+);
 
 // Lightbox
 const lightboxItem = ref<MediaItem | null>(null);
@@ -1306,12 +1317,61 @@ onUnmounted(() => {
       </div>
 
       <!-- ── Skeleton grid (latautuu) ── -->
-      <div v-if="loading && currentFolderId"
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        <div v-for="n in 12" :key="n"
-          class="aspect-square rounded-2xl bg-gray-900/70 border border-gray-800/20"
-          style="background: linear-gradient(110deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.4s infinite linear;" />
+      <div v-if="loading && currentFolderId" class="relative">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <div v-for="n in 12" :key="n"
+            class="aspect-square rounded-2xl bg-gray-900/70 border border-gray-800/20"
+            style="background: linear-gradient(110deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.4s infinite linear;" />
+        </div>
       </div>
+
+      <!-- ── Folder loading glass ── -->
+      <Transition name="fade">
+        <div v-if="showFolderGlass"
+          class="fixed inset-0 z-30 flex flex-col items-center justify-center pointer-events-none gap-3">
+          <!-- Kahdeksankulmio + lasi -->
+          <div class="relative flex items-center justify-center w-36 h-36">
+            <!-- Pyörivä oktagonitausta -->
+            <svg class="absolute inset-0 w-full h-full" viewBox="0 0 100 100" fill="none"
+              style="animation: octagon-spin 2s linear infinite;">
+              <polygon
+                points="30,2 70,2 98,30 98,70 70,98 30,98 2,70 2,30"
+                fill="rgba(0,0,0,0.32)"
+                stroke="rgba(134,168,140,0.2)"
+                stroke-width="1"
+                stroke-linejoin="round" />
+            </svg>
+            <!-- Lasi -->
+            <svg width="52" height="72" viewBox="0 0 44 60" fill="none" xmlns="http://www.w3.org/2000/svg" class="relative z-10">
+              <defs>
+                <clipPath id="folder-glass-clip">
+                  <polygon points="6,4 38,4 34,56 10,56" />
+                </clipPath>
+              </defs>
+              <g clip-path="url(#folder-glass-clip)">
+                <rect x="0" y="0" width="44" height="60" fill="#14532d" opacity="0.2" />
+                <rect
+                  x="0" width="44" fill="#16a34a" opacity="0.7"
+                  :y="4 + (1 - folderLoadProgress) * 52"
+                  :height="folderLoadProgress * 52" />
+                <circle cx="16" cy="40" r="1.8" fill="#4ade80" opacity="0.5">
+                  <animate attributeName="cy" values="54;10" dur="2.1s" repeatCount="indefinite" begin="0.3s" />
+                  <animate attributeName="opacity" values="0.5;0" dur="2.1s" repeatCount="indefinite" begin="0.3s" />
+                </circle>
+                <circle cx="26" cy="45" r="1.2" fill="#4ade80" opacity="0.4">
+                  <animate attributeName="cy" values="54;15" dur="1.7s" repeatCount="indefinite" begin="0.9s" />
+                  <animate attributeName="opacity" values="0.4;0" dur="1.7s" repeatCount="indefinite" begin="0.9s" />
+                </circle>
+              </g>
+              <polygon points="6,4 38,4 34,56 10,56" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linejoin="round" />
+              <line x1="6" y1="4" x2="38" y2="4" stroke="rgba(255,255,255,0.28)" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </div>
+          <p class="text-[11px] text-white/30 tracking-wide">
+            {{ loading ? 'Ladataan…' : `${loadedImages.size} / ${mediaItems.filter(m => m.mediaType === 'image').length}` }}
+          </p>
+        </div>
+      </Transition>
 
       <!-- ── Tyhjä tila ── -->
       <div v-if="!loading && !folders.length && !mediaItems.length"
@@ -2076,6 +2136,11 @@ onUnmounted(() => {
 @keyframes skeleton-shimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+@keyframes octagon-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 </style>
 
