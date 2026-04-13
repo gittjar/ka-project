@@ -29,7 +29,11 @@ app.use(cors({
     ? process.env.FRONTEND_URL.split(',').map(s => s.trim())
     : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
 }));
-app.use(helmet());
+app.use(helmet({
+  // Salli Google Maps iframe frontendissä
+  contentSecurityPolicy: false,
+  frameguard: false,
+}));
 app.use(express.json({ limit: '500kb' }));
 
 app.use('/api/auth', authRoutes);
@@ -44,6 +48,11 @@ app.use('/api/guides', guidesRoutes);
 app.use('/api/applications', applicationRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+// Julkinen config — ei salaisia arvoja
+app.get('/api/config', (_req, res) => {
+  res.json({ googleMapsKey: process.env.GOOGLEMAP_API_KEY || null });
+});
 
 // Global error handler — ei vuoda sisäisiä tietoja tuotannossa
 app.use((err, _req, res, _next) => {

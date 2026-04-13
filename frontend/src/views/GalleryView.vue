@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   Upload, Trash2, X, ImageOff, AlertTriangle,
@@ -178,6 +178,23 @@ function onSwipeEnd(e: TouchEvent) {
 
 // Caption editing (in lightbox)
 const editingCaption = ref(false);
+
+// ── Minimap (Google Maps Embed) ───────────────────────────────────────────────
+const mapsKey = ref<string | null>(null);
+const showMap = ref(false);
+
+function mapEmbedUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/embed/v1/place?key=${mapsKey.value}&q=${lat},${lng}&zoom=14`;
+}
+
+function toggleMap() {
+  showMap.value = !showMap.value;
+}
+
+// Sulje kartta kun lightbox sulkeutuu tai koordinaatit poistuvat
+watch(lightboxItem, (item) => {
+  if (!item || !item.exif?.latitude) showMap.value = false;
+});
 const captionDraft = ref('');
 const captionSaving = ref(false);
 const captionInputRef = ref<HTMLTextAreaElement | null>(null);
@@ -816,6 +833,9 @@ async function loadStorage() {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
+  // Hae Google Maps -avain backendiltä
+  api.get('/config').then(r => { mapsKey.value = r.data.googleMapsKey || null; }).catch(() => {});
+
   window.addEventListener('keydown', onKeydown);
 
   // Syvälinkki: /jaa/:token navigoi tähän ?folder=&img= jälkeen (SharedView)
@@ -1808,12 +1828,38 @@ onUnmounted(() => {
             <Clock class="w-3.5 h-3.5 text-gray-600 shrink-0" />
             <span class="text-xs text-gray-400">{{ new Date(lightboxItem.exif.dateTaken!).toLocaleString('fi-FI', { dateStyle:'medium', timeStyle:'short' }) }}</span>
           </div>
-          <div v-if="lightboxItem.exif.latitude" class="flex items-center gap-2">
-            <MapPin class="w-3.5 h-3.5 text-gray-600 shrink-0" />
-            <a :href="`https://maps.google.com/?q=${lightboxItem.exif.latitude},${lightboxItem.exif.longitude}`"
-              target="_blank" rel="noopener" class="text-xs text-dpurple-400 hover:text-dpurple-300">
-              {{ lightboxItem.exif.latitude!.toFixed(5) }}, {{ lightboxItem.exif.longitude!.toFixed(5) }}
-            </a>
+          <div v-if="lightboxItem.exif.latitude" class="flex flex-col gap-1.5">
+            <div class="flex items-center gap-2">
+              <MapPin class="w-3.5 h-3.5 text-gray-600 shrink-0" />
+              <a :href="`https://maps.google.com/?q=${lightboxItem.exif.latitude},${lightboxItem.exif.longitude}`"
+                target="_blank" rel="noopener" class="text-xs text-dpurple-400 hover:text-dpurple-300 flex-1">
+                {{ lightboxItem.exif.latitude!.toFixed(5) }}, {{ lightboxItem.exif.longitude!.toFixed(5) }}
+              </a>
+              <button @click="toggleMap"
+                class="text-[10px] px-1.5 py-0.5 rounded border transition-colors"
+                :class="showMap
+                  ? 'border-dgreen-700 text-dgreen-400 bg-dgreen-950/60'
+                  : 'border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'">
+                {{ showMap ? 'Sulje' : 'Kartta' }}
+              </button>
+            </div>
+            <!-- Minimap -->
+            <Transition name="slide-up">
+              <div v-if="showMap && mapsKey"
+                class="w-full rounded-xl overflow-hidden border border-gray-800/60"
+                style="height: 200px;">
+                <iframe
+                  :src="mapEmbedUrl(lightboxItem.exif.latitude!, lightboxItem.exif.longitude!)"
+                  width="100%" height="200" style="border:0; display:block;"
+                  allowfullscreen loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade" />
+              </div>
+              <div v-else-if="showMap && !mapsKey"
+                class="w-full rounded-xl border border-gray-800/60 flex items-center justify-center"
+                style="height: 80px;">
+                <span class="text-xs text-gray-600">Kartta ei saatavilla</span>
+              </div>
+            </Transition>
           </div>
         </div>
 
@@ -2168,5 +2214,7 @@ onUnmounted(() => {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* Leaflet + Tailwind preflight fix — poistettu, ei enää tarvita */
 </style>
 
