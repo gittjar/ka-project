@@ -183,17 +183,119 @@ const editingCaption = ref(false);
 const mapsKey = ref<string | null>(null);
 const showMap = ref(false);
 
-function mapEmbedUrl(lat: number, lng: number): string {
-  return `https://www.google.com/maps/embed/v1/place?key=${mapsKey.value}&q=${lat},${lng}&zoom=14`;
+// Reverse geocoding
+const placeName = ref<string | null>(null);
+const _placeCache = new Map<string, string>();
+
+async function fetchPlaceName(lat: number, lng: number) {
+  if (!mapsKey.value) return;
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (_placeCache.has(key)) { placeName.value = _placeCache.get(key)!; return; }
+  try {
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${mapsKey.value}&language=fi&result_type=locality%7Cadministrative_area_level_2`
+    );
+    const json = await res.json();
+    if (json.status === 'OK' && json.results.length > 0) {
+      const comps = json.results[0].address_components as Array<{ types: string[]; long_name: string }>;
+      const locality = comps.find(c => c.types.includes('locality'))?.long_name;
+      const region   = comps.find(c => c.types.includes('administrative_area_level_1'))?.long_name;
+      const country  = comps.find(c => c.types.includes('country'))?.long_name;
+      const name = [locality || region, country].filter(Boolean).join(', ') || json.results[0].formatted_address;
+      _placeCache.set(key, name);
+      placeName.value = name;
+    }
+  } catch { /* ignore */ }
 }
+const mapDivRef = ref<HTMLElement | null>(null);
+let _gmap: any = null;
+let _gmapMarker: any = null;
+
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#1a1a1a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#6b6b6b' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a1a' }] },
+  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2d2d2d' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3c3c3c' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#555' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a0a0a' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#2a2a2a' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#2a2a2a' }] },
+  { featureType: 'administrative', elementType: 'labels.text.fill', stylers: [{ color: '#444' }] },
+];
+
+function loadGoogleMapsScript(key: string): Promise<void> {
+  if ((window as any).google?.maps) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}`;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject();
+    document.head.appendChild(s);
+  });
+}
+
+async function initGoogleMap(el: HTMLElement, lat: number, lng: number) {
+  if (!mapsKey.value) return;
+  await loadGoogleMapsScript(mapsKey.value);
+  const G = (window as any).google.maps;
+  if (_gmap) {
+    _gmap.setCenter({ lat, lng });
+    _gmapMarker?.setPosition({ lat, lng });
+    return;
+  }
+  _gmap = new G.Map(el, {
+    center: { lat, lng },
+    zoom: 12,
+    styles: DARK_MAP_STYLE,
+    disableDefaultUI: true,
+    zoomControl: true,
+    zoomControlOptions: { position: G.ControlPosition.RIGHT_BOTTOM },
+  });
+  _gmapMarker = new G.Marker({
+    position: { lat, lng },
+    map: _gmap,
+    icon: {
+      path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+      fillColor: '#22c55e',
+      fillOpacity: 1,
+      strokeColor: '#14532d',
+      strokeWeight: 1.5,
+      scale: 1.8,
+      anchor: new G.Point(12, 22),
+    },
+  });
+}
+
+// Pääasiallinen trigger: kun div mountataan DOM:iin, alusta kartta
+watch(mapDivRef, async (el) => {
+  if (!el) return;
+  const lat = lightboxItem.value?.exif?.latitude;
+  const lng = lightboxItem.value?.exif?.longitude;
+  if (lat && lng) await initGoogleMap(el, lat, lng);
+});
 
 function toggleMap() {
   showMap.value = !showMap.value;
+  if (!showMap.value) {
+    _gmap = null;
+    _gmapMarker = null;
+  }
 }
 
-// Sulje kartta kun lightbox sulkeutuu tai koordinaatit poistuvat
+// Päivitä kartta kun kuva vaihtuu
 watch(lightboxItem, (item) => {
-  if (!item || !item.exif?.latitude) showMap.value = false;
+  placeName.value = null;
+  if (!item || !item.exif?.latitude) { showMap.value = false; _gmap = null; _gmapMarker = null; return; }
+  if (showMap.value && _gmap) {
+    _gmap.setCenter({ lat: item.exif.latitude, lng: item.exif.longitude });
+    _gmapMarker?.setPosition({ lat: item.exif.latitude, lng: item.exif.longitude });
+  }
+  fetchPlaceName(item.exif.latitude, item.exif.longitude!);
 });
 const captionDraft = ref('');
 const captionSaving = ref(false);
@@ -1616,6 +1718,17 @@ onUnmounted(() => {
             </Transition>
           </div>
         </Transition>
+        <!-- Place name pill — appears at top of image when GPS available -->
+        <Transition name="fade">
+          <div v-if="placeName && !mediaLoading"
+            class="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none
+                   flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap
+                   bg-black/55 backdrop-blur-sm border border-white/10 text-white/75 text-xs">
+            <MapPin class="w-3 h-3 text-dgreen-400 shrink-0" />
+            {{ placeName }}
+          </div>
+        </Transition>
+
         <img v-if="lightboxItem.mediaType === 'image'" :src="imgUrl(lightboxItem)"
           crossorigin="anonymous"
           @load="onMediaLoaded"
@@ -1843,16 +1956,15 @@ onUnmounted(() => {
                 {{ showMap ? 'Sulje' : 'Kartta' }}
               </button>
             </div>
+            <div v-if="placeName" class="flex items-center gap-2 pl-5">
+              <span class="text-xs text-dgreen-400/80">{{ placeName }}</span>
+            </div>
             <!-- Minimap -->
             <Transition name="slide-up">
               <div v-if="showMap && mapsKey"
                 class="w-full rounded-xl overflow-hidden border border-gray-800/60"
                 style="height: 200px;">
-                <iframe
-                  :src="mapEmbedUrl(lightboxItem.exif.latitude!, lightboxItem.exif.longitude!)"
-                  width="100%" height="200" style="border:0; display:block;"
-                  allowfullscreen loading="lazy"
-                  referrerpolicy="no-referrer-when-downgrade" />
+                <div ref="mapDivRef" style="width:100%;height:100%;" />
               </div>
               <div v-else-if="showMap && !mapsKey"
                 class="w-full rounded-xl border border-gray-800/60 flex items-center justify-center"

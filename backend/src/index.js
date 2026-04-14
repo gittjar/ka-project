@@ -93,8 +93,13 @@ mongoose
 // Tilapäiset TLS/verkkovirheet (esim. Azure Blob RetriableReadableStream)
 // eivät saa kaataa koko prosessia — lokitetaan varoituksena
 process.on('uncaughtException', (err) => {
-  if (err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || err.code === 'EPIPE') {
-    console.warn('⚠ Tilapäinen verkkokatko (ohitetaan):', err.message);
+  const isTransient =
+    err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || err.code === 'EPIPE' ||
+    err.name === 'AbortError' ||
+    err.message?.includes('operation was aborted') ||
+    err.message?.includes('RetriableReadableStream');
+  if (isTransient) {
+    console.warn('⚠ Tilapäinen Azure/verkkokatko (ohitetaan):', err.message);
     return;
   }
   console.error('✗ Käsittelemätön poikkeus:', err);
