@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2 } from 'lucide-vue-next';
+import { ref, computed, onMounted, watch } from 'vue';
+import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star } from 'lucide-vue-next';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
 
@@ -54,7 +54,10 @@ async function fetchDrinks() {
     loading.value = false;
   }
 }
-onMounted(fetchDrinks);
+onMounted(() => {
+  fetchDrinks();
+  api.get('/config').then(r => { mapsKey.value = r.data.googleMapsKey || null; }).catch(() => {});
+});
 
 function toggleExpand(id: string) {
   expandedId.value = expandedId.value === id ? null : id;
@@ -196,7 +199,7 @@ async function doDelete() {
   }
 }
 
-// â”€â”€ Computed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Computed ──────────────────────────────────────────────────────────────────
 const sorted = computed(() => [...drinks.value].sort((a, b) => a.name.localeCompare(b.name, 'fi')));
 
 function drinkMedia(d: Drink): { url: string; type: 'image' | 'video' } | null {
@@ -204,6 +207,229 @@ function drinkMedia(d: Drink): { url: string; type: 'image' | 'video' } | null {
   if (!url) return null;
   const type: 'image' | 'video' = d.mediaType === 'video' ? 'video' : 'image';
   return { url, type };
+}
+
+// ── Lähellä olevat paikat ────────────────────────────────────────────────────
+
+interface NearbyPlace {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  rating: number | null;
+  ratingCount: number;
+  open: boolean | null;
+  type: 'bar' | 'alko' | 'kauppa';
+}
+
+const nearbyPlaces = ref<NearbyPlace[]>([]);
+const nearbyLoading = ref(false);
+const nearbyError = ref('');
+const nearbyRadius = ref(1000);
+const userLat = ref<number | null>(null);
+const userLng = ref<number | null>(null);
+const locationAsked = ref(false);
+const activeFilter = ref<'kaikki' | 'bar' | 'alko' | 'kauppa'>('kaikki');
+const nearbyMapDiv = ref<HTMLElement | null>(null);
+const mapsKey = ref<string | null>(null);
+let _nearbyMap: any = null;
+let _nearbyMarkers: any[] = [];
+let _nearbyLines: any[] = [];
+let _userMarker: any = null;
+
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#1a1a1a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#6b6b6b' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a1a' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2d2d2d' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3c3c3c' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a0a0a' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+];
+
+const TYPE_COLORS: Record<string, string> = {
+  bar:    '#a855f7',
+  alko:   '#22c55e',
+  kauppa: '#f59e0b',
+};
+
+const filteredPlaces = computed(() =>
+  activeFilter.value === 'kaikki'
+    ? nearbyPlaces.value
+    : nearbyPlaces.value.filter(p => p.type === activeFilter.value)
+);
+
+function loadGoogleMapsScript(key: string): Promise<void> {
+  if ((window as any).google?.maps) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}`;
+    s.async = true; s.onload = () => resolve(); s.onerror = () => reject();
+    document.head.appendChild(s);
+  });
+}
+
+async function initNearbyMap(places: NearbyPlace[]) {
+  if (!mapsKey.value || !nearbyMapDiv.value || !userLat.value) return;
+  await loadGoogleMapsScript(mapsKey.value);
+  const G = (window as any).google.maps;
+  const userPos = { lat: userLat.value, lng: userLng.value! };
+
+  if (!_nearbyMap) {
+    _nearbyMap = new G.Map(nearbyMapDiv.value, {
+      center: userPos,
+      zoom: 14,
+      styles: DARK_MAP_STYLE,
+      disableDefaultUI: true,
+      zoomControl: true,
+      zoomControlOptions: { position: G.ControlPosition.RIGHT_BOTTOM },
+    });
+  }
+
+  // Sininen täplä — luodaan vain kerran, siirretään tarvittaessa
+  if (!_userMarker) {
+    _userMarker = new G.Marker({
+      position: userPos,
+      map: _nearbyMap,
+      icon: {
+        path: G.SymbolPath.CIRCLE,
+        scale: 9,
+        fillColor: '#3b82f6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5,
+      },
+      title: 'Sijaintisi',
+      zIndex: 100,
+    });
+  } else {
+    _userMarker.setPosition(userPos);
+  }
+
+  // Poista vanhat pinit ja viivat
+  _nearbyMarkers.forEach(m => m.setMap(null));
+  _nearbyLines.forEach(l => l.setMap(null));
+  _nearbyMarkers = [];
+  _nearbyLines = [];
+
+  // Laske fitBounds kaikista pisteistä
+  const bounds = new G.LatLngBounds();
+  bounds.extend(userPos);
+
+  places.forEach(p => {
+    const color = TYPE_COLORS[p.type] || '#888';
+    // Viiva käyttäjästä kohteeseen
+    const line = new G.Polyline({
+      path: [userPos, { lat: p.lat, lng: p.lng }],
+      geodesic: true,
+      strokeColor: color,
+      strokeOpacity: 0.35,
+      strokeWeight: 1.5,
+      map: _nearbyMap,
+    });
+    _nearbyLines.push(line);
+    // Pini
+    const marker = new G.Marker({
+      position: { lat: p.lat, lng: p.lng },
+      map: _nearbyMap,
+      title: p.name,
+      icon: {
+        path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+        fillColor: color, fillOpacity: 1, strokeColor: '#000', strokeWeight: 1,
+        scale: 1.6, anchor: new G.Point(12, 22),
+      },
+    });
+    _nearbyMarkers.push(marker);
+    bounds.extend({ lat: p.lat, lng: p.lng });
+  });
+
+  if (places.length > 0) {
+    _nearbyMap.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+  } else {
+    _nearbyMap.setCenter(userPos);
+    _nearbyMap.setZoom(14);
+  }
+}
+
+async function fetchNearby() {
+  if (!userLat.value) return;
+  nearbyLoading.value = true;
+  nearbyError.value = '';
+  try {
+    const { data } = await api.get<NearbyPlace[]>(
+      `/places/nearby?lat=${userLat.value}&lng=${userLng.value}&radius=${nearbyRadius.value}`
+    );
+    nearbyPlaces.value = data;
+    await initNearbyMap(data);
+  } catch (e: any) {
+    nearbyError.value = e.response?.data?.message || 'Haku epäonnistui';
+  } finally {
+    nearbyLoading.value = false;
+  }
+}
+
+function requestLocation() {
+  locationAsked.value = true;
+  nearbyLoading.value = true;
+  if (!navigator.geolocation) {
+    nearbyError.value = 'Selaimesi ei tue paikannusta';
+    nearbyLoading.value = false;
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      userLat.value = pos.coords.latitude;
+      userLng.value = pos.coords.longitude;
+      await fetchNearby();
+    },
+    (err) => {
+      const msgs: Record<number, string> = {
+        1: 'Lupa evätty — salli sijainti selaimen osoitepalkista 🔒',
+        2: 'Sijaintia ei löydetty (verkkovirhe tai GPS ei toimi)',
+        3: 'Aikakatkaisu — yritä uudelleen',
+      };
+      nearbyError.value = msgs[err.code] || `Virhe ${err.code}: ${err.message}`;
+      nearbyLoading.value = false;
+    },
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+  );
+}
+
+watch(nearbyMapDiv, async (el) => {
+  if (!el) {
+    // Div unmountattu — nollataan jotta seuraava mount luo kartan oikeaan containeriin
+    _nearbyMap = null;
+    _userMarker = null;
+    _nearbyMarkers = [];
+    _nearbyLines = [];
+    return;
+  }
+  if (userLat.value) await initNearbyMap(filteredPlaces.value);
+});
+
+watch(filteredPlaces, async places => {
+  if (_nearbyMap) await initNearbyMap(places);
+});
+
+function calcDist(lat: number, lng: number): number {
+  if (!userLat.value || !userLng.value) return 0;
+  const R = 6371000;
+  const dLat = (lat - userLat.value) * Math.PI / 180;
+  const dLng = (lng - userLng.value) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(userLat.value * Math.PI/180) * Math.cos(lat * Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function distanceM(lat: number, lng: number): string {
+  const d = calcDist(lat, lng);
+  if (!d) return '';
+  return d < 1000 ? Math.round(d) + ' m' : (d/1000).toFixed(1) + ' km';
+}
+
+function walkTime(lat: number, lng: number): string {
+  const d = calcDist(lat, lng);
+  if (!d) return '';
+  const mins = Math.round(d * 1.3 / 83.3); // ~5 km/h, 1.3× reittikerroin
+  return mins < 1 ? '< 1 min kävellen' : `~${mins} min kävellen`;
 }
 </script>
 
@@ -344,7 +570,126 @@ function drinkMedia(d: Drink): { url: string; type: 'image' | 'video' } | null {
     </div>
   </div>
 
-  <!-- â”€â”€ LISÃ„Ã„ DRINKKI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- ── LÄHIMMÄT PAIKAT ──────────────────────────────────────────────────────── -->
+  <div class="max-w-4xl mx-auto px-4 pb-16 mt-12">
+    <div class="border-t border-gray-800/60 pt-10">
+
+      <div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
+        <div>
+          <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+            <MapPin class="w-4 h-4 text-dgreen-400" />Lähimmät juomapaikat
+          </h2>
+          <p class="text-xs text-gray-600 mt-0.5">Baarit, alkot ja kaupat — sijaintiasi ei tallenneta</p>
+        </div>
+        <div v-if="userLat" class="flex items-center gap-2">
+          <select v-model="nearbyRadius" @change="fetchNearby"
+            class="px-2 py-1.5 rounded-lg text-xs bg-gray-900 border border-gray-700 text-gray-400 focus:outline-none">
+            <option :value="500">500 m</option>
+            <option :value="1000">1 km</option>
+            <option :value="2000">2 km</option>
+            <option :value="5000">5 km</option>
+          </select>
+          <button @click="fetchNearby" :disabled="nearbyLoading"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-gray-700
+                   text-gray-400 hover:text-white hover:border-gray-500 transition-all disabled:opacity-40 bg-transparent">
+            <Navigation class="w-3 h-3" />Päivitä
+          </button>
+        </div>
+      </div>
+
+      <!-- Sijaintipyyntö -->
+      <div v-if="!locationAsked"
+        class="flex flex-col items-center gap-4 py-12 rounded-2xl border border-gray-800/60 bg-gray-900/30">
+        <div class="w-12 h-12 rounded-2xl bg-dgreen-950/60 border border-dgreen-900/40 flex items-center justify-center">
+          <Navigation class="w-5 h-5 text-dgreen-400" />
+        </div>
+        <div class="text-center">
+          <p class="text-sm text-white font-medium mb-1">Näytä lähimmät juomapaikat</p>
+          <p class="text-xs text-gray-600">Selaimen sijantilupa tarvitaan — tietoa ei tallenneta</p>
+        </div>
+        <button @click="requestLocation"
+          class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border-0
+                 bg-dgreen-900/60 hover:bg-dgreen-800/60 text-dgreen-300 transition-all">
+          <MapPin class="w-4 h-4" />Käytä sijaintia
+        </button>
+      </div>
+
+      <!-- Lataus -->
+      <div v-else-if="nearbyLoading"
+        class="flex items-center justify-center gap-3 py-12 text-gray-600 text-sm">
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Haetaan lähellä olevia paikkoja...
+      </div>
+
+      <!-- Virhe -->
+      <div v-else-if="nearbyError" class="flex flex-col items-center gap-3 py-8">
+        <p class="text-red-400/80 text-sm text-center">{{ nearbyError }}</p>
+        <button @click="locationAsked = false; nearbyError = ''"
+          class="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white bg-transparent transition-all">
+          Yritä uudelleen
+        </button>
+      </div>
+
+      <!-- Tulokset -->
+      <div v-else-if="userLat">
+        <!-- Filtterit -->
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <button v-for="f in (['kaikki','bar','alko','kauppa'] as const)" :key="f"
+            @click="activeFilter = f"
+            class="px-3 py-1 rounded-full text-xs font-medium border transition-all"
+            :class="activeFilter === f
+              ? 'border-dgreen-700 bg-dgreen-950/60 text-dgreen-300'
+              : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 bg-transparent'">
+            {{ f === 'kaikki' ? `Kaikki (${nearbyPlaces.length})` : f === 'bar' ? '🍺 Baarit' : f === 'alko' ? '🍾 Alkot' : '🛒 Kaupat' }}
+          </button>
+        </div>
+
+        <!-- Kartta -->
+        <div v-if="mapsKey" class="w-full rounded-2xl overflow-hidden border border-gray-800/60 mb-4" style="height:380px">
+          <div ref="nearbyMapDiv" style="width:100%;height:100%" />
+        </div>
+
+        <!-- Lista -->
+        <div v-if="filteredPlaces.length" class="space-y-2">
+          <a v-for="p in filteredPlaces" :key="p.id"
+            :href="`https://maps.google.com/?q=${p.lat},${p.lng}`"
+            target="_blank" rel="noopener"
+            class="flex items-start gap-3 p-3 rounded-xl border border-gray-800/60 bg-gray-900/30
+                   hover:bg-gray-900/60 hover:border-gray-700 transition-all group">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+              :style="{ background: p.type === 'bar' ? 'rgba(168,85,247,0.15)' : p.type === 'alko' ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)' }">
+              <Beer v-if="p.type === 'bar'" class="w-4 h-4 text-purple-400" />
+              <GlassWater v-else-if="p.type === 'alko'" class="w-4 h-4 text-dgreen-400" />
+              <ShoppingCart v-else class="w-4 h-4 text-amber-400" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm text-white font-medium group-hover:text-dgreen-300 transition-colors">{{ p.name }}</span>
+                <span v-if="p.open === true" class="text-[10px] px-1.5 py-0.5 rounded-full bg-dgreen-950/60 border border-dgreen-900/40 text-dgreen-400">Auki</span>
+                <span v-else-if="p.open === false" class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-950/60 border border-red-900/40 text-red-400">Kiinni</span>
+              </div>
+              <p class="text-xs text-gray-600 truncate mt-0.5">{{ p.address }}</p>
+              <div class="flex items-center gap-3 mt-1">
+                <span v-if="p.rating" class="flex items-center gap-1 text-xs text-gray-500">
+                  <Star class="w-3 h-3 text-yellow-500/70" />{{ p.rating.toFixed(1) }}
+                  <span class="text-gray-700">({{ p.ratingCount }})</span>
+                </span>
+                <span class="text-xs text-gray-600">{{ distanceM(p.lat, p.lng) }}</span>
+                <span class="text-xs text-gray-700">{{ walkTime(p.lat, p.lng) }}</span>
+              </div>
+            </div>
+            <MapPin class="w-3.5 h-3.5 text-gray-700 group-hover:text-dgreen-500 shrink-0 mt-1 transition-colors" />
+          </a>
+        </div>
+        <p v-else class="text-center py-6 text-gray-700 text-sm">Ei paikkoja löydetty valitulla suodattimella</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LISÄÄ DRINKKI ──────────────────────────────────────────────────────────── -->
   <Teleport to="body">
     <div v-if="modalOpen"
       class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
