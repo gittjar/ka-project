@@ -284,6 +284,30 @@ router.get('/storage/public', async (_req, res) => {
   }
 });
 
+// GET /api/images/geocode?lat=X&lng=Y  — reverse geocoding proxy (no auth needed)
+router.get('/geocode', async (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lng = parseFloat(req.query.lng);
+  if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ message: 'Virheelliset koordinaatit' });
+  const key = process.env.GEOCODING_API_KEY || process.env.GOOGLEMAP_API_KEY;
+  if (!key) return res.status(503).json({ message: 'Kartta-avain puuttuu' });
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${key}&language=fi`;
+    const origin = process.env.FRONTEND_URL || 'https://ka-project.onrender.com';
+    const r = await fetch(url, { headers: { Referer: origin + '/', 'X-Referer': origin + '/' } });
+    const json = await r.json();
+    if (json.status !== 'OK' || !json.results?.length) return res.json({ placeName: null });
+    const comps = json.results[0].address_components;
+    const get = (...types) => comps.find(c => types.some(t => c.types.includes(t)))?.long_name;
+    const placeName =
+      [get('locality', 'administrative_area_level_3', 'sublocality'), get('country')]
+        .filter(Boolean).join(', ') || json.results[0].formatted_address;
+    res.json({ placeName });
+  } catch (err) {
+    res.status(502).json({ message: 'Geokoodaus epäonnistui' });
+  }
+});
+
 // â”€â”€ MEDIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // GET /api/images?folder=null|id  — kirjautunut käyttäjä

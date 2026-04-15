@@ -188,22 +188,13 @@ const placeName = ref<string | null>(null);
 const _placeCache = new Map<string, string>();
 
 async function fetchPlaceName(lat: number, lng: number) {
-  if (!mapsKey.value) return;
   const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
   if (_placeCache.has(key)) { placeName.value = _placeCache.get(key)!; return; }
   try {
-    const res = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${mapsKey.value}&language=fi&result_type=locality%7Cadministrative_area_level_2`
-    );
-    const json = await res.json();
-    if (json.status === 'OK' && json.results.length > 0) {
-      const comps = json.results[0].address_components as Array<{ types: string[]; long_name: string }>;
-      const locality = comps.find(c => c.types.includes('locality'))?.long_name;
-      const region   = comps.find(c => c.types.includes('administrative_area_level_1'))?.long_name;
-      const country  = comps.find(c => c.types.includes('country'))?.long_name;
-      const name = [locality || region, country].filter(Boolean).join(', ') || json.results[0].formatted_address;
-      _placeCache.set(key, name);
-      placeName.value = name;
+    const { data } = await api.get<{ placeName: string | null }>(`/images/geocode?lat=${lat}&lng=${lng}`);
+    if (data.placeName) {
+      _placeCache.set(key, data.placeName);
+      placeName.value = data.placeName;
     }
   } catch { /* ignore */ }
 }
@@ -1720,7 +1711,7 @@ onUnmounted(() => {
         </Transition>
         <!-- Place name pill — appears at top of image when GPS available -->
         <Transition name="fade">
-          <div v-if="placeName && !mediaLoading"
+          <div v-if="placeName"
             class="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none
                    flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap
                    bg-black/55 backdrop-blur-sm border border-white/10 text-white/75 text-xs">
