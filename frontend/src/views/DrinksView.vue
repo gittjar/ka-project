@@ -1,6 +1,7 @@
 ﻿<script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star } from 'lucide-vue-next';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star, Maximize2, Minimize2, LayoutGrid, Wine, UtensilsCrossed, Sandwich } from 'lucide-vue-next';
+import type { Component } from 'vue';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
 
@@ -181,7 +182,7 @@ async function submitEdit() {
   }
 }
 
-// â”€â”€ Delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Delete 
 function confirmDelete(d: Drink) {
   deleteTarget.value = d;
 }
@@ -233,6 +234,16 @@ const locationAsked = ref(false);
 const activeFilter = ref<'kaikki' | 'bar' | 'alko' | 'kauppa' | 'ravintola' | 'pikaruoka'>('kaikki');
 const nearbyMapDiv = ref<HTMLElement | null>(null);
 const mapsKey = ref<string | null>(null);
+const mapFullscreen = ref(false);
+
+async function toggleMapFullscreen() {
+  mapFullscreen.value = !mapFullscreen.value;
+  // Odotetaan DOM-päivitys → triggeröi kartan resize
+  await nextTick();
+  if (_nearbyMap) {
+    (window as any).google?.maps.event.trigger(_nearbyMap, 'resize');
+  }
+}
 let _nearbyMap: any = null;
 let _nearbyMarkers: any[] = [];
 let _nearbyLines: any[] = [];
@@ -256,6 +267,16 @@ const TYPE_COLORS: Record<string, string> = {
   ravintola: '#f97316',
   pikaruoka: '#ef4444',
 };
+
+type FilterKey = 'kaikki' | 'bar' | 'alko' | 'ravintola' | 'pikaruoka' | 'kauppa';
+const FILTER_CONFIG: { key: FilterKey; label: string; icon: Component; iconClass: string }[] = [
+  { key: 'kaikki',    label: 'Kaikki',       icon: LayoutGrid,      iconClass: 'text-gray-400' },
+  { key: 'bar',       label: 'Baarit',        icon: Beer,            iconClass: 'text-purple-400' },
+  { key: 'alko',      label: 'Alkot',         icon: Wine,            iconClass: 'text-dgreen-400' },
+  { key: 'ravintola', label: 'Ravintolat',    icon: UtensilsCrossed, iconClass: 'text-orange-400' },
+  { key: 'pikaruoka', label: 'Pikaruoka',     icon: Sandwich,        iconClass: 'text-red-400' },
+  { key: 'kauppa',    label: 'Kaupat',        icon: ShoppingCart,    iconClass: 'text-amber-400' },
+];
 
 const filteredPlaces = computed(() =>
   activeFilter.value === 'kaikki'
@@ -298,7 +319,7 @@ async function initNearbyMap(places: NearbyPlace[]) {
       icon: {
         path: G.SymbolPath.CIRCLE,
         scale: 9,
-        fillColor: '#3b82f6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5,
+        fillColor: 'darkgreen', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 1.25,
       },
       title: 'Sijaintisi',
       zIndex: 100,
@@ -579,7 +600,7 @@ function walkTime(lat: number, lng: number): string {
       <div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            <MapPin class="w-4 h-4 text-dgreen-400" />Lähimmät juomapaikat
+            <MapPin class="w-4 h-4 text-dgreen-400" />Lähimmät sijainnit, josta saa juomia
           </h2>
           <p class="text-xs text-gray-600 mt-0.5">Baarit, alkot ja kaupat — sijaintiasi ei tallenneta</p>
         </div>
@@ -639,26 +660,74 @@ function walkTime(lat: number, lng: number): string {
       <div v-else-if="userLat">
         <!-- Filtterit -->
         <div class="flex gap-2 mb-4 flex-wrap">
-          <button v-for="f in (['kaikki','bar','alko','ravintola','pikaruoka','kauppa'] as const)" :key="f"
-            @click="activeFilter = f"
-            class="px-3 py-1 rounded-full text-xs font-medium border transition-all"
-            :class="activeFilter === f
+          <button v-for="fc in FILTER_CONFIG" :key="fc.key"
+            @click="activeFilter = fc.key"
+            class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all"
+            :class="activeFilter === fc.key
               ? 'border-dgreen-700 bg-dgreen-950/60 text-dgreen-300'
               : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 bg-transparent'">
-            {{
-              f === 'kaikki'    ? `Kaikki (${nearbyPlaces.length})` :
-              f === 'bar'       ? `🍺 Baarit & yökerhot (${nearbyPlaces.filter(p=>p.type==='bar').length})` :
-              f === 'alko'      ? `🍾 Alkot (${nearbyPlaces.filter(p=>p.type==='alko').length})` :
-              f === 'ravintola' ? `🍽️ Ravintolat (${nearbyPlaces.filter(p=>p.type==='ravintola').length})` :
-              f === 'pikaruoka' ? `🌯 Pikaruoka (${nearbyPlaces.filter(p=>p.type==='pikaruoka').length})` :
-                                  `🛒 Kaupat (${nearbyPlaces.filter(p=>p.type==='kauppa').length})`
-            }}
+            <component :is="fc.icon" class="w-3 h-3" :class="activeFilter === fc.key ? 'text-dgreen-400' : fc.iconClass" />
+            {{ fc.label }}
+            <span class="opacity-60">({{ fc.key === 'kaikki' ? nearbyPlaces.length : nearbyPlaces.filter(p=>p.type===fc.key).length }})</span>
           </button>
         </div>
 
         <!-- Kartta -->
-        <div v-if="mapsKey" class="w-full rounded-2xl overflow-hidden border border-gray-800/60 mb-4" style="height:380px">
+        <div v-if="mapsKey"
+          :class="mapFullscreen
+            ? 'fixed inset-0 z-50 bg-black'
+            : 'relative w-full rounded-2xl overflow-hidden border border-gray-800/60 mb-4'"
+          :style="mapFullscreen ? {} : { height: '380px' }"
+        >
           <div ref="nearbyMapDiv" style="width:100%;height:100%" />
+
+          <!-- Fullscreen-palkki ylhäällä: filtterit + etäisyysvalitsin -->
+          <div v-if="mapFullscreen"
+            class="absolute top-0 left-0 right-0 z-10 px-3 pt-3 pb-3
+                   bg-gradient-to-b from-black/85 to-transparent pointer-events-none">
+            <!-- Filtterit -->
+            <div class="flex gap-2 flex-wrap pointer-events-auto mb-2">
+              <button v-for="fc in FILTER_CONFIG" :key="fc.key"
+                @click="activeFilter = fc.key"
+                class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border backdrop-blur-sm transition-all"
+                :class="activeFilter === fc.key
+                  ? 'border-dgreen-600 bg-dgreen-950/80 text-dgreen-300'
+                  : 'border-white/20 bg-black/50 text-gray-300 hover:bg-black/70 hover:border-white/40'">
+                <component :is="fc.icon" class="w-3 h-3" :class="activeFilter === fc.key ? 'text-dgreen-400' : fc.iconClass" />
+                {{ fc.label }}
+                <span class="opacity-60">({{ fc.key === 'kaikki' ? nearbyPlaces.length : nearbyPlaces.filter(p=>p.type===fc.key).length }})</span>
+              </button>
+            </div>
+            <!-- Etäisyysvalitsin + Päivitä -->
+            <div class="flex items-center gap-2 pointer-events-auto">
+              <select v-model="nearbyRadius" @change="fetchNearby"
+                class="px-2 py-1 rounded-lg text-xs bg-black/60 backdrop-blur-sm border border-white/20
+                       text-gray-300 focus:outline-none">
+                <option :value="500">500 m</option>
+                <option :value="1000">1 km</option>
+                <option :value="2000">2 km</option>
+                <option :value="5000">5 km</option>
+              </select>
+              <button @click="fetchNearby" :disabled="nearbyLoading"
+                class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border border-white/20
+                       bg-black/60 backdrop-blur-sm text-gray-300 hover:text-white hover:border-white/40
+                       transition-all disabled:opacity-40">
+                <Navigation class="w-3 h-3" />Päivitä
+              </button>
+            </div>
+          </div>
+
+          <!-- Toggle-painike -->
+          <button
+            @click="toggleMapFullscreen"
+            class="absolute top-2 right-2 z-20 w-9 h-9 flex items-center justify-center
+                   rounded-lg bg-black/70 backdrop-blur-sm border border-white/10
+                   text-white hover:bg-black/90 transition-colors"
+            :title="mapFullscreen ? 'Pienennä kartta' : 'Suurenna kartta'"
+          >
+            <Minimize2 v-if="mapFullscreen" class="w-4 h-4" />
+            <Maximize2 v-else class="w-4 h-4" />
+          </button>
         </div>
 
         <!-- Lista -->
@@ -671,9 +740,9 @@ function walkTime(lat: number, lng: number): string {
             <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
               :style="{ background: p.type === 'bar' ? 'rgba(168,85,247,0.15)' : p.type === 'alko' ? 'rgba(34,197,94,0.15)' : p.type === 'ravintola' ? 'rgba(249,115,22,0.15)' : p.type === 'pikaruoka' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)' }">
               <Beer v-if="p.type === 'bar'" class="w-4 h-4 text-purple-400" />
-              <GlassWater v-else-if="p.type === 'alko'" class="w-4 h-4 text-dgreen-400" />
-              <span v-else-if="p.type === 'ravintola'" class="text-sm">🍽️</span>
-              <span v-else-if="p.type === 'pikaruoka'" class="text-sm">🌯</span>
+              <Wine v-else-if="p.type === 'alko'" class="w-4 h-4 text-dgreen-400" />
+              <UtensilsCrossed v-else-if="p.type === 'ravintola'" class="w-4 h-4 text-orange-400" />
+              <Sandwich v-else-if="p.type === 'pikaruoka'" class="w-4 h-4 text-red-400" />
               <ShoppingCart v-else class="w-4 h-4 text-amber-400" />
             </div>
             <div class="flex-1 min-w-0">
