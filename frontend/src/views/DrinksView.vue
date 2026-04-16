@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star, Maximize2, Minimize2, LayoutGrid, Wine, UtensilsCrossed, Sandwich } from 'lucide-vue-next';
+import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star, Maximize2, Minimize2, LayoutGrid, Wine, UtensilsCrossed, Sandwich, SortAsc, Eye } from 'lucide-vue-next';
 import type { Component } from 'vue';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -221,6 +221,7 @@ interface NearbyPlace {
   rating: number | null;
   ratingCount: number;
   open: boolean | null;
+  closesAt: string | null;  // 'HH:MM' tai null
   type: 'bar' | 'alko' | 'kauppa' | 'ravintola' | 'pikaruoka';
 }
 
@@ -232,6 +233,8 @@ const userLat = ref<number | null>(null);
 const userLng = ref<number | null>(null);
 const locationAsked = ref(false);
 const activeFilter = ref<'kaikki' | 'bar' | 'alko' | 'kauppa' | 'ravintola' | 'pikaruoka'>('kaikki');
+const onlyOpen = ref(false);
+const sortBy = ref<'distance' | 'rating'>('distance');
 const nearbyMapDiv = ref<HTMLElement | null>(null);
 const mapsKey = ref<string | null>(null);
 const mapFullscreen = ref(false);
@@ -278,11 +281,18 @@ const FILTER_CONFIG: { key: FilterKey; label: string; icon: Component; iconClass
   { key: 'kauppa',    label: 'Kaupat',        icon: ShoppingCart,    iconClass: 'text-amber-400' },
 ];
 
-const filteredPlaces = computed(() =>
-  activeFilter.value === 'kaikki'
+const filteredPlaces = computed(() => {
+  let list = activeFilter.value === 'kaikki'
     ? nearbyPlaces.value
-    : nearbyPlaces.value.filter(p => p.type === activeFilter.value)
-);
+    : nearbyPlaces.value.filter(p => p.type === activeFilter.value);
+  if (onlyOpen.value) list = list.filter(p => p.open === true);
+  if (sortBy.value === 'rating') {
+    list = [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  } else {
+    list = [...list].sort((a, b) => calcDist(a.lat, a.lng) - calcDist(b.lat, b.lng));
+  }
+  return list;
+});
 
 function loadGoogleMapsScript(key: string): Promise<void> {
   if ((window as any).google?.maps) return Promise.resolve();
@@ -453,6 +463,19 @@ function walkTime(lat: number, lng: number): string {
   if (!d) return '';
   const mins = Math.round(d * 1.3 / 83.3); // ~5 km/h, 1.3× reittikerroin
   return mins < 1 ? '< 1 min kävellen' : `~${mins} min kävellen`;
+}
+
+// Sulkeutuuko 60 min sisällä?
+function closingSoon(closesAt: string | null): boolean {
+  if (!closesAt) return false;
+  const parts = closesAt.split(':');
+  const h = Number(parts[0] ?? 0);
+  const m = Number(parts[1] ?? 0);
+  const now = new Date();
+  const closeMin = h * 60 + m;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const diff = closeMin - nowMin;
+  return diff > 0 && diff <= 60;
 }
 </script>
 
@@ -658,18 +681,39 @@ function walkTime(lat: number, lng: number): string {
 
       <!-- Tulokset -->
       <div v-else-if="userLat">
-        <!-- Filtterit -->
-        <div class="flex gap-2 mb-4 flex-wrap">
-          <button v-for="fc in FILTER_CONFIG" :key="fc.key"
-            @click="activeFilter = fc.key"
-            class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all"
-            :class="activeFilter === fc.key
-              ? 'border-dgreen-700 bg-dgreen-950/60 text-dgreen-300'
-              : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 bg-transparent'">
-            <component :is="fc.icon" class="w-3 h-3" :class="activeFilter === fc.key ? 'text-dgreen-400' : fc.iconClass" />
-            {{ fc.label }}
-            <span class="opacity-60">({{ fc.key === 'kaikki' ? nearbyPlaces.length : nearbyPlaces.filter(p=>p.type===fc.key).length }})</span>
-          </button>
+        <!-- Filtterit + lisäkontrollit -->
+        <div class="mb-4 space-y-2">
+          <!-- Tyyppifiltterit -->
+          <div class="flex gap-2 flex-wrap">
+            <button v-for="fc in FILTER_CONFIG" :key="fc.key"
+              @click="activeFilter = fc.key"
+              class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all"
+              :class="activeFilter === fc.key
+                ? 'border-dgreen-700 bg-dgreen-950/60 text-dgreen-300'
+                : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 bg-transparent'">
+              <component :is="fc.icon" class="w-3 h-3" :class="activeFilter === fc.key ? 'text-dgreen-400' : fc.iconClass" />
+              {{ fc.label }}
+              <span class="opacity-60">({{ fc.key === 'kaikki' ? nearbyPlaces.length : nearbyPlaces.filter(p=>p.type===fc.key).length }})</span>
+            </button>
+          </div>
+          <!-- Vain auki + järjestely -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <button @click="onlyOpen = !onlyOpen"
+              class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all"
+              :class="onlyOpen
+                ? 'border-dgreen-700 bg-dgreen-950/60 text-dgreen-300'
+                : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 bg-transparent'">
+              <Eye class="w-3 h-3" />Vain auki
+            </button>
+            <div class="flex items-center gap-1.5 ml-auto">
+              <SortAsc class="w-3 h-3 text-gray-600" />
+              <select v-model="sortBy"
+                class="px-2 py-1 rounded-lg text-xs bg-gray-900 border border-gray-700 text-gray-400 focus:outline-none">
+                <option value="distance">Etäisyys</option>
+                <option value="rating">Arvosana</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <!-- Kartta -->
@@ -681,59 +725,74 @@ function walkTime(lat: number, lng: number): string {
         >
           <div ref="nearbyMapDiv" style="width:100%;height:100%" />
 
-          <!-- Fullscreen-palkki ylhäällä: filtterit + etäisyysvalitsin -->
+          <!-- Fullscreen-paneeli ylhäällä: kiinteä tumma tausta -->
           <div v-if="mapFullscreen"
-            class="absolute top-0 left-0 right-0 z-10 px-3 pt-3 pb-3
-                   bg-gradient-to-b from-black/85 to-transparent pointer-events-none">
-            <!-- Filtterit -->
-            <div class="flex gap-2 flex-wrap pointer-events-auto mb-2">
-              <button v-for="fc in FILTER_CONFIG" :key="fc.key"
-                @click="activeFilter = fc.key"
-                class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border backdrop-blur-sm transition-all"
-                :class="activeFilter === fc.key
-                  ? 'border-dgreen-600 bg-dgreen-950/80 text-dgreen-300'
-                  : 'border-white/20 bg-black/50 text-gray-300 hover:bg-black/70 hover:border-white/40'">
-                <component :is="fc.icon" class="w-3 h-3" :class="activeFilter === fc.key ? 'text-dgreen-400' : fc.iconClass" />
-                {{ fc.label }}
-                <span class="opacity-60">({{ fc.key === 'kaikki' ? nearbyPlaces.length : nearbyPlaces.filter(p=>p.type===fc.key).length }})</span>
-              </button>
-            </div>
-            <!-- Etäisyysvalitsin + Päivitä -->
-            <div class="flex items-center gap-2 pointer-events-auto">
-              <select v-model="nearbyRadius" @change="fetchNearby"
-                class="px-2 py-1 rounded-lg text-xs bg-black/60 backdrop-blur-sm border border-white/20
-                       text-gray-300 focus:outline-none">
-                <option :value="500">500 m</option>
-                <option :value="1000">1 km</option>
-                <option :value="2000">2 km</option>
-                <option :value="5000">5 km</option>
-              </select>
-              <button @click="fetchNearby" :disabled="nearbyLoading"
-                class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border border-white/20
-                       bg-black/60 backdrop-blur-sm text-gray-300 hover:text-white hover:border-white/40
-                       transition-all disabled:opacity-40">
-                <Navigation class="w-3 h-3" />Päivitä
-              </button>
+            class="absolute top-0 left-0 right-0 z-10 bg-gray-950/95 backdrop-blur-md border-b border-white/10">
+            <div class="px-3 pt-3 pb-2.5 space-y-2">
+              <!-- Rivi 1: tyyppifiltterit -->
+              <div class="flex gap-2 flex-wrap">
+                <button v-for="fc in FILTER_CONFIG" :key="fc.key"
+                  @click="activeFilter = fc.key"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
+                  :class="activeFilter === fc.key
+                    ? 'border-dgreen-600 bg-dgreen-950/80 text-dgreen-300'
+                    : 'border-white/15 bg-white/5 text-gray-400 hover:bg-white/10 hover:border-white/30'">
+                  <component :is="fc.icon" class="w-3 h-3" :class="activeFilter === fc.key ? 'text-dgreen-400' : fc.iconClass" />
+                  {{ fc.label }}
+                  <span class="opacity-50">({{ fc.key === 'kaikki' ? nearbyPlaces.length : nearbyPlaces.filter(p=>p.type===fc.key).length }})</span>
+                </button>
+              </div>
+              <!-- Rivi 2: etäisyys + vain auki + järjestely + sulje -->
+              <div class="flex items-center gap-2 flex-wrap">
+                <select v-model="nearbyRadius" @change="fetchNearby"
+                  class="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/15 text-gray-300 focus:outline-none">
+                  <option :value="500">500 m</option>
+                  <option :value="1000">1 km</option>
+                  <option :value="2000">2 km</option>
+                  <option :value="5000">5 km</option>
+                </select>
+                <button @click="fetchNearby" :disabled="nearbyLoading"
+                  class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs border border-white/15
+                         bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-40">
+                  <Navigation class="w-3 h-3" />Päivitä
+                </button>
+                <button @click="onlyOpen = !onlyOpen"
+                  class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs border transition-all"
+                  :class="onlyOpen
+                    ? 'border-dgreen-600 bg-dgreen-950/80 text-dgreen-300'
+                    : 'border-white/15 bg-white/5 text-gray-400 hover:bg-white/10'">
+                  <Eye class="w-3 h-3" />Vain auki
+                </button>
+                <select v-model="sortBy"
+                  class="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/15 text-gray-300 focus:outline-none">
+                  <option value="distance">Etäisyys</option>
+                  <option value="rating">Arvosana</option>
+                </select>
+                <button @click="toggleMapFullscreen"
+                  class="ml-auto w-8 h-8 flex items-center justify-center rounded-lg
+                         bg-white/10 border border-white/15 text-gray-300 hover:text-white hover:bg-white/20 transition-colors">
+                  <Minimize2 class="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Toggle-painike -->
-          <button
+          <!-- Suurenna-nappi (normaalitilassa) -->
+          <button v-if="!mapFullscreen"
             @click="toggleMapFullscreen"
             class="absolute top-2 right-2 z-20 w-9 h-9 flex items-center justify-center
                    rounded-lg bg-black/70 backdrop-blur-sm border border-white/10
                    text-white hover:bg-black/90 transition-colors"
-            :title="mapFullscreen ? 'Pienennä kartta' : 'Suurenna kartta'"
+            title="Suurenna kartta"
           >
-            <Minimize2 v-if="mapFullscreen" class="w-4 h-4" />
-            <Maximize2 v-else class="w-4 h-4" />
+            <Maximize2 class="w-4 h-4" />
           </button>
         </div>
 
         <!-- Lista -->
         <div v-if="filteredPlaces.length" class="space-y-2">
           <a v-for="p in filteredPlaces" :key="p.id"
-            :href="`https://maps.google.com/?q=${p.lat},${p.lng}`"
+            :href="`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`"
             target="_blank" rel="noopener"
             class="flex items-start gap-3 p-3 rounded-xl border border-gray-800/60 bg-gray-900/30
                    hover:bg-gray-900/60 hover:border-gray-700 transition-all group">
@@ -749,7 +808,14 @@ function walkTime(lat: number, lng: number): string {
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm text-white font-medium group-hover:text-dgreen-300 transition-colors">{{ p.name }}</span>
                 <span v-if="p.open === true" class="text-[10px] px-1.5 py-0.5 rounded-full bg-dgreen-950/60 border border-dgreen-900/40 text-dgreen-400">Auki</span>
+                <span v-if="p.open === true && closingSoon(p.closesAt)"
+                  class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-950/60 border border-amber-800/50 text-amber-400">
+                  Sulkeutuu {{ p.closesAt }}
+                </span>
                 <span v-else-if="p.open === false" class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-950/60 border border-red-900/40 text-red-400">Kiinni</span>
+                <span v-else-if="p.open === null" class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-950/60 border border-sky-800/50 text-sky-400">
+                  <AlertTriangle class="w-2.5 h-2.5" />Aukioloaika ei tiedossa
+                </span>
               </div>
               <p class="text-xs text-gray-600 truncate mt-0.5">{{ p.address }}</p>
               <div class="flex items-center gap-3 mt-1">
@@ -761,7 +827,7 @@ function walkTime(lat: number, lng: number): string {
                 <span class="text-xs text-gray-700">{{ walkTime(p.lat, p.lng) }}</span>
               </div>
             </div>
-            <MapPin class="w-3.5 h-3.5 text-gray-700 group-hover:text-dgreen-500 shrink-0 mt-1 transition-colors" />
+            <Navigation class="w-3.5 h-3.5 text-gray-700 group-hover:text-dgreen-500 shrink-0 mt-1 transition-colors" />
           </a>
         </div>
         <p v-else class="text-center py-6 text-gray-700 text-sm">Ei paikkoja löydetty valitulla suodattimella</p>

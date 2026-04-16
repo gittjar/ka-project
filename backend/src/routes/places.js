@@ -96,18 +96,44 @@ router.get('/nearby', async (req, res) => {
       return true;
     });
 
-    const places = all.map(p => ({
-      id:          p.id,
-      name:        p.displayName?.text || '—',
-      address:     p.formattedAddress || '',
-      lat:         p.location?.latitude,
-      lng:         p.location?.longitude,
-      rating:      p.rating ?? null,
-      ratingCount: p.userRatingCount ?? 0,
-      open:        p.currentOpeningHours?.openNow ?? null,
-      type:        classifyType(p.primaryType, p.displayName?.text),
-      iconColor:   p.iconBackgroundColor || '#555',
-    }));
+    const places = all.map(p => {
+      const hours = p.currentOpeningHours;
+      // Etsi tämän hetken sulkemisaika periods[]-taulukosta
+      // Periods: { open: {day,hour,minute}, close: {day,hour,minute} }
+      let closesAt = null;
+      if (hours?.openNow && Array.isArray(hours.periods)) {
+        const now = new Date();
+        const nowDay = now.getDay(); // 0=su
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        // Etsi jakso joka kattaa nykyhetken
+        for (const period of hours.periods) {
+          if (!period.close) continue;
+          const openDay  = period.open?.day  ?? -1;
+          const closeDay = period.close.day;
+          const closeMin = period.close.hour * 60 + period.close.minute;
+          // Jakso alkaa tänään tai yön yli (closeDay != openDay)
+          if (openDay === nowDay || (closeDay === nowDay && closeMin > nowMin)) {
+            if (closeDay === nowDay) {
+              closesAt = `${String(period.close.hour).padStart(2,'0')}:${String(period.close.minute).padStart(2,'0')}`;
+              break;
+            }
+          }
+        }
+      }
+      return {
+        id:          p.id,
+        name:        p.displayName?.text || '—',
+        address:     p.formattedAddress || '',
+        lat:         p.location?.latitude,
+        lng:         p.location?.longitude,
+        rating:      p.rating ?? null,
+        ratingCount: p.userRatingCount ?? 0,
+        open:        hours?.openNow ?? null,
+        closesAt,
+        type:        classifyType(p.primaryType, p.displayName?.text),
+        iconColor:   p.iconBackgroundColor || '#555',
+      };
+    });
 
     res.json(places);
   } catch (err) {
