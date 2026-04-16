@@ -220,7 +220,7 @@ interface NearbyPlace {
   rating: number | null;
   ratingCount: number;
   open: boolean | null;
-  type: 'bar' | 'alko' | 'kauppa';
+  type: 'bar' | 'alko' | 'kauppa' | 'ravintola' | 'pikaruoka';
 }
 
 const nearbyPlaces = ref<NearbyPlace[]>([]);
@@ -230,7 +230,7 @@ const nearbyRadius = ref(1000);
 const userLat = ref<number | null>(null);
 const userLng = ref<number | null>(null);
 const locationAsked = ref(false);
-const activeFilter = ref<'kaikki' | 'bar' | 'alko' | 'kauppa'>('kaikki');
+const activeFilter = ref<'kaikki' | 'bar' | 'alko' | 'kauppa' | 'ravintola' | 'pikaruoka'>('kaikki');
 const nearbyMapDiv = ref<HTMLElement | null>(null);
 const mapsKey = ref<string | null>(null);
 let _nearbyMap: any = null;
@@ -250,9 +250,11 @@ const DARK_MAP_STYLE = [
 ];
 
 const TYPE_COLORS: Record<string, string> = {
-  bar:    '#a855f7',
-  alko:   '#22c55e',
-  kauppa: '#f59e0b',
+  bar:       '#a855f7',
+  alko:      '#22c55e',
+  kauppa:    '#f59e0b',
+  ravintola: '#f97316',
+  pikaruoka: '#ef4444',
 };
 
 const filteredPlaces = computed(() =>
@@ -637,13 +639,20 @@ function walkTime(lat: number, lng: number): string {
       <div v-else-if="userLat">
         <!-- Filtterit -->
         <div class="flex gap-2 mb-4 flex-wrap">
-          <button v-for="f in (['kaikki','bar','alko','kauppa'] as const)" :key="f"
+          <button v-for="f in (['kaikki','bar','alko','ravintola','pikaruoka','kauppa'] as const)" :key="f"
             @click="activeFilter = f"
             class="px-3 py-1 rounded-full text-xs font-medium border transition-all"
             :class="activeFilter === f
               ? 'border-dgreen-700 bg-dgreen-950/60 text-dgreen-300'
               : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 bg-transparent'">
-            {{ f === 'kaikki' ? `Kaikki (${nearbyPlaces.length})` : f === 'bar' ? '🍺 Baarit' : f === 'alko' ? '🍾 Alkot' : '🛒 Kaupat' }}
+            {{
+              f === 'kaikki'    ? `Kaikki (${nearbyPlaces.length})` :
+              f === 'bar'       ? `🍺 Baarit & yökerhot (${nearbyPlaces.filter(p=>p.type==='bar').length})` :
+              f === 'alko'      ? `🍾 Alkot (${nearbyPlaces.filter(p=>p.type==='alko').length})` :
+              f === 'ravintola' ? `🍽️ Ravintolat (${nearbyPlaces.filter(p=>p.type==='ravintola').length})` :
+              f === 'pikaruoka' ? `🌯 Pikaruoka (${nearbyPlaces.filter(p=>p.type==='pikaruoka').length})` :
+                                  `🛒 Kaupat (${nearbyPlaces.filter(p=>p.type==='kauppa').length})`
+            }}
           </button>
         </div>
 
@@ -660,9 +669,11 @@ function walkTime(lat: number, lng: number): string {
             class="flex items-start gap-3 p-3 rounded-xl border border-gray-800/60 bg-gray-900/30
                    hover:bg-gray-900/60 hover:border-gray-700 transition-all group">
             <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              :style="{ background: p.type === 'bar' ? 'rgba(168,85,247,0.15)' : p.type === 'alko' ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)' }">
+              :style="{ background: p.type === 'bar' ? 'rgba(168,85,247,0.15)' : p.type === 'alko' ? 'rgba(34,197,94,0.15)' : p.type === 'ravintola' ? 'rgba(249,115,22,0.15)' : p.type === 'pikaruoka' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)' }">
               <Beer v-if="p.type === 'bar'" class="w-4 h-4 text-purple-400" />
               <GlassWater v-else-if="p.type === 'alko'" class="w-4 h-4 text-dgreen-400" />
+              <span v-else-if="p.type === 'ravintola'" class="text-sm">🍽️</span>
+              <span v-else-if="p.type === 'pikaruoka'" class="text-sm">🌯</span>
               <ShoppingCart v-else class="w-4 h-4 text-amber-400" />
             </div>
             <div class="flex-1 min-w-0">

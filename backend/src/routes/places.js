@@ -11,15 +11,63 @@ const FIELD_MASK = [
   'places.rating',
   'places.userRatingCount',
   'places.currentOpeningHours',
+  'places.primaryType',
   'places.primaryTypeDisplayName',
   'places.iconBackgroundColor',
 ].join(',');
 
-const TYPE_GROUPS = {
-  bar:     ['bar', 'night_club', 'pub'],
-  alko:    ['liquor_store'],
-  kauppa:  ['convenience_store', 'grocery_store', 'supermarket'],
-};
+// Places API (New) type → our category
+// Kaksi ryhmää koska API sallii max 50 tyyppiä per kutsu
+const TYPE_BATCH_1 = [
+  'bar', 'night_club', 'pub',
+  'liquor_store',
+  'convenience_store', 'grocery_store', 'supermarket',
+  'fast_food_restaurant', 'pizza_restaurant',
+  'sandwich_shop', 'hamburger_restaurant',
+];
+const TYPE_BATCH_2 = [
+  'restaurant', 'meal_takeaway', 'meal_delivery',
+  'karaoke', 'casino',
+  'korean_restaurant', 'sushi_restaurant', 'thai_restaurant',
+  'chinese_restaurant', 'middle_eastern_restaurant', 'indian_restaurant',
+  'turkish_restaurant', 'vietnamese_restaurant', 'japanese_restaurant',
+  'mediterranean_restaurant', 'greek_restaurant', 'mexican_restaurant',
+];
+
+function classifyType(primaryType, displayName) {
+  const pt = (primaryType || '').toLowerCase();
+  const dn = (displayName || '').toLowerCase();
+  const combined = pt + ' ' + dn;
+
+  if (['bar','night_club','pub','karaoke','casino'].some(t => pt.includes(t))) return 'bar';
+  if (combined.includes('bar') || combined.includes('pub') || combined.includes('yökerho') ||
+      combined.includes('night') || combined.includes('karaoke')) return 'bar';
+  if (pt.includes('liquor') || dn.includes('alko') || dn.includes('viina')) return 'alko';
+  if (['convenience_store','grocery_store','supermarket'].some(t => pt.includes(t))) return 'kauppa';
+  if (['fast_food','pizza','sandwich','hamburger','kebab','döner'].some(t => combined.includes(t)) ||
+      dn.includes('kebab') || dn.includes('pizza') || dn.includes('burger') ||
+      dn.includes('mcdonalds') || dn.includes('hesburger') || dn.includes('pikaruoka')) return 'pikaruoka';
+  return 'ravintola';
+}
+
+async function fetchBatch(key, types, lat, lng, radius) {
+  const r = await fetch(NEARBY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': FIELD_MASK,
+    },
+    body: JSON.stringify({
+      includedTypes: types,
+      maxResultCount: 20,
+      locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius } },
+    }),
+  });
+  if (!r.ok) return [];
+  const json = await r.json();
+  return json.places || [];
+}
 
 // GET /api/places/nearby?lat=X&lng=Y&radius=1000
 router.get('/nearby', async (req, res) => {
@@ -34,47 +82,31 @@ router.get('/nearby', async (req, res) => {
   const key = process.env.PLACES_API_KEY;
   if (!key) return res.status(503).json({ message: 'Places-avain puuttuu' });
 
-  const allTypes = [...TYPE_GROUPS.bar, ...TYPE_GROUPS.alko, ...TYPE_GROUPS.kauppa];
-
   try {
-    const body = {
-      includedTypes: allTypes,
-      maxResultCount: 20,
-      locationRestriction: {
-        circle: {
-          center: { latitude: lat, longitude: lng },
-          radius,
-        },
-      },
-    };
+    const [batch1, batch2] = await Promise.all([
+      fetchBatch(key, TYPE_BATCH_1, lat, lng, radius),
+      fetchBatch(key, TYPE_BATCH_2, lat, lng, radius),
+    ]);
 
-    const r = await fetch(NEARBY_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': key,
-        'X-Goog-FieldMask': FIELD_MASK,
-      },
-      body: JSON.stringify(body),
+    // Yhdistä ja poista duplikaatit id:n perusteella
+    const seen = new Set();
+    const all = [...batch1, ...batch2].filter(p => {
+      if (!p.id || seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
     });
 
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      return res.status(r.status).json({ message: err.error?.message || 'Places-haku epäonnistui' });
-    }
-
-    const json = await r.json();
-    const places = (json.places || []).map(p => ({
-      id:            p.id,
-      name:          p.displayName?.text || '—',
-      address:       p.formattedAddress || '',
-      lat:           p.location?.latitude,
-      lng:           p.location?.longitude,
-      rating:        p.rating ?? null,
-      ratingCount:   p.userRatingCount ?? 0,
-      open:          p.currentOpeningHours?.openNow ?? null,
-      type:          classifyType(p.primaryTypeDisplayName?.text, getFirstType(p)),
-      iconColor:     p.iconBackgroundColor || '#555',
+    const places = all.map(p => ({
+      id:          p.id,
+      name:        p.displayName?.text || '—',
+      address:     p.formattedAddress || '',
+      lat:         p.location?.latitude,
+      lng:         p.location?.longitude,
+      rating:      p.rating ?? null,
+      ratingCount: p.userRatingCount ?? 0,
+      open:        p.currentOpeningHours?.openNow ?? null,
+      type:        classifyType(p.primaryType, p.displayName?.text),
+      iconColor:   p.iconBackgroundColor || '#555',
     }));
 
     res.json(places);
@@ -82,19 +114,5 @@ router.get('/nearby', async (req, res) => {
     res.status(502).json({ message: 'Places-haku epäonnistui' });
   }
 });
-
-function getFirstType(p) {
-  // primaryTypeDisplayName is localized; use iconBackgroundColor as fallback signal
-  const name = (p.displayName?.text || '').toLowerCase();
-  if (TYPE_GROUPS.alko.some(t => name.includes('alko'))) return 'liquor_store';
-  return null;
-}
-
-function classifyType(displayName, fallback) {
-  const n = (displayName || '').toLowerCase();
-  if (n.includes('baari') || n.includes('bar') || n.includes('pub') || n.includes('yökerho')) return 'bar';
-  if (n.includes('alko') || n.includes('viina') || n.includes('liquor')) return 'alko';
-  return 'kauppa';
-}
 
 export default router;
