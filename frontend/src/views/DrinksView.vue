@@ -265,6 +265,7 @@ async function toggleMapFullscreen() {
 let _nearbyMap: any = null;
 let _nearbyMarkers: any[] = [];
 let _nearbyLines: any[] = [];
+let _distLabels: any[] = [];
 let _userMarker: any = null;
 
 const DARK_MAP_STYLE = [
@@ -356,8 +357,10 @@ async function initNearbyMap(places: NearbyPlace[]) {
   // Poista vanhat pinit ja viivat
   _nearbyMarkers.forEach(m => m.setMap(null));
   _nearbyLines.forEach(l => l.setMap(null));
+  _distLabels.forEach(l => l.setMap(null));
   _nearbyMarkers = [];
   _nearbyLines = [];
+  _distLabels = [];
 
   // Laske fitBounds kaikista pisteistä
   const bounds = new G.LatLngBounds();
@@ -375,6 +378,27 @@ async function initNearbyMap(places: NearbyPlace[]) {
       map: _nearbyMap,
     });
     _nearbyLines.push(line);
+    // Etäisyyslappu viivan keskelle
+    const midLat = (userPos.lat + p.lat) / 2;
+    const midLng = (userPos.lng + p.lng) / 2;
+    const distM = calcDist(p.lat, p.lng);
+    const distLabel = distM >= 1000
+      ? `${(distM / 1000).toFixed(1).replace('.', ',')} km`
+      : `${Math.round(distM)} m`;
+    const labelMarker = new G.Marker({
+      position: { lat: midLat, lng: midLng },
+      map: _nearbyMap,
+      icon: { path: G.SymbolPath.CIRCLE, scale: 0, fillOpacity: 0, strokeOpacity: 0 },
+      label: {
+        text: distLabel,
+        color: '#e5e7eb',
+        fontSize: '10px',
+        fontWeight: '600',
+        className: 'dist-label',
+      },
+      zIndex: 5,
+    });
+    _distLabels.push(labelMarker);
     // Pini
     const marker = new G.Marker({
       position: { lat: p.lat, lng: p.lng },
@@ -449,6 +473,7 @@ watch(nearbyMapDiv, async (el) => {
     _userMarker = null;
     _nearbyMarkers = [];
     _nearbyLines = [];
+    _distLabels = [];
     return;
   }
   if (userLat.value) await initNearbyMap(filteredPlaces.value);
@@ -1151,3 +1176,10 @@ function closingSoon(closesAt: string | null): boolean {
     </div>
   </Teleport>
 </template>
+
+<style>
+.dist-label {
+  text-shadow: 0 0 4px #000, 0 0 4px #000, 0 0 4px #000;
+  letter-spacing: 0.02em;
+}
+</style>

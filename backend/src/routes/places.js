@@ -35,13 +35,15 @@ const FIELD_MASK = [
 ].join(',');
 
 // Places API (New) type → our category
-// Kolme erillistä kutsua jotta jokaisella ryhmällä on oma 20 tuloksen kiintiö.
+// Neljä erillistä kutsua jotta jokaisella ryhmällä on oma 20 tuloksen kiintiö.
 // kiosk ja kebab_restaurant ovat API:n kannalta virheellisiä tyyppejä (testattu).
+// liquor_store (Alko) saa oman batchin — muuten se hukkuu baarien tai kauppojen sekaan.
 const TYPE_BATCH_BARS = [
   'bar', 'pub', 'night_club', 'karaoke', 'casino',
 ];
+const TYPE_BATCH_ALKO = ['liquor_store'];
 const TYPE_BATCH_STORES = [
-  'liquor_store', 'convenience_store', 'grocery_store', 'supermarket',
+  'convenience_store', 'grocery_store', 'supermarket',
   'hypermarket', 'market', 'department_store', 'gas_station', 'store',
 ];
 
@@ -123,8 +125,9 @@ router.get('/nearby', async (req, res) => {
   if (!key) return res.status(503).json({ message: 'Places-avain puuttuu' });
 
   try {
-    const [batch1, batch2, batch3] = await Promise.all([
+    const [batch1, batchAlko, batch2, batch3] = await Promise.all([
       fetchBatch(key, TYPE_BATCH_BARS,   lat, lng, radius),
+      fetchBatch(key, TYPE_BATCH_ALKO,   lat, lng, radius),
       fetchBatch(key, TYPE_BATCH_STORES, lat, lng, radius),
       fetchBatch(key, TYPE_BATCH_FOOD,   lat, lng, radius),
     ]);
@@ -134,7 +137,7 @@ router.get('/nearby', async (req, res) => {
     // ja store-primaryType vain kioski-nimellä.
     const storeIds = new Set(batch2.map(p => p.id));
     const seen = new Set();
-    const all = [...batch1, ...batch2, ...batch3].filter(p => {
+    const all = [...batch1, ...batchAlko, ...batch2, ...batch3].filter(p => {
       if (!p.id || seen.has(p.id)) return false;
       const pt = p.primaryType || '';
       const name = p.displayName?.text || '';
