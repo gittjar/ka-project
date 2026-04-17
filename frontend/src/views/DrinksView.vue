@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star, Maximize2, Minimize2, LayoutGrid, Wine, UtensilsCrossed, Sandwich, SortAsc, Eye } from 'lucide-vue-next';
+import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star, Maximize2, Minimize2, LayoutGrid, Wine, UtensilsCrossed, Sandwich, SortAsc, Eye, Phone, Globe, Clock, ChevronUp, ExternalLink } from 'lucide-vue-next';
 import type { Component } from 'vue';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -221,13 +221,28 @@ interface NearbyPlace {
   rating: number | null;
   ratingCount: number;
   open: boolean | null;
-  closesAt: string | null;  // 'HH:MM' tai null
+  closesAt: string | null;
   type: 'bar' | 'alko' | 'kauppa' | 'ravintola' | 'pikaruoka';
+  // Lisätiedot
+  phone: string | null;
+  website: string | null;
+  mapsUri: string | null;
+  priceLevel: string | null;
+  description: string | null;
+  weeklyHours: string[] | null;
+  tags: string[];
 }
 
 const nearbyPlaces = ref<NearbyPlace[]>([]);
 const nearbyLoading = ref(false);
 const nearbyError = ref('');
+const expandedPlaceId = ref<string | null>(null);
+
+function togglePlaceExpand(id: string) {
+  expandedPlaceId.value = expandedPlaceId.value === id ? null : id;
+}
+// Google weeklyHours: 0=Ma..6=Su, JS getDay: 0=Su,1=Ma..6=La
+const todayIndex = computed(() => (new Date().getDay() + 6) % 7);
 const nearbyRadius = ref(1000);
 const userLat = ref<number | null>(null);
 const userLng = ref<number | null>(null);
@@ -623,7 +638,7 @@ function closingSoon(closesAt: string | null): boolean {
       <div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            <MapPin class="w-4 h-4 text-dgreen-400" />Lähimmät sijainnit, josta saa juomia
+            <MapPin class="w-4 h-4 text-dgreen-400" />Katso lähimmät baarit, alkot ja kaupat
           </h2>
           <p class="text-xs text-gray-600 mt-0.5">Baarit, alkot ja kaupat — sijaintiasi ei tallenneta</p>
         </div>
@@ -791,44 +806,109 @@ function closingSoon(closesAt: string | null): boolean {
 
         <!-- Lista -->
         <div v-if="filteredPlaces.length" class="space-y-2">
-          <a v-for="p in filteredPlaces" :key="p.id"
-            :href="`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`"
-            target="_blank" rel="noopener"
-            class="flex items-start gap-3 p-3 rounded-xl border border-gray-800/60 bg-gray-900/30
-                   hover:bg-gray-900/60 hover:border-gray-700 transition-all group">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              :style="{ background: p.type === 'bar' ? 'rgba(168,85,247,0.15)' : p.type === 'alko' ? 'rgba(34,197,94,0.15)' : p.type === 'ravintola' ? 'rgba(249,115,22,0.15)' : p.type === 'pikaruoka' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)' }">
-              <Beer v-if="p.type === 'bar'" class="w-4 h-4 text-purple-400" />
-              <Wine v-else-if="p.type === 'alko'" class="w-4 h-4 text-dgreen-400" />
-              <UtensilsCrossed v-else-if="p.type === 'ravintola'" class="w-4 h-4 text-orange-400" />
-              <Sandwich v-else-if="p.type === 'pikaruoka'" class="w-4 h-4 text-red-400" />
-              <ShoppingCart v-else class="w-4 h-4 text-amber-400" />
+          <div v-for="p in filteredPlaces" :key="p.id"
+            class="rounded-xl border transition-all"
+            :class="expandedPlaceId === p.id
+              ? 'border-gray-700 bg-gray-900/50'
+              : 'border-gray-800/60 bg-gray-900/30 hover:bg-gray-900/50 hover:border-gray-700'">
+
+            <!-- Päärivin sisältö -->
+            <div class="flex items-start gap-3 p-3 cursor-pointer" @click="togglePlaceExpand(p.id)">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                :style="{ background: p.type === 'bar' ? 'rgba(168,85,247,0.15)' : p.type === 'alko' ? 'rgba(34,197,94,0.15)' : p.type === 'ravintola' ? 'rgba(249,115,22,0.15)' : p.type === 'pikaruoka' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)' }">
+                <Beer v-if="p.type === 'bar'" class="w-4 h-4 text-purple-400" />
+                <Wine v-else-if="p.type === 'alko'" class="w-4 h-4 text-dgreen-400" />
+                <UtensilsCrossed v-else-if="p.type === 'ravintola'" class="w-4 h-4 text-orange-400" />
+                <Sandwich v-else-if="p.type === 'pikaruoka'" class="w-4 h-4 text-red-400" />
+                <ShoppingCart v-else class="w-4 h-4 text-amber-400" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm text-white font-medium">{{ p.name }}</span>
+                  <span v-if="p.priceLevel" class="text-[10px] text-gray-500">{{ p.priceLevel }}</span>
+                  <span v-if="p.open === true" class="text-[10px] px-1.5 py-0.5 rounded-full bg-dgreen-950/60 border border-dgreen-900/40 text-dgreen-400">Auki</span>
+                  <span v-if="p.open === true && closingSoon(p.closesAt)"
+                    class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-950/60 border border-amber-800/50 text-amber-400">
+                    Sulkeutuu {{ p.closesAt }}
+                  </span>
+                  <span v-else-if="p.open === false" class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-950/60 border border-red-900/40 text-red-400">Kiinni</span>
+                  <span v-else-if="p.open === null" class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-950/60 border border-sky-800/50 text-sky-400">
+                    <AlertTriangle class="w-2.5 h-2.5" />Ei aukiolotietoa
+                  </span>
+                </div>
+                <p class="text-xs text-gray-600 truncate mt-0.5">{{ p.address }}</p>
+                <div class="flex items-center gap-3 mt-1">
+                  <span v-if="p.rating" class="flex items-center gap-1 text-xs text-gray-500">
+                    <Star class="w-3 h-3 text-yellow-500/70" />{{ p.rating.toFixed(1) }}
+                    <span class="text-gray-700">({{ p.ratingCount }})</span>
+                  </span>
+                  <span class="text-xs text-gray-600">{{ distanceM(p.lat, p.lng) }}</span>
+                  <span class="text-xs text-gray-700">{{ walkTime(p.lat, p.lng) }}</span>
+                </div>
+              </div>
+              <ChevronDown v-if="expandedPlaceId !== p.id" class="w-4 h-4 text-gray-600 shrink-0 mt-1" />
+              <ChevronUp v-else class="w-4 h-4 text-gray-400 shrink-0 mt-1" />
             </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm text-white font-medium group-hover:text-dgreen-300 transition-colors">{{ p.name }}</span>
-                <span v-if="p.open === true" class="text-[10px] px-1.5 py-0.5 rounded-full bg-dgreen-950/60 border border-dgreen-900/40 text-dgreen-400">Auki</span>
-                <span v-if="p.open === true && closingSoon(p.closesAt)"
-                  class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-950/60 border border-amber-800/50 text-amber-400">
-                  Sulkeutuu {{ p.closesAt }}
-                </span>
-                <span v-else-if="p.open === false" class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-950/60 border border-red-900/40 text-red-400">Kiinni</span>
-                <span v-else-if="p.open === null" class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-950/60 border border-sky-800/50 text-sky-400">
-                  <AlertTriangle class="w-2.5 h-2.5" />Aukioloaika ei tiedossa
+
+            <!-- Laajennettu lisätietopaneeli -->
+            <div v-if="expandedPlaceId === p.id"
+              class="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-3">
+
+              <!-- Kuvaus -->
+              <p v-if="p.description" class="text-xs text-gray-400 leading-relaxed">{{ p.description }}</p>
+
+              <!-- Tagit -->
+              <div v-if="p.tags.length" class="flex flex-wrap gap-1.5">
+                <span v-for="tag in p.tags" :key="tag"
+                  class="text-[10px] px-2 py-0.5 rounded-full bg-gray-800/80 border border-gray-700/60 text-gray-400">
+                  {{ tag }}
                 </span>
               </div>
-              <p class="text-xs text-gray-600 truncate mt-0.5">{{ p.address }}</p>
-              <div class="flex items-center gap-3 mt-1">
-                <span v-if="p.rating" class="flex items-center gap-1 text-xs text-gray-500">
-                  <Star class="w-3 h-3 text-yellow-500/70" />{{ p.rating.toFixed(1) }}
-                  <span class="text-gray-700">({{ p.ratingCount }})</span>
-                </span>
-                <span class="text-xs text-gray-600">{{ distanceM(p.lat, p.lng) }}</span>
-                <span class="text-xs text-gray-700">{{ walkTime(p.lat, p.lng) }}</span>
+
+              <!-- Aukioloajat -->
+              <div v-if="p.weeklyHours?.length" class="rounded-lg border border-gray-800/60 overflow-hidden">
+                <div class="flex items-center gap-1.5 text-[10px] text-gray-500 px-3 py-1.5 bg-gray-800/40 border-b border-gray-800/60">
+                  <Clock class="w-3 h-3" />Aukioloajat
+                </div>
+                <div v-for="(line, i) in p.weeklyHours" :key="i"
+                  class="flex items-center gap-2 px-3 py-1 text-[11px] border-b border-gray-800/30 last:border-b-0"
+                  :class="todayIndex === i ? 'bg-dgreen-950/20' : ''">
+                  <span v-if="todayIndex === i" class="w-1.5 h-1.5 rounded-full bg-dgreen-400 shrink-0"></span>
+                  <span v-else class="w-1.5 h-1.5 shrink-0"></span>
+                  <span class="w-[30px] shrink-0 font-medium"
+                    :class="todayIndex === i ? 'text-dgreen-400' : 'text-gray-500'">
+                    {{ ['Ma','Ti','Ke','To','Pe','La','Su'][i] }}
+                  </span>
+                  <span :class="todayIndex === i ? 'text-dgreen-300' : 'text-gray-500'">
+                    {{ line.includes(':') ? line.split(': ').slice(1).join(': ') : line.split(': ')[1] || line }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Yhteystiedot + linkit -->
+              <div class="flex flex-wrap gap-2 pt-1">
+                <a v-if="p.phone" :href="`tel:${p.phone}`"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border border-gray-700 bg-gray-800/60 text-gray-300 hover:text-white hover:border-gray-600 transition-all">
+                  <Phone class="w-3 h-3" />{{ p.phone }}
+                </a>
+                <a v-if="p.website" :href="p.website" target="_blank" rel="noopener"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border border-gray-700 bg-gray-800/60 text-gray-300 hover:text-white hover:border-gray-600 transition-all">
+                  <Globe class="w-3 h-3" />Nettisivu
+                </a>
+                <a :href="p.mapsUri || `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`"
+                  target="_blank" rel="noopener"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border border-gray-700 bg-gray-800/60 text-gray-300 hover:text-white hover:border-gray-600 transition-all">
+                  <ExternalLink class="w-3 h-3" />Google Maps
+                </a>
+                <a :href="`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`"
+                  target="_blank" rel="noopener"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border border-dgreen-800/60 bg-dgreen-950/40 text-dgreen-400 hover:bg-dgreen-950/70 hover:border-dgreen-700 transition-all">
+                  <Navigation class="w-3 h-3" />Navigoi
+                </a>
               </div>
             </div>
-            <Navigation class="w-3.5 h-3.5 text-gray-700 group-hover:text-dgreen-500 shrink-0 mt-1 transition-colors" />
-          </a>
+
+          </div>
         </div>
         <p v-else class="text-center py-6 text-gray-700 text-sm">Ei paikkoja löydetty valitulla suodattimella</p>
       </div>
