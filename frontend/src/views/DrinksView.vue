@@ -231,6 +231,7 @@ interface NearbyPlace {
   description: string | null;
   weeklyHours: string[] | null;
   tags: string[];
+  photoRef: string | null;
 }
 
 const nearbyPlaces = ref<NearbyPlace[]>([]);
@@ -878,6 +879,16 @@ function closingSoon(closesAt: string | null): boolean {
             <!-- Laajennettu lisätietopaneeli -->
             <div v-if="expandedPlaceId === p.id"
               class="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-3">
+
+              <!-- Valokuva -->
+              <div v-if="p.photoRef" class="rounded-lg overflow-hidden h-36 bg-gray-800/50">
+                <img
+                  :src="`/api/places/photo?ref=${encodeURIComponent(p.photoRef)}&maxw=600`"
+                  :alt="p.name"
+                  class="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
 
               <!-- Kuvaus -->
               <p v-if="p.description" class="text-xs text-gray-400 leading-relaxed">{{ p.description }}</p>

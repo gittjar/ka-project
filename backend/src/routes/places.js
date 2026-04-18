@@ -32,6 +32,7 @@ const FIELD_MASK = [
   'places.takeout',
   'places.dineIn',
   'places.goodForGroups',
+  'places.photos',
 ].join(',');
 
 // Places API (New) type → our category
@@ -211,12 +212,43 @@ router.get('/nearby', async (req, res) => {
         description:  p.editorialSummary?.text || null,
         weeklyHours:  p.regularOpeningHours?.weekdayDescriptions || null,
         tags,
+        photoRef:     p.photos?.[0]?.name || null,
       };
     });
 
     res.json(places);
   } catch (err) {
     res.status(502).json({ message: 'Places-haku epäonnistui' });
+  }
+});
+
+// GET /api/places/photo?ref=places/ChIJ.../photos/AXCi2y...&maxw=600
+// Proxy Google Places Photo API jotta avain pysyy backendissä
+router.get('/photo', async (req, res) => {
+  const { ref, maxw = '600' } = req.query;
+  if (!ref || typeof ref !== 'string' || !ref.startsWith('places/')) {
+    return res.status(400).json({ message: 'Virheellinen photo ref' });
+  }
+  const key = process.env.PLACES_API_KEY;
+  if (!key) return res.status(503).end();
+
+  const url = `https://places.googleapis.com/v1/${ref}/media?maxWidthPx=${maxw}&skipHttpRedirect=true&key=${key}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return res.status(r.status).end();
+    const json = await r.json();
+    const photoUri = json.photoUri;
+    if (!photoUri) return res.status(404).end();
+    // Haetaan varsinainen kuva ja proxataan se
+    const imgR = await fetch(photoUri);
+    if (!imgR.ok) return res.status(imgR.status).end();
+    const ct = imgR.headers.get('content-type') || 'image/jpeg';
+    res.setHeader('Content-Type', ct);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    const buf = await imgR.arrayBuffer();
+    res.send(Buffer.from(buf));
+  } catch {
+    res.status(502).end();
   }
 });
 
