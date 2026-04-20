@@ -231,16 +231,24 @@ interface NearbyPlace {
   description: string | null;
   weeklyHours: string[] | null;
   tags: string[];
-  photoRef: string | null;
+  photos: string[];
 }
 
 const nearbyPlaces = ref<NearbyPlace[]>([]);
 const nearbyLoading = ref(false);
 const nearbyError = ref('');
 const expandedPlaceId = ref<string | null>(null);
+const activePhotoIndex = ref<Record<string, number>>({});
 
 function togglePlaceExpand(id: string) {
   expandedPlaceId.value = expandedPlaceId.value === id ? null : id;
+  if (!activePhotoIndex.value[id]) activePhotoIndex.value[id] = 0;
+}
+function prevPhoto(id: string, len: number) {
+  activePhotoIndex.value[id] = (( activePhotoIndex.value[id] ?? 0) - 1 + len) % len;
+}
+function nextPhoto(id: string, len: number) {
+  activePhotoIndex.value[id] = (( activePhotoIndex.value[id] ?? 0) + 1) % len;
 }
 // Google weeklyHours: 0=Ma..6=Su, JS getDay: 0=Su,1=Ma..6=La
 const todayIndex = computed(() => (new Date().getDay() + 6) % 7);
@@ -267,6 +275,7 @@ let _nearbyMap: any = null;
 let _nearbyMarkers: any[] = [];
 let _nearbyLines: any[] = [];
 let _distLabels: any[] = [];
+let _clusterer: any = null;
 let _userMarker: any = null;
 
 const DARK_MAP_STYLE = [
@@ -356,6 +365,7 @@ async function initNearbyMap(places: NearbyPlace[]) {
   }
 
   // Poista vanhat pinit ja viivat
+  if (_clusterer) { _clusterer.clearMarkers(); _clusterer = null; }
   _nearbyMarkers.forEach(m => m.setMap(null));
   _nearbyLines.forEach(l => l.setMap(null));
   _distLabels.forEach(l => l.setMap(null));
@@ -400,10 +410,9 @@ async function initNearbyMap(places: NearbyPlace[]) {
       zIndex: 5,
     });
     _distLabels.push(labelMarker);
-    // Pini
+    // Pini — ei lisätä suoraan kartalle, klusteroija hoitaa sen
     const marker = new G.Marker({
       position: { lat: p.lat, lng: p.lng },
-      map: _nearbyMap,
       title: p.name,
       icon: {
         path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
@@ -413,6 +422,36 @@ async function initNearbyMap(places: NearbyPlace[]) {
     });
     _nearbyMarkers.push(marker);
     bounds.extend({ lat: p.lat, lng: p.lng });
+  });
+
+  // Klusterointi — MarkerClusterer yhdistää lähellä olevat pinit
+  const { MarkerClusterer } = await import('@googlemaps/markerclusterer');
+  _clusterer = new MarkerClusterer({
+    map: _nearbyMap,
+    markers: _nearbyMarkers,
+    renderer: {
+      render({ count, position }: { count: number; position: any }) {
+        const G2 = (window as any).google.maps;
+        return new G2.Marker({
+          position,
+          icon: {
+            path: G2.SymbolPath.CIRCLE,
+            scale: 18 + Math.min(count, 20),
+            fillColor: '#1f2937',
+            fillOpacity: 0.95,
+            strokeColor: '#4ade80',
+            strokeWeight: 2,
+          },
+          label: {
+            text: String(count),
+            color: '#4ade80',
+            fontSize: '11px',
+            fontWeight: '700',
+          },
+          zIndex: 200,
+        });
+      },
+    },
   });
 
   if (places.length > 0) {
@@ -472,6 +511,7 @@ watch(nearbyMapDiv, async (el) => {
     // Div unmountattu — nollataan jotta seuraava mount luo kartan oikeaan containeriin
     _nearbyMap = null;
     _userMarker = null;
+    if (_clusterer) { _clusterer.clearMarkers(); _clusterer = null; }
     _nearbyMarkers = [];
     _nearbyLines = [];
     _distLabels = [];
@@ -669,13 +709,14 @@ function closingSoon(closesAt: string | null): boolean {
           <p class="text-xs text-gray-600 mt-0.5">Baarit, alkot ja kaupat — sijaintiasi ei tallenneta</p>
         </div>
         <div v-if="userLat" class="flex items-center gap-2">
-          <select v-model="nearbyRadius" @change="fetchNearby"
-            class="px-2 py-1.5 rounded-lg text-xs bg-gray-900 border border-gray-700 text-gray-400 focus:outline-none">
-            <option :value="500">500 m</option>
-            <option :value="1000">1 km</option>
-            <option :value="2000">2 km</option>
-            <option :value="5000">5 km</option>
-          </select>
+          <div class="flex items-center gap-2">
+            <input type="range" v-model.number="nearbyRadius" @change="fetchNearby"
+              min="300" max="5000" step="100"
+              class="w-28 h-1.5 accent-dgreen-500 cursor-pointer" />
+            <span class="text-xs text-gray-500 w-12 text-right shrink-0">
+              {{ nearbyRadius >= 1000 ? (nearbyRadius/1000).toFixed(nearbyRadius%1000===0?0:1)+' km' : nearbyRadius+' m' }}
+            </span>
+          </div>
           <button @click="fetchNearby" :disabled="nearbyLoading"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-gray-700
                    text-gray-400 hover:text-white hover:border-gray-500 transition-all disabled:opacity-40 bg-transparent">
@@ -785,13 +826,14 @@ function closingSoon(closesAt: string | null): boolean {
               </div>
               <!-- Rivi 2: etäisyys + vain auki + järjestely + sulje -->
               <div class="flex items-center gap-2 flex-wrap">
-                <select v-model="nearbyRadius" @change="fetchNearby"
-                  class="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/15 text-gray-300 focus:outline-none">
-                  <option :value="500">500 m</option>
-                  <option :value="1000">1 km</option>
-                  <option :value="2000">2 km</option>
-                  <option :value="5000">5 km</option>
-                </select>
+                <div class="flex items-center gap-2">
+                  <input type="range" v-model.number="nearbyRadius" @change="fetchNearby"
+                    min="300" max="5000" step="100"
+                    class="w-24 h-1.5 accent-dgreen-500 cursor-pointer" />
+                  <span class="text-xs text-gray-400 w-12 text-right shrink-0">
+                    {{ nearbyRadius >= 1000 ? (nearbyRadius/1000).toFixed(nearbyRadius%1000===0?0:1)+' km' : nearbyRadius+' m' }}
+                  </span>
+                </div>
                 <button @click="fetchNearby" :disabled="nearbyLoading"
                   class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs border border-white/15
                          bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-40">
@@ -880,14 +922,31 @@ function closingSoon(closesAt: string | null): boolean {
             <div v-if="expandedPlaceId === p.id"
               class="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-3">
 
-              <!-- Valokuva -->
-              <div v-if="p.photoRef" class="rounded-lg overflow-hidden h-36 bg-gray-800/50">
+              <!-- Kuvakaruselli -->
+              <div v-if="p.photos.length" class="relative rounded-lg overflow-hidden h-40 bg-gray-800/50 group">
                 <img
-                  :src="`/api/places/photo?ref=${encodeURIComponent(p.photoRef)}&maxw=600`"
+                  :src="`/api/places/photo?ref=${encodeURIComponent(p.photos[activePhotoIndex[p.id] ?? 0] ?? '')}&maxw=600`"
                   :alt="p.name"
-                  class="w-full h-full object-cover"
+                  class="w-full h-full object-cover transition-opacity duration-300"
                   loading="lazy"
                 />
+                <!-- Nuolet jos useampi kuva -->
+                <template v-if="p.photos.length > 1">
+                  <button @click.stop="prevPhoto(p.id, p.photos.length)"
+                    class="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70">
+                    <ChevronUp class="w-4 h-4 text-white -rotate-90" />
+                  </button>
+                  <button @click.stop="nextPhoto(p.id, p.photos.length)"
+                    class="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70">
+                    <ChevronUp class="w-4 h-4 text-white rotate-90" />
+                  </button>
+                  <!-- Pistenäkymä -->
+                  <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                    <span v-for="(_, i) in p.photos" :key="i"
+                      class="w-1.5 h-1.5 rounded-full transition-colors"
+                      :class="(activePhotoIndex[p.id] ?? 0) === i ? 'bg-white' : 'bg-white/40'" />
+                  </div>
+                </template>
               </div>
 
               <!-- Kuvaus -->

@@ -1,6 +1,16 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
+
+// Max 100 hakua per IP per 24h — suojaa Places API-avainta väärinkäytöltä
+const nearbyLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Liikaa hakuja, yritä huomenna uudelleen' },
+});
 
 const NEARBY_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 const FIELD_MASK = [
@@ -113,7 +123,7 @@ async function fetchBatch(key, types, lat, lng, radius) {
 }
 
 // GET /api/places/nearby?lat=X&lng=Y&radius=1000
-router.get('/nearby', async (req, res) => {
+router.get('/nearby', nearbyLimiter, async (req, res) => {
   const lat    = parseFloat(req.query.lat);
   const lng    = parseFloat(req.query.lng);
   const radius = Math.min(5000, Math.max(100, parseFloat(req.query.radius) || 1500));
@@ -212,7 +222,7 @@ router.get('/nearby', async (req, res) => {
         description:  p.editorialSummary?.text || null,
         weeklyHours:  p.regularOpeningHours?.weekdayDescriptions || null,
         tags,
-        photoRef:     p.photos?.[0]?.name || null,
+        photos:       (p.photos || []).slice(0, 3).map(ph => ph.name).filter(Boolean),
       };
     });
 
