@@ -252,6 +252,14 @@ function nextPhoto(id: string, len: number) {
 }
 // Google weeklyHours: 0=Ma..6=Su, JS getDay: 0=Su,1=Ma..6=La
 const todayIndex = computed(() => (new Date().getDay() + 6) % 7);
+
+// Oksjärven leirikeskus
+const OKSJARVI = { lat: 60.8029417, lng: 23.9426056 };
+const distToOksjarvi = computed(() => {
+  if (!userLat.value || !userLng.value) return null;
+  const d = calcDist(OKSJARVI.lat, OKSJARVI.lng);
+  return d >= 1000 ? `${(d / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(d)} m`;
+});
 const nearbyRadius = ref(1000);
 const userLat = ref<number | null>(null);
 const userLng = ref<number | null>(null);
@@ -277,6 +285,8 @@ let _nearbyLines: any[] = [];
 let _distLabels: any[] = [];
 let _clusterer: any = null;
 let _userMarker: any = null;
+let _infoWindow: any = null;
+let _activeInfoMarker: any = null;
 
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#1a1a1a' }] },
@@ -369,6 +379,8 @@ async function initNearbyMap(places: NearbyPlace[]) {
   _nearbyMarkers.forEach(m => m.setMap(null));
   _nearbyLines.forEach(l => l.setMap(null));
   _distLabels.forEach(l => l.setMap(null));
+  if (_infoWindow) _infoWindow.close();
+  _activeInfoMarker = null;
   _nearbyMarkers = [];
   _nearbyLines = [];
   _distLabels = [];
@@ -392,10 +404,10 @@ async function initNearbyMap(places: NearbyPlace[]) {
     // Etäisyyslappu viivan keskelle
     const midLat = (userPos.lat + p.lat) / 2;
     const midLng = (userPos.lng + p.lng) / 2;
-    const distM = calcDist(p.lat, p.lng);
-    const distLabel = distM >= 1000
-      ? `${(distM / 1000).toFixed(1).replace('.', ',')} km`
-      : `${Math.round(distM)} m`;
+    const lineDist = calcDist(p.lat, p.lng);
+    const distLabel = lineDist >= 1000
+      ? `${(lineDist / 1000).toFixed(1).replace('.', ',')} km`
+      : `${Math.round(lineDist)} m`;
     const labelMarker = new G.Marker({
       position: { lat: midLat, lng: midLng },
       map: _nearbyMap,
@@ -411,6 +423,14 @@ async function initNearbyMap(places: NearbyPlace[]) {
     });
     _distLabels.push(labelMarker);
     // Pini — ei lisätä suoraan kartalle, klusteroija hoitaa sen
+    const markerLabelText = p.name.length > 18 ? p.name.slice(0, 16) + '…' : p.name;
+    const buildPinLabel = (text: string) => ({
+      text,
+      color: '#4ade80',
+      fontSize: '10px',
+      fontWeight: '600',
+      className: 'pin-label',
+    });
     const marker = new G.Marker({
       position: { lat: p.lat, lng: p.lng },
       title: p.name,
@@ -418,8 +438,73 @@ async function initNearbyMap(places: NearbyPlace[]) {
         path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
         fillColor: color, fillOpacity: 1, strokeColor: '#000', strokeWeight: 1,
         scale: 1.6, anchor: new G.Point(12, 22),
+        labelOrigin: new G.Point(12, -8),
       },
+      label: buildPinLabel(markerLabelText),
     });
+    (marker as any)._labelText = markerLabelText;
+
+    // InfoWindow lisätiedoilla
+    const distM = calcDist(p.lat, p.lng);
+    const distText = distM >= 1000
+      ? `${(distM / 1000).toFixed(1).replace('.', ',')} km`
+      : `${Math.round(distM)} m`;
+    const openBadge = p.open === true
+      ? '<span style="color:#4ade80;font-size:11px">● Auki</span>'
+      : p.open === false
+        ? '<span style="color:#ef4444;font-size:11px">● Kiinni</span>'
+        : '';
+    const ratingText = p.rating
+      ? `<span style="color:#eab308;font-size:11px">★ ${p.rating.toFixed(1)}</span><span style="color:#6b7280;font-size:10px"> (${p.ratingCount})</span>`
+      : '';
+    const tagsHtml = p.tags.length
+      ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px">${p.tags.map(t => `<span style="font-size:9px;padding:2px 6px;border-radius:9px;background:#111827;border:1px solid #374151;color:#9ca3af">${t}</span>`).join('')}</div>`
+      : '';
+    const phoneHtml = p.phone ? `<div style="margin-top:6px;font-size:11px;color:#d1d5db">📞 ${p.phone}</div>` : '';
+    const photoHtml = p.photos.length
+      ? `<img src="/api/places/photo?ref=${encodeURIComponent(p.photos[0] ?? '')}&maxw=420" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:8px" />`
+      : '';
+    const navHtml = `<div style="margin-top:8px;display:flex;gap:6px">
+      <a href="${p.mapsUri || `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`}" target="_blank" rel="noopener" style="font-size:10px;padding:3px 8px;border-radius:6px;background:#111827;border:1px solid #374151;color:#60a5fa;text-decoration:none">Google Maps ↗</a>
+      <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank" rel="noopener" style="font-size:10px;padding:3px 8px;border-radius:6px;background:#052e16;border:1px solid #166534;color:#4ade80;text-decoration:none">Navigoi ↗</a>
+    </div>`;
+
+    marker.addListener('click', () => {
+      if (_activeInfoMarker && _activeInfoMarker !== marker) {
+        const prevLabelText = (_activeInfoMarker as any)._labelText;
+        if (typeof prevLabelText === 'string') _activeInfoMarker.setLabel(buildPinLabel(prevLabelText));
+      }
+      if (!_infoWindow) {
+        _infoWindow = new G.InfoWindow();
+        _infoWindow.addListener('closeclick', () => {
+          if (_activeInfoMarker) {
+            const activeLabelText = (_activeInfoMarker as any)._labelText;
+            if (typeof activeLabelText === 'string') _activeInfoMarker.setLabel(buildPinLabel(activeLabelText));
+          }
+          _activeInfoMarker = null;
+        });
+      }
+
+      marker.setLabel('');
+      _activeInfoMarker = marker;
+
+      _infoWindow.setContent(`
+        <div style="font-family:system-ui;max-width:320px;padding:0">
+          ${photoHtml}
+          <div style="font-size:14px;font-weight:700;color:#f9fafb;margin-bottom:3px;line-height:1.25">${p.name}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:7px;line-height:1.35">${p.address}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            ${openBadge} ${ratingText}
+            <span style="color:#6b7280;font-size:11px">${distText}</span>
+          </div>
+          ${tagsHtml}
+          ${phoneHtml}
+          ${navHtml}
+        </div>
+      `);
+      _infoWindow.open(_nearbyMap, marker);
+    });
+
     _nearbyMarkers.push(marker);
     bounds.extend({ lat: p.lat, lng: p.lng });
   });
@@ -706,7 +791,14 @@ function closingSoon(closesAt: string | null): boolean {
           <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
             <MapPin class="w-4 h-4 text-dgreen-400" />Katso lähimmät baarit, alkot ja kaupat
           </h2>
-          <p class="text-xs text-gray-600 mt-0.5">Baarit, alkot ja kaupat — sijaintiasi ei tallenneta</p>
+          <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+            <p class="text-xs text-gray-600">Baarit, alkot ja kaupat — sijaintiasi ei tallenneta</p>
+            <span v-if="userLat"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border border-dgreen-900/60 bg-dgreen-950/40 text-dgreen-400">
+              <MapPin class="w-2.5 h-2.5" />
+              Kantojallulle {{ distToOksjarvi }}
+            </span>
+          </div>
         </div>
         <div v-if="userLat" class="flex items-center gap-2">
           <div class="flex items-center gap-2">
@@ -851,11 +943,17 @@ function closingSoon(closesAt: string | null): boolean {
                   <option value="distance">Etäisyys</option>
                   <option value="rating">Arvosana</option>
                 </select>
-                <button @click="toggleMapFullscreen"
-                  class="ml-auto w-8 h-8 flex items-center justify-center rounded-lg
-                         bg-white/10 border border-white/15 text-gray-300 hover:text-white hover:bg-white/20 transition-colors">
-                  <Minimize2 class="w-4 h-4" />
-                </button>
+                <div class="ml-auto flex flex-col items-end gap-1">
+                  <span v-if="distToOksjarvi"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border border-dgreen-900/60 bg-dgreen-950/40 text-dgreen-400 whitespace-nowrap">
+                    <MapPin class="w-2.5 h-2.5" />Kantojallule {{ distToOksjarvi }}
+                  </span>
+                  <button @click="toggleMapFullscreen"
+                    class="w-8 h-8 flex items-center justify-center rounded-lg
+                           bg-white/10 border border-white/15 text-gray-300 hover:text-white hover:bg-white/20 transition-colors">
+                    <Minimize2 class="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1252,4 +1350,61 @@ function closingSoon(closesAt: string | null): boolean {
   text-shadow: 0 0 4px #000, 0 0 4px #000, 0 0 4px #000;
   letter-spacing: 0.02em;
 }
+.pin-label {
+  background: #000000;
+  border: 1px solid #166534;
+  border-radius: 10px;
+  padding: 2px 7px;
+  text-shadow: none;
+  white-space: nowrap;
+}
+/* Dark InfoWindow */
+.gm-style .gm-style-iw-d {
+  overflow: auto !important;
+  background: rgba(0, 0, 0, 0.95) !important;
+}
+.gm-style .gm-style-iw-c {
+  background: rgba(0, 0, 0, 0.95) !important;
+  border: 2px solid #4d678c !important;
+  border-radius: 14px !important;
+  margin: 1px !important;
+  padding: 6px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7) !important;
+}
+.gm-style .gm-style-iw-c > div {
+  background: rgba(0, 0, 0, 0.95) !important;
+}
+.gm-style .gm-style-iw-t::after {
+  background: rgba(0, 0, 0, 0.95) !important;
+  box-shadow: none !important;
+}
+.gm-style .gm-style-iw-tc::after {
+  background: rgba(0, 0, 0, 0.95) !important;
+}
+/* Close button — sisällä kuplan sisällä */
+.gm-style .gm-ui-hover-effect {
+  top: 6px !important;
+  right: 6px !important;
+  width: 22px !important;
+  height: 22px !important;
+  background: #1f2937 !important;
+  border-radius: 50% !important;
+  border: 1px solid #374151 !important;
+  opacity: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.gm-style .gm-ui-hover-effect:hover {
+  background: #374151 !important;
+}
+.gm-style .gm-ui-hover-effect > span {
+  background-color: #e5e7eb !important;
+  width: 10px !important;
+  height: 10px !important;
+  margin: 0 !important;
+}
+/* Piilota Google Mapsin valkoinen sisäkehys */
+.gm-style .gm-style-iw { background: transparent !important; }
+.gm-style .gm-style-iw-chr { position: absolute; top: 0; right: 0; z-index: 10; }
 </style>
