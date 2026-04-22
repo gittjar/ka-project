@@ -12,7 +12,9 @@ const router = express.Router();
 const LOGIN_MAX_ATTEMPTS = 10;
 const LOGIN_LOCK_MS = 60 * 60 * 1000; // 1h
 
-const registerLimiter = rateLimit({
+const registerLimiter = process.env.NODE_ENV === 'test'
+  ? (_req, _res, next) => next()
+  : rateLimit({
   windowMs: 60 * 60 * 1000, // 1 tunti
   max: 5,
   standardHeaders: true,

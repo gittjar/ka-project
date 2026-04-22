@@ -6,6 +6,10 @@ import type { Component } from 'vue';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
 
+// Tuotannossa VITE_API_URL osoittaa backendiin (esim. https://ka-project-api.onrender.com/api)
+// Kehityksessä Vite proxy hoitaa /api → localhost:3001
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
+
 interface Drink {
   _id: string;
   name: string;
@@ -465,7 +469,7 @@ async function initNearbyMap(places: NearbyPlace[]) {
       : '';
     const phoneHtml = p.phone ? `<div style="margin-top:6px;font-size:11px;color:#d1d5db">📞 ${p.phone}</div>` : '';
     const photoHtml = p.photos.length
-      ? `<img src="/api/places/photo?ref=${encodeURIComponent(p.photos[0] ?? '')}&maxw=420" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:8px" />`
+      ? `<img src="${API_BASE}/places/photo?ref=${encodeURIComponent(p.photos[0] ?? '')}&maxw=420" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:8px" />`
       : '';
     const navHtml = `<div style="margin-top:8px;display:flex;gap:6px">
       <a href="${p.mapsUri || `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`}" target="_blank" rel="noopener" style="font-size:10px;padding:3px 8px;border-radius:6px;background:#111827;border:1px solid #374151;color:#60a5fa;text-decoration:none">Google Maps ↗</a>
@@ -945,7 +949,7 @@ function closingSoon(closesAt: string | null): boolean {
                 <div class="ml-auto flex flex-col items-end gap-1">
                   <span v-if="distToOksjarvi"
                     class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border border-dgreen-900/60 bg-dgreen-950/40 text-dgreen-400 whitespace-nowrap">
-                    <MapPin class="w-2.5 h-2.5" />Kantojallule {{ distToOksjarvi }}
+                    <MapPin class="w-2.5 h-2.5" />Kantojallulle {{ distToOksjarvi }}
                   </span>
                   <button @click="toggleMapFullscreen"
                     class="w-8 h-8 flex items-center justify-center rounded-lg
@@ -1022,7 +1026,7 @@ function closingSoon(closesAt: string | null): boolean {
               <!-- Kuvakaruselli -->
               <div v-if="p.photos.length" class="relative rounded-lg overflow-hidden h-40 bg-gray-800/50 group">
                 <img
-                  :src="`/api/places/photo?ref=${encodeURIComponent(p.photos[activePhotoIndex[p.id] ?? 0] ?? '')}&maxw=600`"
+                  :src="`${API_BASE}/places/photo?ref=${encodeURIComponent(p.photos[activePhotoIndex[p.id] ?? 0] ?? '')}&maxw=600`"
                   :alt="p.name"
                   class="w-full h-full object-cover transition-opacity duration-300"
                   loading="lazy"
