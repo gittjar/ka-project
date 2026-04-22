@@ -52,6 +52,7 @@ const FIELD_MASK = [
 const TYPE_BATCH_BARS = [
   'bar', 'pub', 'night_club', 'karaoke', 'casino',
 ];
+const TYPE_BATCH_BREWERY = ['brewery'];
 const TYPE_BATCH_ALKO = ['liquor_store'];
 const TYPE_BATCH_STORES = [
   'convenience_store', 'grocery_store', 'supermarket',
@@ -89,6 +90,7 @@ function classifyType(primaryType, displayName) {
   const dn = (displayName || '').toLowerCase();
   const combined = pt + ' ' + dn;
 
+  if (pt === 'brewery' || dn.includes('panimo') || dn.includes('brewery') || dn.includes('brewing')) return 'panimo';
   if (['bar','night_club','pub','karaoke','casino'].some(t => pt.includes(t))) return 'bar';
   if (combined.includes('bar') || combined.includes('pub') || combined.includes('yökerho') ||
       combined.includes('night') || combined.includes('karaoke')) return 'bar';
@@ -136,11 +138,12 @@ router.get('/nearby', nearbyLimiter, async (req, res) => {
   if (!key) return res.status(503).json({ message: 'Places-avain puuttuu' });
 
   try {
-    const [batch1, batchAlko, batch2, batch3] = await Promise.all([
-      fetchBatch(key, TYPE_BATCH_BARS,   lat, lng, radius),
-      fetchBatch(key, TYPE_BATCH_ALKO,   lat, lng, radius),
-      fetchBatch(key, TYPE_BATCH_STORES, lat, lng, radius),
-      fetchBatch(key, TYPE_BATCH_FOOD,   lat, lng, radius),
+    const [batch1, batchAlko, batch2, batch3, batchBrewery] = await Promise.all([
+      fetchBatch(key, TYPE_BATCH_BARS,    lat, lng, radius),
+      fetchBatch(key, TYPE_BATCH_ALKO,    lat, lng, radius),
+      fetchBatch(key, TYPE_BATCH_STORES,  lat, lng, radius),
+      fetchBatch(key, TYPE_BATCH_FOOD,    lat, lng, radius),
+      fetchBatch(key, TYPE_BATCH_BREWERY, lat, lng, radius),
     ]);
 
     // Yhdistä ja poista duplikaatit id:n perusteella
@@ -148,7 +151,7 @@ router.get('/nearby', nearbyLimiter, async (req, res) => {
     // ja store-primaryType vain kioski-nimellä.
     const storeIds = new Set(batch2.map(p => p.id));
     const seen = new Set();
-    const all = [...batch1, ...batchAlko, ...batch2, ...batch3].filter(p => {
+    const all = [...batch1, ...batchAlko, ...batch2, ...batch3, ...batchBrewery].filter(p => {
       if (!p.id || seen.has(p.id)) return false;
       const pt = p.primaryType || '';
       const name = p.displayName?.text || '';

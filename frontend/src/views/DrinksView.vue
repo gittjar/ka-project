@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star, Maximize2, Minimize2, LayoutGrid, Wine, UtensilsCrossed, Sandwich, SortAsc, Eye, Phone, Globe, Clock, ChevronUp, ExternalLink } from 'lucide-vue-next';
+import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star, Maximize2, Minimize2, LayoutGrid, Wine, UtensilsCrossed, Sandwich, SortAsc, Eye, Phone, Globe, Clock, ChevronUp, ExternalLink, Factory } from 'lucide-vue-next';
 import type { Component } from 'vue';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
@@ -264,7 +264,7 @@ const nearbyRadius = ref(1000);
 const userLat = ref<number | null>(null);
 const userLng = ref<number | null>(null);
 const locationAsked = ref(false);
-const activeFilter = ref<'kaikki' | 'bar' | 'alko' | 'kauppa' | 'ravintola' | 'pikaruoka'>('kaikki');
+const activeFilter = ref<FilterKey>('kaikki');
 const onlyOpen = ref(false);
 const sortBy = ref<'distance' | 'rating'>('distance');
 const nearbyMapDiv = ref<HTMLElement | null>(null);
@@ -305,9 +305,10 @@ const TYPE_COLORS: Record<string, string> = {
   kauppa:    '#f59e0b',
   ravintola: '#f97316',
   pikaruoka: '#ef4444',
+  panimo:    '#f59e0b',
 };
 
-type FilterKey = 'kaikki' | 'bar' | 'alko' | 'ravintola' | 'pikaruoka' | 'kauppa';
+type FilterKey = 'kaikki' | 'bar' | 'alko' | 'ravintola' | 'pikaruoka' | 'kauppa' | 'panimo';
 const FILTER_CONFIG: { key: FilterKey; label: string; icon: Component; iconClass: string }[] = [
   { key: 'kaikki',    label: 'Kaikki',       icon: LayoutGrid,      iconClass: 'text-gray-400' },
   { key: 'bar',       label: 'Baarit',        icon: Beer,            iconClass: 'text-purple-400' },
@@ -315,6 +316,7 @@ const FILTER_CONFIG: { key: FilterKey; label: string; icon: Component; iconClass
   { key: 'ravintola', label: 'Ravintolat',    icon: UtensilsCrossed, iconClass: 'text-orange-400' },
   { key: 'pikaruoka', label: 'Pikaruoka',     icon: Sandwich,        iconClass: 'text-red-400' },
   { key: 'kauppa',    label: 'Kaupat',        icon: ShoppingCart,    iconClass: 'text-amber-400' },
+  { key: 'panimo',    label: 'Panimot',       icon: Factory,         iconClass: 'text-yellow-500' },
 ];
 
 const filteredPlaces = computed(() => {
