@@ -229,6 +229,9 @@ router.get('/photo', async (req, res) => {
     const ct = imgR.headers.get('content-type') || 'image/jpeg';
     res.setHeader('Content-Type', ct);
     res.setHeader('Cache-Control', 'public, max-age=86400');
+    // Salli cross-origin lataus — kuvia käytetään toiselta domainilta (frontend ≠ backend)
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     const buf = await imgR.arrayBuffer();
     res.send(Buffer.from(buf));
   } catch {
