@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "import:members": "node src/scrape-members.js",
     "import:members:dry": "node src/scrape-members.js --dry-run",
     "import:members:update": "node src/scrape-members.js --update",
@@ -31,6 +33,7 @@
   },
   "devDependencies": {
     "node-html-parser": "^7.1.0",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "vitest": "^4.1.5"
   }
 }

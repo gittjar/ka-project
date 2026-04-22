@@ -1,5 +1,12 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import {
+  classifyType,
+  ALLOWED_STORE_PRIMARY_TYPES,
+  KIOSK_PATTERN,
+  ALLOWED_DEPT_STORE_PATTERN,
+  NAME_BLOCKLIST,
+} from '../utils/placesUtils.js';
 
 const router = express.Router();
 
@@ -46,7 +53,7 @@ const FIELD_MASK = [
 ].join(',');
 
 // Places API (New) type → our category
-// Neljä erillistä kutsua jotta jokaisella ryhmällä on oma 20 tuloksen kiintiö.
+// Viisi erillistä kutsua jotta jokaisella ryhmällä on oma 20 tuloksen kiintiö.
 // kiosk ja kebab_restaurant ovat API:n kannalta virheellisiä tyyppejä (testattu).
 // liquor_store (Alko) saa oman batchin — muuten se hukkuu baarien tai kauppojen sekaan.
 const TYPE_BATCH_BARS = [
@@ -59,23 +66,6 @@ const TYPE_BATCH_STORES = [
   'hypermarket', 'market', 'department_store', 'gas_station', 'store',
 ];
 
-// Whitelist: mitkä primaryType-arvot hyväksytään kaupat-batchista.
-// store-tyyppi hyväksytään vain jos nimi vastaa kioski-patternia.
-// department_store hyväksytään vain tunnetuilla ketjunimillä.
-const ALLOWED_STORE_PRIMARY_TYPES = new Set([
-  'liquor_store', 'convenience_store', 'grocery_store', 'supermarket',
-  'hypermarket', 'market', 'food_store',
-  'department_store',   // suodatetaan erillisellä nimipatterilla (ks. alla)
-  'gas_station',        // Shell, ABC, Neste (myy alkoholia)
-  'discount_store',
-  'store',              // hyväksytään vain kioski-nimellä (ks. alla)
-]);
-const KIOSK_PATTERN = /r-?kioski|kioski|kiosk/i;
-// department_store: sallitaan vain tunnetut yleistavara/päivittäistavara-ketjut
-const ALLOWED_DEPT_STORE_PATTERN = /tokmanni|sokos|stockmann|prisma|euromarket|k-citymarket|citymarket|s-market|sale|abc/i;
-// Nimiin perustuva blocklist: suljetaan aina pois riippumatta primaryTypestä
-const NAME_BLOCKLIST = /hankkija|k-rauta|rusta|bauhaus|baumax|würth|motonet(?!.*alko)|kodin terra|expert|gigantti|power\b|clas ohlson|biltema|kukka|florist|puutarha|garden center|laser|optikko|silmä|apteekki|pharmacy|kirjakauppa|kirjasto|museo|museum/i;
-
 const TYPE_BATCH_FOOD = [
   'restaurant', 'fast_food_restaurant', 'pizza_restaurant',
   'sandwich_shop', 'hamburger_restaurant', 'meal_takeaway', 'meal_delivery',
@@ -84,25 +74,6 @@ const TYPE_BATCH_FOOD = [
   'turkish_restaurant', 'vietnamese_restaurant', 'japanese_restaurant',
   'mediterranean_restaurant', 'greek_restaurant', 'mexican_restaurant',
 ];
-
-function classifyType(primaryType, displayName) {
-  const pt = (primaryType || '').toLowerCase();
-  const dn = (displayName || '').toLowerCase();
-  const combined = pt + ' ' + dn;
-
-  if (pt === 'brewery' || dn.includes('panimo') || dn.includes('brewery') || dn.includes('brewing')) return 'panimo';
-  if (['bar','night_club','pub','karaoke','casino'].some(t => pt.includes(t))) return 'bar';
-  if (combined.includes('bar') || combined.includes('pub') || combined.includes('yökerho') ||
-      combined.includes('night') || combined.includes('karaoke')) return 'bar';
-  if (pt === 'liquor_store' || dn.includes('alko') || dn.includes('viina')) return 'alko';
-  if (pt === 'gas_station') return 'kauppa';
-  if (['convenience_store','grocery_store','supermarket','hypermarket','market',
-       'food_store','department_store','discount_store','store'].some(t => pt === t)) return 'kauppa';
-  if (['fast_food','pizza','sandwich','hamburger','kebab','döner'].some(t => combined.includes(t)) ||
-      dn.includes('kebab') || dn.includes('pizza') || dn.includes('burger') ||
-      dn.includes('mcdonalds') || dn.includes('hesburger') || dn.includes('pikaruoka')) return 'pikaruoka';
-  return 'ravintola';
-}
 
 async function fetchBatch(key, types, lat, lng, radius) {
   const r = await fetch(NEARBY_URL, {

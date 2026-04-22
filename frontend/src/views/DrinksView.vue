@@ -1,5 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { haversineDistance } from '../utils/geo';
 import { Plus, GlassWater, ChevronDown, Trash2, X, AlertTriangle, User, Pencil, Film, ImageIcon, CheckCircle2, MapPin, Navigation, Beer, ShoppingCart, Star, Maximize2, Minimize2, LayoutGrid, Wine, UtensilsCrossed, Sandwich, SortAsc, Eye, Phone, Globe, Clock, ChevronUp, ExternalLink, Factory } from 'lucide-vue-next';
 import type { Component } from 'vue';
 import api from '../api';
@@ -613,11 +614,7 @@ watch(filteredPlaces, async places => {
 
 function calcDist(lat: number, lng: number): number {
   if (!userLat.value || !userLng.value) return 0;
-  const R = 6371000;
-  const dLat = (lat - userLat.value) * Math.PI / 180;
-  const dLng = (lng - userLng.value) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(userLat.value * Math.PI/180) * Math.cos(lat * Math.PI/180) * Math.sin(dLng/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return haversineDistance(userLat.value, userLng.value, lat, lng);
 }
 
 function distanceM(lat: number, lng: number): string {
