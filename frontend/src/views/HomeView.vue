@@ -263,21 +263,21 @@ onUnmounted(stopAuto);
     </div>
 
     <!-- Sisältö -->
-    <div class="relative z-10 px-4 sm:px-8 lg:px-12 pt-20 pb-16 text-center flex-1 flex flex-col items-center justify-center">
+    <div class="relative z-10 px-4 sm:px-8 lg:px-12 pt-16 pb-10 sm:pt-20 sm:pb-16 flex-1 flex flex-col items-center justify-center w-full">
       <div class="inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full
                   bg-dgreen-900/60 border border-dgreen-800/60 text-dgreen-400 text-xs font-medium backdrop-blur-sm">
         <span class="w-1.5 h-1.5 rounded-full bg-dgreen-400 animate-pulse"></span>
         Vuodesta 2003
       </div>
 
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-3 tracking-tight leading-tight
+      <h1 class="w-full text-center text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-3 tracking-tight leading-tight
                  drop-shadow-[0_2px_16px_rgba(0,0,0,0.8)]">
         Kanniaalio<span class="text-dpurple-400">+</span>
       </h1>
 
       <!-- Lyhyt teksti mobiilissa, pidempi isommilla näytöillä -->
-      <p class="sm:hidden text-gray-400 text-sm mb-5 max-w-[280px] leading-relaxed drop-shadow">
-        BatMUD-pelaajien yhteisö vuodesta 2003. 
+      <p class="sm:hidden text-center text-gray-400 text-sm mb-5 w-full max-w-[280px] leading-relaxed drop-shadow">
+        BatMUD-pelaajien yhteisö vuodesta 2003.
       </p>
       <div class="hidden sm:block rounded-2xl border border-dpurple-800/40 bg-black/30 backdrop-blur-sm
                   px-6 py-4 max-w-xl mx-auto shadow-lg mb-2">
@@ -385,11 +385,11 @@ onUnmounted(stopAuto);
         v-for="item in nav"
         :key="item.to"
         :to="item.to"
-        class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border
+               border-dpurple-600/30 text-dpurple-400/80 text-sm font-medium
+               bg-dpurple-950/30 backdrop-blur-sm
+               hover:border-dpurple-600/60 hover:text-dpurple-400 hover:bg-dpurple-900/40
                transition-colors duration-150"
-        :class="nav.indexOf(item) % 2 === 0
-          ? 'border-dgreen-900/60 text-dgreen-300/80 hover:text-dgreen-200 hover:border-dgreen-700/60 hover:bg-dgreen-950/40'
-          : 'border-dpurple-900/60 text-dpurple-300/80 hover:text-dpurple-200 hover:border-dpurple-700/60 hover:bg-dpurple-950/40'"
       >
         <component :is="item.icon" class="w-4 h-4 shrink-0 stroke-[1.5]" />
         {{ item.label }}
