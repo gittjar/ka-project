@@ -1294,7 +1294,7 @@ onUnmounted(() => {
           <!-- Kansiokortit -->
           <div
             v-for="folder in folders" :key="folder._id"
-            class="group relative rounded-2xl overflow-hidden border transition-all"
+            class="group relative rounded-2xl overflow-hidden border transition-all flex flex-col"
             :class="dragOverFolder === folder._id
               ? 'border-dpurple-600 scale-[1.02]'
               : 'border-gray-800/50 hover:border-gray-700'"
@@ -1303,7 +1303,7 @@ onUnmounted(() => {
             @drop.prevent="auth.isAdmin && onDropFolder($event, folder._id)">
 
             <!-- Esikatselu + nimi -->
-            <div class="aspect-video relative cursor-pointer" @click="navigateInto(folder)">
+            <div class="aspect-video relative cursor-pointer shrink-0" @click="navigateInto(folder)">
               <img v-if="folder.previewBlobName" :src="folderPreviewUrl(folder)"
                 crossorigin="anonymous" class="absolute inset-0 w-full h-full object-cover" />
               <div v-else class="absolute inset-0 bg-gray-900 flex items-center justify-center">
@@ -1332,10 +1332,15 @@ onUnmounted(() => {
                     class="text-[10px] text-gray-500 bg-black/55 backdrop-blur-sm px-2 py-0.5 rounded-full">Tyhjä</span>
                 </div>
               </div>
-              <!-- Tarina-indikaattori -->
-              <div v-if="folder.description" class="absolute top-2 right-2">
-                <FileText class="w-3.5 h-3.5 text-dpurple-400 drop-shadow" />
-              </div>
+            </div>
+
+            <!-- Kuvaus / tarina — näkyy kaikille, venyttää kortin tasaiseksi -->
+            <div
+              class="flex-1 px-3 py-2.5 bg-gray-950/90 border-t border-gray-800/40 cursor-pointer"
+              @click="navigateInto(folder)">
+              <p v-if="folder.description"
+                class="text-xs text-gray-400 leading-relaxed line-clamp-3">{{ folder.description }}</p>
+              <p v-else class="text-xs text-gray-700 italic">Ei tarinaa</p>
             </div>
 
             <!-- Admin-toiminnot -->
