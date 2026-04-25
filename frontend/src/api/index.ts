@@ -10,4 +10,28 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Ohjaa kirjautumissivulle kun token on vanhentunut tai virheellinen
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      const hadToken = !!localStorage.getItem('kk_token');
+      // Siivoa kirjautumistiedot
+      localStorage.removeItem('kk_token');
+      localStorage.removeItem('kk_username');
+      localStorage.removeItem('kk_role');
+      // Merkitään syy toast-viestiä varten
+      if (hadToken) {
+        sessionStorage.setItem('kk_session_expired', '1');
+      }
+      // Ohjaus — ei redirect jos jo login-sivulla
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+      }
+    }
+    return Promise.reject(err);
+  },
+);
+
 export default api;
+
