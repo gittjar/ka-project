@@ -19,7 +19,7 @@ import ShareToken from '../models/ShareToken.js';
 
 const router = express.Router();
 const CONTAINER = 'gallery';
-const MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
+const MAX_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB
 
 const ACCEPTED_EXT = /\.(jpe?g|png|gif|webp|bmp|tiff?|heic|heif|avif|mp4|mov|m4v|webm|3gp|mkv|avi)$/i;
 const VIDEO_EXT    = /\.(mp4|mov|m4v|webm|3gp|mkv|avi)$/i;

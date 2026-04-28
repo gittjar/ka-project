@@ -78,7 +78,7 @@ const loadError = ref('');
 
 // Storage (admin)
 const storageUsed = ref(0);
-const storageMax = ref(100 * 1024 * 1024 * 1024);
+const storageMax = ref(10 * 1024 * 1024 * 1024);
 const storagePercent = computed(() => Math.min(100, (storageUsed.value / storageMax.value) * 100));
 
 // Upload

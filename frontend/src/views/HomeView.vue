@@ -142,11 +142,20 @@ const blobBytes = ref<number | null>(null);
 const imageCount = ref<number | null>(null);
 const videoCount = ref<number | null>(null);
 const memberCount = ref<number | null>(null);
+const memberList = ref<{ _id: string; name: string }[]>([]);
+const VIP_NAMES = ['Caitline', 'Fimir'];
+function isVip(name: string): boolean {
+  return VIP_NAMES.some(v => name.toLowerCase().includes(v.toLowerCase()));
+}
+function getMemberPillClass(_id: string): string {
+  return 'bg-neutral-900/80 text-white/50 border border-white/10';
+}
 function fmtBytes(b: number): string {
   if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
   if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
   return (b / 1e3).toFixed(0) + ' KB';
 }
+const tickerStyle = computed(() => ({ '--ticker-duration': memberList.value.length * 1.4 + 's' }) as Record<string, string>);
 
 onMounted(async () => {
   await loadCarousel();
@@ -161,8 +170,13 @@ onMounted(async () => {
     imageCount.value = r.data.imageCount ?? null;
     videoCount.value = r.data.videoCount ?? null;
   }).catch(() => {});
-  // Fetch member count
-  api.get('/members').then(r => { memberCount.value = Array.isArray(r.data) ? r.data.length : null; }).catch(() => {});
+  // Fetch member list + count
+  api.get('/members').then(r => {
+    if (Array.isArray(r.data)) {
+      memberCount.value = r.data.length;
+      memberList.value = r.data.map((m: any) => ({ _id: m._id, name: m.name }));
+    }
+  }).catch(() => {});
 });
 onUnmounted(stopAuto);
 </script>
@@ -252,11 +266,11 @@ onUnmounted(stopAuto);
       </div>
     </div>
 
-    <!-- Ghost member count — hero top-right -->
+    <!-- Ghost member count + jäsenpillerit — hero top-right -->
     <div v-if="memberCount !== null"
       class="absolute top-0 right-0 z-10 flex flex-col items-end pr-5 pt-4 pointer-events-none select-none">
       <span class="text-[7rem] sm:text-[10rem] font-black leading-none text-white/[0.07] tracking-tighter"
-            style="-webkit-text-stroke: 1px rgba(20, 83, 45, 0.5);"><!-- dgreen-900 ~50% -->
+            style="-webkit-text-stroke: 1px rgba(20, 83, 45, 0.5);">
         {{ memberCount }}
       </span>
       <span class="text-xs tracking-[0.25em] uppercase text-white/25 -mt-3 mr-0.5">jäsentä</span>
@@ -375,6 +389,34 @@ onUnmounted(stopAuto);
     </template>
   </section>
 
+  <!-- Jäsenten nimibändi — vaaka-looppi karusellinkuvan alla -->
+  <div v-if="memberList.length"
+    class="overflow-hidden border-y border-white/5 bg-black/30 py-3 select-none"
+    style="-webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+           mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)">
+    <div class="ticker-band flex gap-2.5 w-max"
+      :style="tickerStyle">
+      <template v-for="i in 2" :key="i">
+        <template v-for="m in memberList" :key="`${i}-${m._id}`">
+          <!-- VIP: kännimestarit -->
+          <span v-if="isVip(m.name)"
+            class="flex-shrink-0 inline-flex items-center px-3.5 py-1.5 rounded-full
+                   text-[12px] font-semibold whitespace-nowrap
+                   bg-dpurple-950/90 text-dpurple-400 border border-white/10">
+            {{ m.name }}
+          </span>
+          <!-- Tavalliset jäsenet -->
+          <span v-else
+            class="flex-shrink-0 inline-flex items-center px-3.5 py-1.5 rounded-full
+                   text-[12px] whitespace-nowrap"
+            :class="getMemberPillClass(m._id)">
+            {{ m.name }}
+          </span>
+        </template>
+      </template>
+    </div>
+  </div>
+
   <!-- Navigaatiolinkit -->
   <section class="px-4 sm:px-8 lg:px-12 pb-12 pt-7">
     <p class="text-xs font-semibold text-gray-600 uppercase tracking-widest mb-4 text-center">
@@ -406,5 +448,18 @@ onUnmounted(stopAuto);
 .caption-fade-enter-from,
 .caption-fade-leave-to {
   opacity: 0;
+}
+
+/* Jäsenten nimibändi: looppaava vaakavieritys oikealta vasemmalle */
+.ticker-band {
+  animation: ticker-roll var(--ticker-duration, 60s) linear infinite;
+  will-change: transform;
+}
+.ticker-band:hover {
+  animation-play-state: paused;
+}
+@keyframes ticker-roll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 </style>
