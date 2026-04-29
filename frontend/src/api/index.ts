@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { onRequestStart, onRequestDone } from '../composables/backendStatus';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
@@ -7,13 +8,20 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('kk_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  onRequestStart();
   return config;
 });
 
 // Ohjaa kirjautumissivulle kun token on vanhentunut tai virheellinen
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    onRequestDone(true);
+    return res;
+  },
   (err) => {
+    // err.response defined = backend replied with an HTTP error (it IS up)
+    onRequestDone(!!err.response);
+
     if (err.response?.status === 401) {
       const hadToken = !!localStorage.getItem('kk_token');
       // Siivoa kirjautumistiedot
