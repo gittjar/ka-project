@@ -127,7 +127,7 @@ function onKeydown(e: KeyboardEvent) {
     activeIdx.value = Math.max(activeIdx.value - 1, -1);
   } else if (e.key === 'Enter' && activeIdx.value >= 0) {
     e.preventDefault();
-    navigateTo(searchResults.value[activeIdx.value]);
+    const r = searchResults.value[activeIdx.value]; if (r) navigateTo(r);
   }
 }
 
@@ -366,7 +366,7 @@ onUnmounted(() => {
                 </div>
                 <!-- Tulokset -->
                 <button
-                  v-for="(result, i) in searchResults.filter(r => r.type === type)"
+                  v-for="result in searchResults.filter(r => r.type === type)"
                   :key="result.id"
                   @click="navigateTo(result)"
                   @mouseenter="activeIdx = searchResults.indexOf(result)"

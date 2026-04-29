@@ -6,6 +6,7 @@ import api from './api';
 import { overlayVisible, isDown, elapsedSec } from './composables/backendStatus';
 
 const sessionExpired = ref(false);
+function reloadPage() { window.location.reload(); }
 
 // Ping backend on first load so Render's free-tier instance wakes up early.
 // Goes through the api instance so the status tracker can show the overlay.
@@ -96,7 +97,7 @@ onMounted(() => {
               Tule takaisin hetken kuluttua — palvelin saattaa olla hetkellisesti alhaalla.
             </p>
             <button
-              @click="() => window.location.reload()"
+              @click="reloadPage"
               class="px-5 py-2 rounded-lg bg-dgreen-800/60 hover:bg-dgreen-700/60
                      border border-dgreen-700/50 text-dgreen-300 text-sm font-medium
                      transition-colors"
