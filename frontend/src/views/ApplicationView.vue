@@ -82,6 +82,16 @@ async function submit() {
   sending.value = true
   sendError.value = ''
   try {
+    // Tallenna backendiin — tämä on kriittinen polku
+    await api.post('/applications', {
+      name: form.value.name,
+      email: form.value.email,
+      location: form.value.location,
+      favDrink: form.value.favDrink,
+      motivation: form.value.motivation,
+    })
+
+    // Lähetä sähköposti-ilmoitus Web3Formsin kautta — epäonnistuminen ei estä onnistumista
     const payload: Record<string, string> = {
       access_key: WEB3FORMS_KEY,
       subject: `Kanniaalio+ hakemus: ${form.value.name}`,
@@ -92,24 +102,11 @@ async function submit() {
       motivation: form.value.motivation,
     }
     if (CC_EMAILS) payload.cc = CC_EMAILS
-
-    // Lähetä sekä Web3Forms-sähköpostiin että omaan backendiin rinnakkain
-    const [w3res] = await Promise.all([
-      fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(payload),
-      }),
-      api.post('/applications', {
-        name: form.value.name,
-        email: form.value.email,
-        location: form.value.location,
-        favDrink: form.value.favDrink,
-        motivation: form.value.motivation,
-      }).catch(() => null), // ei blokkaa vaikka backend olisi alhaalla
-    ])
-    const data = await w3res.json()
-    if (!data.success) throw new Error(data.message ?? 'Lähetys epäonnistui')
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => null) // fire-and-forget, ei blokkaa
 
     sent.value = true
     const timer = setInterval(() => {
