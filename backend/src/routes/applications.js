@@ -9,7 +9,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 
 const applicationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 tunti
-  max: 5,
+  max: 25,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Liian monta hakemusta. Yritä uudelleen tunnin kuluttua.' },
