@@ -44,6 +44,7 @@ function validateField(name: string, value: string): string {
   if (name === 'location' && !value.trim()) return 'Paikkakunta on pakollinen'
   if (name === 'favDrink' && !value.trim()) return 'Lempijuoma on pakollinen'
   if (name === 'motivation' && !value.trim()) return 'Perustelu on pakollinen'
+  if (name === 'motivation' && value.trim().length < 10) return 'Kirjoita vähintään 10 merkkiä'
   return ''
 }
 
@@ -117,7 +118,8 @@ async function submit() {
       }
     }, 1000)
   } catch (err: unknown) {
-    sendError.value = err instanceof Error ? err.message : 'Lähetys epäonnistui, yritä uudelleen.'
+    const axiosMsg = (err as any)?.response?.data?.message
+    sendError.value = axiosMsg ?? (err instanceof Error ? err.message : 'Lähetys epäonnistui, yritä uudelleen.')
   } finally {
     sending.value = false
   }
@@ -128,7 +130,7 @@ const fieldDefs = [
   { name: 'email',      label: 'Sähköposti',             type: 'email',    placeholder: 'sahkoposti@example.com' },
   { name: 'location',   label: 'Paikkakunta',            type: 'text',     placeholder: 'Kaupunki' },
   { name: 'favDrink',   label: 'Lempijuoma',             type: 'text',     placeholder: 'Mitä juot?' },
-  { name: 'motivation', label: 'Miksi haluat liittyä?',  type: 'textarea', placeholder: 'Kerro itsestäsi...' },
+  { name: 'motivation', label: 'Miksi haluat liittyä?',  type: 'textarea', placeholder: 'Kerro itsestäsi... (vähintään 10 merkkiä)' },
 ] as const
 </script>
 
