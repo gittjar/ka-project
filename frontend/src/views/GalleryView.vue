@@ -1297,7 +1297,7 @@ onUnmounted(() => {
             class="group relative rounded-2xl overflow-hidden border transition-all flex flex-col"
             :class="dragOverFolder === folder._id
               ? 'border-dpurple-600 scale-[1.02]'
-              : 'border-gray-800/50 hover:border-gray-700'"
+              : 'border-dpurple-800/60 hover:border-dpurple-600/70'"
             @dragover.prevent="auth.isAdmin && onDragOverFolder($event, folder._id)"
             @dragleave="onDragLeaveFolder"
             @drop.prevent="auth.isAdmin && onDropFolder($event, folder._id)">

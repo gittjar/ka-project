@@ -28,14 +28,14 @@ const year = new Date().getFullYear();
         <div class="flex flex-col sm:flex-row sm:items-start gap-10 sm:gap-16 mb-10">
 
           <!-- Brandi -->
-          <div class="shrink-0">
+          <div class="shrink-0 text-center sm:text-left">
             <RouterLink to="/"
               class="inline-block font-black text-2xl tracking-tight
                      bg-gradient-to-r from-dpurple-400 via-dgreen-400 to-dpurple-300
                      bg-clip-text text-transparent hover:opacity-80 transition-opacity">
               Kanniaalio+
             </RouterLink>
-            <p class="text-gray-500 text-xs mt-2 max-w-[200px] leading-relaxed">
+            <p class="text-gray-500 text-xs mt-2 max-w-[200px] leading-relaxed mx-auto sm:mx-0">
               BatMUD-killan perintöä<br>vuodesta 2003.
             </p>
           </div>

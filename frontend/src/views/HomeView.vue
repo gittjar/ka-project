@@ -184,7 +184,7 @@ onUnmounted(stopAuto);
 <template>
   <!-- ── Hero – carousel tai staattinen taustahehku ── -->
   <section
-    class="relative overflow-hidden min-h-[82vh] sm:min-h-[70vh] flex flex-col rounded-lg sm:rounded-2xl sm:mx-[5px]"
+    class="relative overflow-hidden min-h-[82vh] sm:min-h-[70vh] flex flex-col rounded-lg sm:rounded-2xl sm:mx-[5px] carousel-border"
     @touchstart.passive="onTouchStart"
     @touchend.passive="onTouchEnd"
   >
@@ -448,6 +448,28 @@ onUnmounted(stopAuto);
 .caption-fade-enter-from,
 .caption-fade-leave-to {
   opacity: 0;
+}
+
+.carousel-border {
+  border: 1px solid transparent;
+  border-image: linear-gradient(to bottom, rgba(147, 51, 234, 0.55) 0%, rgba(0, 0, 0, 0) 100%) 1;
+  /* border-image ei tue border-radius — käytetään outline + pseudo-element -tekniikkaa */
+  border: none;
+  position: relative;
+}
+.carousel-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(to bottom, rgba(120, 40, 200, 0.68), rgba(0, 0, 0, 0));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 30;
 }
 
 /* Jäsenten nimibändi: looppaava vaakavieritys oikealta vasemmalle */
