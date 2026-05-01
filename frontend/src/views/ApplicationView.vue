@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import api from '../api'
 
 const router = useRouter()
 
@@ -99,16 +100,12 @@ async function submit() {
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),
       }),
-      fetch('/api/applications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.value.name,
-          email: form.value.email,
-          location: form.value.location,
-          favDrink: form.value.favDrink,
-          motivation: form.value.motivation,
-        }),
+      api.post('/applications', {
+        name: form.value.name,
+        email: form.value.email,
+        location: form.value.location,
+        favDrink: form.value.favDrink,
+        motivation: form.value.motivation,
       }).catch(() => null), // ei blokkaa vaikka backend olisi alhaalla
     ])
     const data = await w3res.json()
