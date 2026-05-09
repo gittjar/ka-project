@@ -21,11 +21,11 @@ function logout() {
 const links = [
   { to: '/', label: 'Etusivu' },
   { to: '/jasenet', label: 'Jäsenet' },
-  { to: '/galleria', label: 'Kuvia' },
-  { to: '/tarinat', label: 'Tarinoita' },
+  { to: '/galleria', label: 'Kuvia', auth: true },
+  { to: '/tarinat', label: 'Tarinoita', auth: true },
   { to: '/historia', label: 'Historiikki' },
   { to: '/juomat', label: 'Juomat' },
-  { to: '/tapahtumat', label: 'Tapahtumat' },
+  { to: '/tapahtumat', label: 'Tapahtumat', auth: true },
   { to: '/hakemus', label: 'Hakemus' },
 ];
 
@@ -179,7 +179,7 @@ onUnmounted(() => {
         <!-- Desktop links -->
         <div class="hidden md:flex items-center gap-0.5">
           <RouterLink
-            v-for="l in links"
+            v-for="l in links.filter(l => !l.auth || auth.isLoggedIn)"
             :key="l.to"
             :to="l.to"
             class="px-3 py-1.5 rounded-xl text-sm text-gray-400
@@ -262,7 +262,7 @@ onUnmounted(() => {
       <div v-if="mobileOpen"
         class="md:hidden border-t border-green-900/40 px-3 py-2 flex flex-col gap-0.5 rounded-b-2xl">
         <RouterLink
-          v-for="l in links"
+          v-for="l in links.filter(l => !l.auth || auth.isLoggedIn)"
           :key="l.to"
           :to="l.to"
           class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-gray-400

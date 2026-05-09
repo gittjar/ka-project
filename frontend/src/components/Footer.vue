@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
+import { useAuthStore } from '../stores/auth';
+
+const auth = useAuthStore();
 
 const links = [
   { to: '/jasenet',  label: 'Jäsenet' },
-  { to: '/galleria', label: 'Kuvia' },
-  { to: '/tarinat',  label: 'Tarinoita' },
+  { to: '/galleria', label: 'Kuvia', auth: true },
+  { to: '/tarinat',  label: 'Tarinoita', auth: true },
   { to: '/historia', label: 'Historiikki' },
   { to: '/juomat',   label: 'Juomat' },
   { to: '/hakemus',  label: 'Hakemus' },
@@ -43,7 +46,7 @@ const year = new Date().getFullYear();
           <!-- Linkit -->
           <nav class="grid grid-cols-2 sm:grid-cols-3 gap-x-10 gap-y-2.5">
             <RouterLink
-              v-for="l in links"
+              v-for="l in links.filter(l => !l.auth || auth.isLoggedIn)"
               :key="l.to"
               :to="l.to"
               class="text-sm text-gray-500 hover:text-dgreen-400 transition-colors"
