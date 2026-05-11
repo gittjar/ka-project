@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { RouterLink } from 'vue-router';
-import { Users, Camera, BookOpen, ScrollText, GlassWater, ClipboardList } from 'lucide-vue-next';
 import api from '../api';
 
 interface CarouselItem {
@@ -10,15 +9,6 @@ interface CarouselItem {
   mediaType: 'image' | 'video';
   caption?: string;
 }
-
-const nav = [
-  { to: '/jasenet',  label: 'Jäsenet',    icon: Users,         desc: 'Tutki seuran jäseniä' },
-  { to: '/galleria',    label: 'Kuvia',       icon: Camera,        desc: 'Galleria vuosien varrelta' },
-  { to: '/tarinat',  label: 'Tarinoita',   icon: BookOpen,      desc: 'Jäsenten kertomuksia' },
-  { to: '/historia', label: 'Historiikki', icon: ScrollText,    desc: 'Seuran historia vuodesta 2003' },
-  { to: '/juomat',   label: 'Juomat',      icon: GlassWater,    desc: 'Reseptit ja drinkkilista' },
-  { to: '/hakemus',  label: 'Hakemus',     icon: ClipboardList, desc: 'Liity seuran jäseneksi' },
-];
 
 // ── Carousel ──────────────────────────────────────────────────────────────────
 
@@ -417,27 +407,6 @@ onUnmounted(stopAuto);
     </div>
   </div>
 
-  <!-- Navigaatiolinkit -->
-  <section class="px-4 sm:px-8 lg:px-12 pb-12 pt-7">
-    <p class="text-xs font-semibold text-gray-600 uppercase tracking-widest mb-4 text-center">
-      Mitä löydät
-    </p>
-    <div class="flex flex-wrap gap-2 justify-center">
-      <RouterLink
-        v-for="item in nav"
-        :key="item.to"
-        :to="item.to"
-        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border
-               border-dpurple-600/30 text-dpurple-400/80 text-sm font-medium
-               bg-dpurple-950/30 backdrop-blur-sm
-               hover:border-dpurple-600/60 hover:text-dpurple-400 hover:bg-dpurple-900/40
-               transition-colors duration-150"
-      >
-        <component :is="item.icon" class="w-4 h-4 shrink-0 stroke-[1.5]" />
-        {{ item.label }}
-      </RouterLink>
-    </div>
-  </section>
 </template>
 
 <style scoped>

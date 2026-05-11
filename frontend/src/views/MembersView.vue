@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
 import {
-  Search, ArrowUpDown,
+  Search, ArrowUpDown, LayoutList, LayoutGrid,
   MapPin, GlassWater, Flame, Cake, Star, Globe, Mail, Hash,
 } from 'lucide-vue-next';
 import api from '../api';
@@ -16,6 +16,7 @@ interface Member {
   born: string;
   highestPromille: string;
   favDrink: string;
+  pelipaikka: string;
   location: string;
   email: string;
   website: string;
@@ -29,6 +30,7 @@ const members = ref<Member[]>([]);
 const search = ref('');
 const sortKey = ref<'name' | 'location' | 'points'>('name');
 const deceasedFilter = ref<'all' | 'alive' | 'memorial'>('all');
+const viewMode = ref<'cards' | 'list'>('cards');
 const loading = ref(true);
 
 onMounted(async () => {
@@ -183,6 +185,19 @@ function onSlideImgError(m: Member) {
         </select>
         <ArrowUpDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
       </div>
+      <!-- Näkymävalitsin -->
+      <div class="flex shrink-0 rounded-xl border border-gray-800 overflow-hidden">
+        <button @click="viewMode = 'cards'"
+          class="px-3 py-2.5 transition-colors"
+          :class="viewMode === 'cards' ? 'bg-dpurple-900/60 text-dpurple-300' : 'bg-black/60 text-gray-500 hover:text-gray-300'">
+          <LayoutGrid class="w-4 h-4" />
+        </button>
+        <button @click="viewMode = 'list'"
+          class="px-3 py-2.5 transition-colors border-l border-gray-800"
+          :class="viewMode === 'list' ? 'bg-dpurple-900/60 text-dpurple-300' : 'bg-black/60 text-gray-500 hover:text-gray-300'">
+          <LayoutList class="w-4 h-4" />
+        </button>
+      </div>
     </div>
 
     <!-- Deceased filter -->
@@ -211,7 +226,7 @@ function onSlideImgError(m: Member) {
     </div>
 
     <!-- Kortit -->
-    <div v-else class="flex flex-col gap-6">
+    <div v-else-if="viewMode === 'cards'" class="flex flex-col gap-6">
       <template v-for="group in groupedFiltered" :key="group.letter">
         <!-- Kirjainlohko-otsikko -->
         <div class="flex items-center gap-3">
@@ -385,6 +400,58 @@ function onSlideImgError(m: Member) {
 
             </div>
           </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Tiivis lista -->
+    <div v-else class="flex flex-col gap-0.5">
+      <template v-for="group in groupedFiltered" :key="group.letter">
+        <div class="flex items-center gap-2 mt-4 mb-1 first:mt-0">
+          <span class="shrink-0 w-6 h-6 rounded bg-gray-900 border border-gray-800
+                       flex items-center justify-center text-xs font-black text-gray-500">
+            {{ group.letter }}
+          </span>
+          <div class="flex-1 h-px bg-gray-800/50" />
+        </div>
+        <div
+          v-for="m in group.members" :key="m._id"
+          class="flex items-center gap-3 px-3 py-1.5 rounded-lg border transition-colors duration-100"
+          :class="m.deceased?.year
+            ? 'bg-amber-950/20 border-amber-900/30 hover:border-amber-800/50'
+            : 'bg-gray-950/60 border-gray-800/40 hover:border-dpurple-800/50 hover:bg-dpurple-950/20'">
+
+          <!-- Nimi -->
+          <span class="font-semibold text-sm w-[140px] shrink-0 truncate"
+            :class="m.deceased?.year ? 'text-amber-100' : 'text-white'">
+            {{ m.name }}
+          </span>
+
+          <!-- In memoriam -pilli (vain vainajille) -->
+          <span v-if="m.deceased?.year"
+            class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded
+                   bg-amber-900/40 text-amber-300 border border-amber-800/40 whitespace-nowrap">
+            ✦ {{ m.deceased.year }}
+          </span>
+
+          <!-- Quote -->
+          <span v-if="m.quote" class="flex-1 min-w-0 text-xs italic text-dpurple-400/70 truncate hidden sm:block">
+            "{{ m.quote }}"
+          </span>
+          <span v-else class="flex-1 hidden sm:block" />
+
+          <!-- Pelipaikka -->
+          <span v-if="m.pelipaikka"
+            class="hidden sm:inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-full
+                   text-[11px] text-gray-400 bg-gray-900/80 border border-gray-700/50 max-w-[130px] truncate whitespace-nowrap">
+            <MapPin class="w-3 h-3 shrink-0 text-gray-500" />{{ m.pelipaikka }}
+          </span>
+
+          <!-- Lempijuoma -->
+          <span v-if="m.favDrink"
+            class="hidden md:flex shrink-0 items-center gap-1 text-xs text-gray-500 max-w-[160px] truncate">
+            <GlassWater class="w-3 h-3 shrink-0" />{{ m.favDrink }}
+          </span>
         </div>
       </template>
     </div>

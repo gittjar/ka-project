@@ -4,7 +4,7 @@ import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useInboxStore } from '../stores/inbox';
 import api from '../api';
-import { Users, BookOpen, GlassWater, Calendar, Image, FolderOpen, Search, X, ChevronRight, Loader2 } from 'lucide-vue-next';
+import { Users, BookOpen, GlassWater, Calendar, Image, FolderOpen, Search, X, ChevronRight, Loader2, Home, ScrollText } from 'lucide-vue-next';
 
 const auth = useAuthStore();
 const inbox = useInboxStore();
@@ -19,14 +19,14 @@ function logout() {
 }
 
 const links = [
-  { to: '/', label: 'Etusivu' },
-  { to: '/jasenet', label: 'Jäsenet' },
-  { to: '/galleria', label: 'Kuvia', auth: true },
-  { to: '/tarinat', label: 'Tarinoita', auth: true },
-  { to: '/historia', label: 'Historiikki' },
-  { to: '/juomat', label: 'Juomat' },
-  { to: '/tapahtumat', label: 'Tapahtumat', auth: true },
-  { to: '/hakemus', label: 'Hakemus' },
+  { to: '/', label: 'Etusivu', icon: Home },
+  { to: '/jasenet', label: 'Jäsenet', icon: Users },
+  { to: '/galleria', label: 'Kuvia', icon: Image, auth: true },
+  { to: '/tarinat', label: 'Tarinoita', icon: BookOpen, auth: true },
+  { to: '/historia', label: 'Historiikki', icon: ScrollText },
+  { to: '/juomat', label: 'Juomat', icon: GlassWater },
+  { to: '/tapahtumat', label: 'Tapahtumat', icon: Calendar, auth: true },
+  { to: '/hakemus', label: 'Hakemus', icon: FolderOpen },
 ];
 
 const upcomingEvents = ref(0);
@@ -182,13 +182,15 @@ onUnmounted(() => {
             v-for="l in links.filter(l => !l.auth || auth.isLoggedIn)"
             :key="l.to"
             :to="l.to"
-            class="px-3 py-1.5 rounded-xl text-sm text-gray-400
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-gray-400
+                   border border-white/[0.05] hover:border-white/[0.12]
                    hover:text-green-300 hover:bg-dgreen-900/60 transition-all duration-150"
             :class="l.to === '/tapahtumat' && upcomingEvents > 0
               ? 'text-dgreen-400 bg-dgreen-900/20' : ''"
-            active-class="!text-dpurple-400 bg-dpurple-900/50"
-            exact-active-class="!text-dpurple-400 bg-dpurple-900/50"
+            active-class="!text-dpurple-400 bg-dpurple-900/50 !border-dpurple-800/40"
+            exact-active-class="!text-dpurple-400 bg-dpurple-900/50 !border-dpurple-800/40"
           >
+            <component :is="l.icon" class="w-3.5 h-3.5 shrink-0 stroke-[1.5]" />
             {{ l.label }}
             <span v-if="l.to === '/tapahtumat' && upcomingEvents > 0"
               class="inline-flex items-center justify-center ml-0.5
@@ -196,46 +198,6 @@ onUnmounted(() => {
               {{ upcomingEvents > 9 ? '9+' : upcomingEvents }}
             </span>
           </RouterLink>
-          <RouterLink v-if="auth.isAdmin" to="/admin"
-            class="ml-2 px-3 py-1.5 rounded-xl text-sm text-yellow-400
-                   hover:bg-yellow-900/20 transition-all">
-            Admin
-          </RouterLink>
-          <RouterLink v-else-if="auth.isLoggedIn" to="/profiili"
-            class="ml-2 relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-dgreen-400
-                   hover:bg-dgreen-900/20 transition-all">
-            {{ auth.username }}
-            <span v-if="inbox.unreadReplies > 0"
-              class="inline-flex items-center justify-center w-4 h-4 rounded-full
-                     bg-dgreen-600 text-white text-[10px] font-bold leading-none">
-              {{ inbox.unreadReplies > 9 ? '9+' : inbox.unreadReplies }}
-            </span>
-          </RouterLink>
-          <button v-if="auth.isLoggedIn" @click="logout()"
-            class="ml-3 text-xs text-gray-500 hover:text-red-400 transition-colors border-0 bg-transparent p-0">
-            Kirjaudu ulos
-          </button>
-          <template v-else>
-            <RouterLink to="/rekisteroidy"
-              class="ml-3 px-3 py-1.5 rounded-xl text-sm text-gray-400
-                     hover:text-gray-200 transition-all">
-              Rekisteröidy
-            </RouterLink>
-            <RouterLink to="/login"
-              class="ml-1 px-3 py-1.5 rounded-xl text-sm font-medium text-dpurple-400 border border-dpurple-800/50
-                     hover:bg-dpurple-900/40 hover:border-dpurple-600/60 transition-all">
-              Kirjaudu
-            </RouterLink>
-          </template>
-
-          <!-- Hakupainike (vain kirjautuneille) -->
-          <button v-if="auth.isLoggedIn"
-            @click="openSearch"
-            class="ml-2 p-1.5 rounded-xl text-gray-500 hover:text-gray-300 hover:bg-gray-800/60
-                   transition-all border-0 bg-transparent"
-            title="Haku (/)">
-            <Search class="w-4 h-4" />
-          </button>
         </div>
 
         <!-- Mobile hamburger -->
@@ -265,13 +227,14 @@ onUnmounted(() => {
           v-for="l in links.filter(l => !l.auth || auth.isLoggedIn)"
           :key="l.to"
           :to="l.to"
-          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-gray-400
+          class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-400
                  hover:text-green-300 hover:bg-dgreen-900/50 transition-all"
           :class="l.to === '/tapahtumat' && upcomingEvents > 0
             ? 'text-dgreen-400 bg-dgreen-900/20' : ''"
           active-class="!text-dpurple-400 bg-dpurple-900/40"
           @click="mobileOpen = false"
         >
+          <component :is="l.icon" class="w-4 h-4 shrink-0 stroke-[1.5]" />
           {{ l.label }}
           <span v-if="l.to === '/tapahtumat' && upcomingEvents > 0"
             class="inline-flex items-center justify-center
@@ -319,6 +282,58 @@ onUnmounted(() => {
         </template>
       </div>
     </nav>
+
+    <!-- Utility strip: haku + käyttäjä + kirjaudu ulos (vain desktop) -->
+    <div class="hidden md:flex justify-end items-center gap-1.5 mt-1.5 px-1">
+      <template v-if="auth.isLoggedIn">
+        <!-- Haku -->
+        <button @click="openSearch"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] text-gray-400
+                 bg-black/80 border border-gray-800/50 hover:border-gray-600/50 hover:text-gray-200
+                 transition-all backdrop-blur-sm">
+          <Search class="w-3 h-3 shrink-0" />Haku
+        </button>
+        <!-- Admin tai profiili -->
+        <RouterLink v-if="auth.isAdmin" to="/admin"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] text-yellow-400
+                 bg-black/80 border border-yellow-900/40 hover:border-yellow-700/50
+                 transition-all backdrop-blur-sm">
+          Admin
+        </RouterLink>
+        <RouterLink v-else to="/profiili"
+          class="relative flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] text-dgreen-400
+                 bg-black/80 border border-dgreen-900/40 hover:border-dgreen-700/50
+                 transition-all backdrop-blur-sm">
+          {{ auth.username }}
+          <span v-if="inbox.unreadReplies > 0"
+            class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full
+                   bg-dgreen-600 text-white text-[9px] font-bold leading-none">
+            {{ inbox.unreadReplies > 9 ? '9+' : inbox.unreadReplies }}
+          </span>
+        </RouterLink>
+        <!-- Kirjaudu ulos -->
+        <button @click="logout()"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] text-gray-500
+                 bg-black/80 border border-gray-800/40 hover:border-red-800/50 hover:text-red-400
+                 transition-all backdrop-blur-sm">
+          Kirjaudu ulos
+        </button>
+      </template>
+      <template v-else>
+        <RouterLink to="/rekisteroidy"
+          class="flex items-center px-2.5 py-1 rounded-full text-[11px] text-gray-400
+                 bg-black/80 border border-gray-800/50 hover:border-gray-600/50 hover:text-gray-200
+                 transition-all backdrop-blur-sm">
+          Rekisteröidy
+        </RouterLink>
+        <RouterLink to="/login"
+          class="flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium text-dpurple-400
+                 bg-black/80 border border-dpurple-800/50 hover:border-dpurple-600/60
+                 transition-all backdrop-blur-sm">
+          Kirjaudu
+        </RouterLink>
+      </template>
+    </div>
   </div>
 
   <!-- ── Hakumodaali ── -->

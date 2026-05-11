@@ -7,6 +7,7 @@ const memberSchema = new mongoose.Schema({
   born: { type: String, default: '' },
   highestPromille: { type: String, default: '' },
   favDrink: { type: String, default: '' },
+  pelipaikka: { type: String, default: '' },
   location: { type: String, default: '' },
   email: { type: String, default: '' },
   website: { type: String, default: '' },
