@@ -16,7 +16,6 @@ interface Member {
   born: string;
   highestPromille: string;
   favDrink: string;
-  pelipaikka: string;
   location: string;
   email: string;
   website: string;
@@ -416,41 +415,50 @@ function onSlideImgError(m: Member) {
         </div>
         <div
           v-for="m in group.members" :key="m._id"
-          class="flex items-center gap-3 px-3 py-1.5 rounded-lg border transition-colors duration-100"
+          class="flex items-center gap-0 px-3 py-1.5 rounded-lg border transition-colors duration-100"
           :class="m.deceased?.year
             ? 'bg-amber-950/20 border-amber-900/30 hover:border-amber-800/50'
             : 'bg-gray-950/60 border-gray-800/40 hover:border-dpurple-800/50 hover:bg-dpurple-950/20'">
 
-          <!-- Nimi -->
-          <span class="font-semibold text-sm w-[140px] shrink-0 truncate"
+          <!-- Nimi: kiinteä leveys -->
+          <span class="font-semibold text-sm w-[160px] shrink-0 truncate pr-3"
             :class="m.deceased?.year ? 'text-amber-100' : 'text-white'">
             {{ m.name }}
           </span>
 
-          <!-- In memoriam -pilli (vain vainajille) -->
-          <span v-if="m.deceased?.year"
-            class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded
-                   bg-amber-900/40 text-amber-300 border border-amber-800/40 whitespace-nowrap">
-            ✦ {{ m.deceased.year }}
+          <!-- Status-slotti: aina läsnä, kiinteä leveys -->
+          <span class="shrink-0 w-[72px] pr-3 hidden sm:block">
+            <span v-if="m.deceased?.year"
+              class="inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded
+                     bg-amber-900/40 text-amber-300 border border-amber-800/40 whitespace-nowrap">
+              ✦ {{ m.deceased.year }}
+            </span>
           </span>
 
-          <!-- Quote -->
-          <span v-if="m.quote" class="flex-1 min-w-0 text-xs italic text-dpurple-400/70 truncate hidden sm:block">
-            "{{ m.quote }}"
-          </span>
-          <span v-else class="flex-1 hidden sm:block" />
-
-          <!-- Pelipaikka -->
-          <span v-if="m.pelipaikka"
-            class="hidden sm:inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-full
-                   text-[11px] text-gray-400 bg-gray-900/80 border border-gray-700/50 max-w-[130px] truncate whitespace-nowrap">
-            <MapPin class="w-3 h-3 shrink-0 text-gray-500" />{{ m.pelipaikka }}
+          <!-- Quote: kasvaa täyttämään tilan -->
+          <span class="flex-1 min-w-0 text-xs italic text-dpurple-400/70 truncate hidden sm:block pr-3">
+            <template v-if="m.quote">"{{ m.quote }}"</template>
           </span>
 
-          <!-- Lempijuoma -->
-          <span v-if="m.favDrink"
-            class="hidden md:flex shrink-0 items-center gap-1 text-xs text-gray-500 max-w-[160px] truncate">
-            <GlassWater class="w-3 h-3 shrink-0" />{{ m.favDrink }}
+          <!-- Location-slotti: kiinteä leveys, aina läsnä -->
+          <span class="hidden sm:inline-flex shrink-0 w-[130px] items-center gap-1 px-2 py-0.5 mr-3 rounded-full
+                       text-[11px] text-gray-400 overflow-hidden">
+            <template v-if="m.location">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full w-full
+                           bg-gray-900/80 border border-gray-700/50 truncate whitespace-nowrap">
+                <MapPin class="w-3 h-3 shrink-0 text-gray-500" />
+                <span class="truncate">{{ m.location }}</span>
+              </span>
+            </template>
+          </span>
+
+          <!-- FavDrink-slotti: kiinteä, aina läsnä -->
+          <span class="hidden md:inline-flex shrink-0 w-[150px] items-center gap-1
+                       text-xs text-gray-500 overflow-hidden">
+            <template v-if="m.favDrink">
+              <GlassWater class="w-3 h-3 shrink-0" />
+              <span class="truncate">{{ m.favDrink }}</span>
+            </template>
           </span>
         </div>
       </template>
