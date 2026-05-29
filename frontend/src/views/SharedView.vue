@@ -82,18 +82,16 @@ function openInGallery() {
       <RouterLink to="/galleria" class="text-dpurple-400 text-sm hover:underline">Avaa galleria</RouterLink>
     </div>
 
-    <div v-else class="flex flex-col items-center gap-6">
-      <!-- Kuva tai video + overlay-pillerit -->
+    <div v-else class="flex flex-col items-center gap-4">
+      <!-- Kuva tai video -->
       <div class="relative max-w-full">
         <video v-if="isVideo" :src="mediaUrl" controls crossorigin="anonymous"
           class="max-h-[75vh] max-w-full rounded-xl shadow-xl" />
         <img v-else :src="mediaUrl" crossorigin="anonymous"
           class="max-h-[75vh] max-w-full rounded-xl shadow-xl object-contain block" />
 
-        <!-- Overlay: meta-pill vasemmassa alakulmassa -->
-        <div v-if="hasOverlay" class="absolute bottom-3 left-3">
-
-          <!-- Laajennettu pill -->
+        <!-- Desktop overlay: meta-pill vasemmassa alakulmassa (sm+) -->
+        <div v-if="hasOverlay" class="absolute bottom-3 left-3 hidden sm:block">
           <div v-if="overlayVisible"
             class="inline-flex items-center rounded-full text-xs
                    text-white/90 bg-black/55 backdrop-blur-sm border border-dpurple-700/60">
@@ -110,7 +108,6 @@ function openInGallery() {
             <span v-if="formattedTime" class="inline-flex items-center gap-1.5 px-2.5 py-1">
               <Clock class="w-3 h-3 shrink-0 text-dpurple-400/80" />{{ formattedTime }}
             </span>
-            <!-- Jakaja + sulje-nappi -->
             <span class="w-px self-stretch bg-dpurple-700/50" />
             <button @click="overlayVisible = false"
               class="flex items-center justify-center w-6 h-6 mr-0.5 rounded-full
@@ -118,15 +115,12 @@ function openInGallery() {
               <X class="w-3 h-3" />
             </button>
           </div>
-
-          <!-- Pienennetty tila: pieni pyöreä Info-nappi -->
           <button v-else @click="overlayVisible = true"
             class="flex items-center justify-center w-6 h-6 rounded-full
                    bg-black/50 backdrop-blur-sm border border-dpurple-700/50
                    text-dpurple-400/70 hover:text-dpurple-300 transition-colors border-0">
             <Info class="w-3 h-3" />
           </button>
-
         </div>
 
         <!-- Watermark alakulmassa -->
@@ -135,6 +129,25 @@ function openInGallery() {
                     text-white/50 text-xs font-light tracking-[0.18em]">
           Kanniaalio+
         </div>
+      </div>
+
+      <!-- Mobiili: pillerit kuvan alla (vain < sm) -->
+      <div v-if="hasOverlay" class="flex sm:hidden flex-wrap justify-center gap-1.5">
+        <span v-if="locationName"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px]
+                 text-white/80 bg-gray-900/80 border border-dpurple-700/50">
+          <MapPin class="w-3 h-3 shrink-0 text-dpurple-400/70" />{{ locationName }}
+        </span>
+        <span v-if="formattedDate"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px]
+                 text-white/80 bg-gray-900/80 border border-dpurple-700/50">
+          <CalendarDays class="w-3 h-3 shrink-0 text-dpurple-400/70" />{{ formattedDate }}
+        </span>
+        <span v-if="formattedTime"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px]
+                 text-white/80 bg-gray-900/80 border border-dpurple-700/50">
+          <Clock class="w-3 h-3 shrink-0 text-dpurple-400/70" />{{ formattedTime }}
+        </span>
       </div>
 
       <!-- Kuvateksti kuvan alla (ei overlayna, saa olla pidempi) -->

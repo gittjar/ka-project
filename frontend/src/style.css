@@ -41,6 +41,31 @@ body {
   background-color: #080808;
 }
 
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+/* Webkit (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #080808;
+}
+::-webkit-scrollbar-thumb {
+  background: #14532d;
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #16a34a;
+}
+::-webkit-scrollbar-corner {
+  background: #080808;
+}
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #14532d #080808;
+}
+
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
