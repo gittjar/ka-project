@@ -176,28 +176,34 @@ onUnmounted(() => {
           Kanniaalio+
         </RouterLink>
 
-        <!-- Desktop links -->
-        <div class="hidden md:flex items-center gap-0.5">
-          <RouterLink
-            v-for="l in links.filter(l => !l.auth || auth.isLoggedIn)"
+        <!-- Desktop links — yhdistetty pill -->
+        <div class="hidden md:inline-flex items-stretch
+                    rounded-2xl border border-white/[0.07] bg-white/[0.03] overflow-hidden">
+          <template
+            v-for="(l, i) in links.filter(l => !l.auth || auth.isLoggedIn)"
             :key="l.to"
-            :to="l.to"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-gray-400
-                   border border-white/[0.05] hover:border-white/[0.12]
-                   hover:text-green-300 hover:bg-dgreen-900/60 transition-all duration-150"
-            :class="l.to === '/tapahtumat' && upcomingEvents > 0
-              ? 'text-dgreen-400 bg-dgreen-900/20' : ''"
-            active-class="!text-dpurple-400 bg-dpurple-900/50 !border-dpurple-800/40"
-            exact-active-class="!text-dpurple-400 bg-dpurple-900/50 !border-dpurple-800/40"
           >
-            <component :is="l.icon" class="w-3.5 h-3.5 shrink-0 stroke-[1.5]" />
-            {{ l.label }}
-            <span v-if="l.to === '/tapahtumat' && upcomingEvents > 0"
-              class="inline-flex items-center justify-center ml-0.5
-                     w-4 h-4 rounded-full bg-dgreen-700/80 text-white text-[10px] font-bold">
-              {{ upcomingEvents > 9 ? '9+' : upcomingEvents }}
-            </span>
-          </RouterLink>
+            <!-- Pystyviiva linkkien välissä -->
+            <span v-if="i > 0" class="w-px self-stretch bg-white/[0.07]" />
+
+            <RouterLink
+              :to="l.to"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm text-gray-400
+                     hover:text-dgreen-300 hover:bg-dgreen-900/40 transition-all duration-150"
+              :class="l.to === '/tapahtumat' && upcomingEvents > 0
+                ? 'text-dgreen-400 bg-dgreen-900/20' : ''"
+              active-class="!text-dpurple-400 !bg-dpurple-900/40"
+              exact-active-class="!text-dpurple-400 !bg-dpurple-900/40"
+            >
+              <component :is="l.icon" class="w-3.5 h-3.5 shrink-0 stroke-[1.5]" />
+              {{ l.label }}
+              <span v-if="l.to === '/tapahtumat' && upcomingEvents > 0"
+                class="inline-flex items-center justify-center ml-0.5
+                       w-4 h-4 rounded-full bg-dgreen-700/80 text-white text-[10px] font-bold">
+                {{ upcomingEvents > 9 ? '9+' : upcomingEvents }}
+              </span>
+            </RouterLink>
+          </template>
         </div>
 
         <!-- Mobile hamburger -->
