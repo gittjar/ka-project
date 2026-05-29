@@ -525,7 +525,17 @@ router.get('/share/:token', async (req, res) => {
   try {
     const share = await ShareToken.findOne({ token: req.params.token });
     if (!share) return res.status(404).json({ message: 'Jakolinkkiä ei löydy' });
-    res.json({ blobName: share.blobName, folderId: share.folderId ?? null });
+    const img = await GalleryImage.findOne({ blobName: share.blobName })
+      .select('caption exif createdAt').lean();
+    res.json({
+      blobName: share.blobName,
+      folderId: share.folderId ?? null,
+      caption:      img?.caption || null,
+      dateTaken:    img?.exif?.dateTaken || img?.createdAt || null,
+      locationName: img?.exif?.locationName || null,
+      latitude:     img?.exif?.latitude  ?? null,
+      longitude:    img?.exif?.longitude ?? null,
+    });
   } catch {
     res.status(500).json({ message: 'Virhe' });
   }
