@@ -41,6 +41,7 @@ interface FolderItem {
   videoCount?: number;
   totalViews?: number;
   previewBlobName?: string | null;
+  previewSasUrl?: string | null;
 }
 interface MediaItem {
   _id: string;
@@ -56,6 +57,7 @@ interface MediaItem {
   exif?: ExifData;
   viewCount?: number;
   openedAt?: string[];
+  sasUrl?: string;
 }
 interface UploadTask {
   name: string;
@@ -375,7 +377,8 @@ function canEdit(item: MediaItem): boolean {
 // Muodostaa proxy-URLin joka piilottaa Azure-domainin: /kuvat/{kansio}/{blobName}?t=<jwt>
 // Tuotannossa VITE_MEDIA_URL=https://ka-project-backend.onrender.com
 const MEDIA_BASE = (import.meta.env.VITE_MEDIA_URL ?? '') + '/kuvat';
-function imgUrl(item: { blobName: string }): string {
+function imgUrl(item: { blobName: string; sasUrl?: string }): string {
+  if (item.sasUrl) return item.sasUrl;
   const folder = currentFolder.value?.name;
   const t = auth.token ? `?t=${auth.token}` : '';
   return folder
@@ -383,6 +386,7 @@ function imgUrl(item: { blobName: string }): string {
     : `${MEDIA_BASE}/${item.blobName}${t}`;
 }
 function folderPreviewUrl(folder: FolderItem): string {
+  if (folder.previewSasUrl) return folder.previewSasUrl;
   if (!folder.previewBlobName) return '';
   const t = auth.token ? `?t=${auth.token}` : '';
   return `${MEDIA_BASE}/${encodeURIComponent(folder.name)}/${folder.previewBlobName}${t}`;

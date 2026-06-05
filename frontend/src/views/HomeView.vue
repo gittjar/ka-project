@@ -6,6 +6,7 @@ import api from '../api';
 interface CarouselItem {
   _id: string;
   url: string;
+  sasUrl?: string;
   mediaType: 'image' | 'video';
   caption?: string;
 }
@@ -56,7 +57,7 @@ function preloadAll() {
     setTimeout(() => {
       const img = new Image();
       img.referrerPolicy = 'no-referrer';
-      img.src = item.url;
+      img.src = item.sasUrl ?? item.url;
     }, delay);
   });
 }
@@ -185,7 +186,7 @@ onUnmounted(stopAuto);
     <template v-if="hasCarousel">
       <template v-for="(item, idx) in carouselItems" :key="item._id">
         <img v-if="item.mediaType === 'image'"
-          :src="item.url"
+          :src="item.sasUrl ?? item.url"
           referrerpolicy="no-referrer"
           :fetchpriority="idx === 0 ? 'high' : 'low'"
           class="absolute inset-0 w-full h-full object-cover rounded-none
@@ -193,7 +194,7 @@ onUnmounted(stopAuto);
           :class="idx === activeIdx ? 'opacity-100' : 'opacity-0'" />
         <video v-else
           :ref="(el) => { videoRefs[idx] = el as HTMLVideoElement | null }"
-          :src="item.url"
+          :src="item.sasUrl ?? item.url"
           muted playsinline preload="auto"
           :loop="carouselItems.length <= 1"
           @ended="idx === activeIdx && onVideoEnded()"

@@ -4,7 +4,7 @@ import sharp from 'sharp';
 import heicConvert from 'heic-convert';
 import exifrPkg from 'exifr';
 const { parse: parseExif } = exifrPkg;
-import { BlobServiceClient } from '@azure/storage-blob';
+import { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } from '@azure/storage-blob';
 import { writeFile, readFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -20,6 +20,34 @@ import ShareToken from '../models/ShareToken.js';
 const router = express.Router();
 const CONTAINER = 'gallery';
 const MAX_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB
+
+// ── SAS URL helper ────────────────────────────────────────────────────────────────
+let _sasCredCache = null;
+function getSasCred() {
+  if (_sasCredCache) return _sasCredCache;
+  const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  if (!connStr) return null;
+  const accountName = connStr.match(/AccountName=([^;]+)/i)?.[1];
+  const accountKey  = connStr.match(/AccountKey=([^;]+)/i)?.[1];
+  if (!accountName || !accountKey) return null;
+  _sasCredCache = { cred: new StorageSharedKeyCredential(accountName, accountKey), accountName };
+  return _sasCredCache;
+}
+
+function makeSasUrl(blobName, containerName = CONTAINER, expiryHours = 48) {
+  const c = getSasCred();
+  if (!c) return null;
+  try {
+    const expiresOn = new Date(Date.now() + expiryHours * 3600 * 1000);
+    const token = generateBlobSASQueryParameters(
+      { containerName, blobName, permissions: BlobSASPermissions.parse('r'), expiresOn },
+      c.cred
+    ).toString();
+    return `https://${c.accountName}.blob.core.windows.net/${containerName}/${encodeURIComponent(blobName)}?${token}`;
+  } catch {
+    return null;
+  }
+}
 
 const ACCEPTED_EXT = /\.(jpe?g|png|gif|webp|bmp|tiff?|heic|heif|avif|mp4|mov|m4v|webm|3gp|mkv|avi)$/i;
 const VIDEO_EXT    = /\.(mp4|mov|m4v|webm|3gp|mkv|avi)$/i;
@@ -176,7 +204,10 @@ router.get('/folders', authMiddleware, async (req, res) => {
 
     const result = folders.map(f => ({
       ...f,
-      ...(statsMap[f._id.toString()] || { imageCount: 0, videoCount: 0, totalViews: 0, previewUrl: null }),
+      ...(statsMap[f._id.toString()] || { imageCount: 0, videoCount: 0, totalViews: 0, previewBlobName: null }),
+      previewSasUrl: statsMap[f._id.toString()]?.previewBlobName
+        ? makeSasUrl(statsMap[f._id.toString()].previewBlobName)
+        : null,
     }));
     res.json(result);
   } catch (err) {
@@ -315,7 +346,13 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const folderId = toFolderId(req.query.folder);
     const items = await GalleryImage.find({ folderId }).sort({ sortOrder: 1, createdAt: -1 });
-    res.json(items);
+    const result = items.map(item => {
+      const obj = item.toObject();
+      const sasUrl = makeSasUrl(item.blobName);
+      if (sasUrl) obj.sasUrl = sasUrl;
+      return obj;
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: 'Haku epÃ¤onnistui' });
   }
@@ -429,7 +466,13 @@ router.get('/carousel', async (_req, res) => {
       .sort({ carouselOrder: 1 })
       .limit(5)
       .select('url blobName mediaType caption exif.dateTaken carouselOrder');
-    res.json(items);
+    const result = items.map(item => {
+      const obj = item.toObject();
+      const sasUrl = makeSasUrl(item.blobName);
+      if (sasUrl) obj.sasUrl = sasUrl;
+      return obj;
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: 'Haku epäonnistui' });
   }
